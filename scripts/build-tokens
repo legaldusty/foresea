@@ -1,0 +1,59 @@
+#!/usr/bin/env node
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+const SOURCE = path.join(ROOT, 'design', 'figma-variables.json');
+const TARGET = path.join(ROOT, 'src', 'styles', 'tokens.css');
+
+const data = JSON.parse(fs.readFileSync(SOURCE, 'utf8'));
+const byName = Object.fromEntries(data.collections.map((c) => [c.name, c]));
+const primitives = byName.Primitives;
+const theme = byName.Theme;
+const dimensions = byName.Dimensions;
+if (!primitives || !theme || !dimensions) {
+  console.error('figma-variables.json must contain Primitives, Theme and Dimensions collections');
+  process.exit(1);
+}
+
+const primitiveCss = Object.fromEntries(primitives.variables.map((v) => [v.name, v.css]));
+const lower = (hex) => String(hex).toLowerCase();
+const block = (selector, lines) => `${selector} {\n${lines.map((l) => `  ${l}`).join('\n')}\n}\n`;
+
+const rootLines = [];
+for (const v of primitives.variables) rootLines.push(`${v.css}: ${lower(v.values.Value)};`);
+for (const v of dimensions.variables) rootLines.push(`${v.css}: ${v.values.Value}px;`);
+rootLines.push(`--font-sans: "IBM Plex Sans", system-ui, -apple-system, "Segoe UI", sans-serif;`);
+rootLines.push(`--font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;`);
+rootLines.push(`--font-numeric: tabular-nums;`);
+for (const s of data.textStyles) {
+  const key = `--type-${s.css}`;
+  const family = s.fontFamily === 'IBM Plex Mono' ? 'var(--font-mono)' : 'var(--font-sans)';
+  const tracking = s.letterSpacingPercent ? `${+(s.letterSpacingPercent / 100).toFixed(4)}em` : '0';
+  rootLines.push(`${key}-size: ${s.fontSize}px;`);
+  rootLines.push(`${key}-line: ${s.lineHeight}px;`);
+  rootLines.push(`${key}-weight: ${s.fontWeight};`);
+  rootLines.push(`${key}-tracking: ${tracking};`);
+  rootLines.push(`${key}: ${s.fontWeight} ${s.fontSize}px/${s.lineHeight}px ${family};`);
+}
+
+const themeLines = (mode, scheme) => {
+  const lines = theme.variables.map((v) => {
+    const alias = v.aliases && v.aliases[mode];
+    const ref = alias && primitiveCss[alias];
+    return `${v.css}: ${ref ? `var(${ref})` : lower(v.values[mode])};`;
+  });
+  lines.push(`color-scheme: ${scheme};`);
+  return lines;
+};
+
+const css = [
+  block(':root', rootLines),
+  block(':root,\n:root[data-theme="night"],\n[data-theme="night"]', themeLines('Night', 'dark')),
+  block(':root[data-theme="day"],\n[data-theme="day"]', themeLines('Day', 'light')),
+].join('\n');
+
+fs.mkdirSync(path.dirname(TARGET), { recursive: true });
+fs.writeFileSync(TARGET, css);
+console.log(`Wrote ${path.relative(ROOT, TARGET)}: ${primitives.variables.length} primitives, ${theme.variables.length} theme tokens, ${dimensions.variables.length} dimensions, ${data.textStyles.length} type styles`);

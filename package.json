@@ -17,7 +17,10 @@
     "ais:record": "tsx server/ais/record.ts",
     "noaa:fetch": "tsx server/noaa/fetch.ts",
     "tokens": "node scripts/build-tokens",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "certs": "tsx scripts/certs.ts",
+    "tune:tell": "tsx scripts/tune-tell.ts",
+    "hub:smoke": "tsx scripts/hub-smoke.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.1.0",
