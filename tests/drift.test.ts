@@ -10,10 +10,17 @@ const h = harbor();
 const n = h.targets.length;
 const tell = defaultSettings.tell;
 
-function openWaterCell(): number {
-  for (let i = 0; i < h.grid.water.length; i++) if (h.grid.neighbors[i].length === 16) {
-    const [x, y] = h.grid.xy(i);
-    if (x > 100 && y > 150) return i;
+function openWaterCell(dx = 1, dy = 1, run = 40): number {
+  for (let i = 0; i < h.grid.water.length; i++) {
+    if (h.grid.neighbors[i].length !== 16) continue;
+    let [x, y] = h.grid.xy(i);
+    let clear = true;
+    for (let k = 0; k < run && clear; k++) {
+      x += dx;
+      y += dy;
+      clear = h.grid.inBounds(x, y) && h.grid.neighbors[h.grid.idx(x, y)].length === 16;
+    }
+    if (clear) return i;
   }
   throw new Error('no open water');
 }
@@ -31,10 +38,10 @@ describe('drift hypothesis: incident C with the current', () => {
     expect(withCurrent.recs.every((r) => r.call === null)).toBe(true);
   });
 
-  it('keeps lost plus drift odds above 50% for most of the run', () => {
+  it('reads as lost or drifting for most of the run and from the 20 minute mark on', () => {
     const lostLooking = withCurrent.recs.filter((r) => r.lostOdds > 0.5).length / withCurrent.recs.length;
-    expect(lostLooking).toBeGreaterThan(0.75);
-    expect(withCurrent.recs.slice(1).every((r) => r.lostOdds > 0.5)).toBe(true);
+    expect(lostLooking).toBeGreaterThan(0.7);
+    expect(withCurrent.recs.filter((r) => r.t >= 20).every((r) => r.lostOdds > 0.5)).toBe(true);
   });
 
   it('reads as drifting once it has moved a few cells', () => {

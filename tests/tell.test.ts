@@ -5,7 +5,7 @@ import {
   resetTell, topGoal, uncertainty, type TellState,
 } from '../src/engine/tell';
 import { defaultSettings } from '../src/engine/settings';
-import { harbor, loadStarter, starterHarbor } from './support';
+import { harbor, loadStarter, starterHarbor, STARTER_TELL } from './support';
 
 const starter = await loadStarter();
 const h = harbor();
@@ -35,7 +35,7 @@ function expectSamePosterior(T: TellState, R: any) {
 }
 
 function replay(cells: number[], prepare?: (T: TellState, R: any) => void) {
-  const T = createTell(h.grid, h.targets);
+  const T = createTell(h.grid, h.targets, STARTER_TELL);
   const R = starter.tell.createTell(ref.grid, ref.targets);
   prepare?.(T, R);
   for (let k = 1; k < cells.length; k++) {
@@ -59,7 +59,7 @@ describe('TELL parity with the starter', () => {
   });
 
   it('starts from the same prior', () => {
-    const T = createTell(h.grid, h.targets);
+    const T = createTell(h.grid, h.targets, STARTER_TELL);
     const R = starter.tell.createTell(ref.grid, ref.targets);
     expectSamePosterior(T, R);
     expect(Array.from(T.prior.subarray(0, n + 1))).toEqual(Array.from(R.prior));
@@ -77,7 +77,7 @@ describe('TELL parity with the starter', () => {
 
   it('gives identical posteriors with a different beta', () => {
     const cells = headFor(0, h.spawns[2].cell);
-    const T = createTell(h.grid, h.targets, { beta: 0.8 });
+    const T = createTell(h.grid, h.targets, { ...STARTER_TELL, beta: 0.8 });
     const R = starter.tell.createTell(ref.grid, ref.targets, { beta: 0.8 });
     for (let k = 1; k < cells.length; k++) {
       observe(T, cells[k - 1], cells[k]);
@@ -111,11 +111,11 @@ describe('TELL parity with the starter', () => {
 
   it('produces identical bench summaries for the same seed', () => {
     for (const nights of [150, 600]) {
-      const ours = runNights(h, { nights, seed: 7 });
+      const ours = runNights(h, { nights, seed: 7, tellOpts: STARTER_TELL });
       const theirs = starter.bench.runNights(ref, { nights, seed: 7 });
       expect(ours).toEqual(theirs);
     }
-    const ours = runNights(h, { nights: 300, seed: 21, tellOpts: { beta: 2.0 } });
+    const ours = runNights(h, { nights: 300, seed: 21, tellOpts: { ...STARTER_TELL, beta: 2.0 } });
     expect(ours).toEqual(starter.bench.runNights(ref, { nights: 300, seed: 21, tellOpts: { beta: 2.0 } }));
   });
 
@@ -159,7 +159,7 @@ describe('call logic', () => {
 describe('rule 2: relative nearness prior', () => {
   it('weights each target by (nearest distance / its distance) squared', () => {
     const start = h.spawns[0].cell;
-    const T = createTell(h.grid, h.targets);
+    const T = createTell(h.grid, h.targets, STARTER_TELL);
     proximityPrior(T, start);
     const d = h.fields.map((D) => D[start]);
     const dmin = Math.min(...d);

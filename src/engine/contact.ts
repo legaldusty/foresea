@@ -269,6 +269,7 @@ export function evaluateContact(h: Harbor, settings: Settings, c: ContactSim, ct
     targets: h.targets.map((tg, g) => ({ id: tg.id, odds: T.post[g] })),
     top,
     etaTopMin,
+    etaById: Object.fromEntries(h.targets.map((tg, g) => [tg.id, etaToGoal(h, c, g)])),
     cruiseDocked: ctx.cruiseDocked,
     ambient: c.spec.heat === 'ambient',
     friendly: c.spec.reply === 'friendly',

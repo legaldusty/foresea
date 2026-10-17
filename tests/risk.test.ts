@@ -4,6 +4,7 @@ import {
   scoreRisk, SERIOUS, severityBand, type RiskInput,
 } from '../src/engine/risk';
 import { LOST } from '../src/engine/tell';
+import { defaultSettings } from '../src/engine/settings';
 
 const IDS = ['cruise', 'research', 'pier400', 'fuel', 'ferry', 'islands'];
 
@@ -179,12 +180,14 @@ describe('final rules', () => {
     expect(lopsided.best.splitWith).toBeNull();
   });
 
-  it('rule 5: Critical only within 30 minutes of the top target', () => {
+  it('rule 5: Critical only within the signed close-in window of the top target', () => {
+    const within = defaultSettings.risk.criticalWithinMinutes;
     const at = (eta: number | null) => fresh(input({ cruise: 0.8 }, { H: 0.95, K: 0.675, etaTopMin: eta }));
     expect(at(45).levelName).toBe('High');
     expect(at(45).rules.map((x) => x.rule)).toContain('criticalNeedsCloseIn');
     expect(at(null).levelName).toBe('High');
-    expect(at(30).levelName).toBe('Critical');
+    expect(at(within).levelName).toBe('Critical');
+    expect(at(within + 1).levelName).toBe('High');
     expect(fresh(input({ cruise: 0.8 }, { H: 0.95, K: 0.675, etaTopMin: 45 }), false).levelName).toBe('Critical');
   });
 

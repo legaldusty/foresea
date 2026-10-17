@@ -76,6 +76,7 @@ export interface RiskInput {
   targets: RiskTargetInput[];
   top: TopGoalInput;
   etaTopMin: number | null;
+  etaById?: Record<string, number | null>;
   cruiseDocked?: boolean;
   ambient?: boolean;
   friendly?: boolean;
@@ -225,6 +226,9 @@ export function scoreRisk(input: RiskInput, state: RiskState = initialRiskState(
   const rules: RuleFiring[] = [];
   const { perTarget, best, splitApplied } = scoreTargets(input, settings, options);
   if (splitApplied) rules.push(fired('splitOdds'));
+  const closeInEta = splitApplied && best.splitWith && input.etaById
+    ? Math.max(input.etaById[best.id] ?? Infinity, input.etaById[best.splitWith] ?? Infinity)
+    : input.etaTopMin;
 
   const rawLevel = levelOf(best.R, settings);
   let level = rawLevel;
@@ -237,7 +241,7 @@ export function scoreRisk(input: RiskInput, state: RiskState = initialRiskState(
     level = Math.min(CRITICAL, level + 1);
     rules.push(fired('urgentBump'));
   }
-  if (finalRules && level === CRITICAL && !(input.etaTopMin !== null && input.etaTopMin <= r.criticalWithinMinutes)) {
+  if (finalRules && level === CRITICAL && !(closeInEta !== null && closeInEta <= r.criticalWithinMinutes)) {
     level = HIGH;
     rules.push(fired('criticalNeedsCloseIn'));
   }

@@ -289,6 +289,7 @@ export function runScenario(key: IncidentKey, h: Harbor, settings: Settings = de
       t, H: hostile.H, K,
       targets: ids.map((id, g) => ({ id, odds: odds[g] })),
       top, etaTopMin: etaTop,
+      etaById: Object.fromEntries(ids.map((id, g) => [id, T.fields[g][cell] * secPerCell / SECONDS_PER_MINUTE])),
       cruiseDocked: s.cruiseDocked,
       ambient: s.heat === 'ambient',
       friendly: s.reply === 'friendly',

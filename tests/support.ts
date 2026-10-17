@@ -2,13 +2,30 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { buildHarbor, type Harbor } from '../src/engine/harbor';
 import type { GridJson } from '../src/engine/grid';
-import { defaultSettings } from '../src/engine/settings';
+import { defaultSettings, type Settings } from '../src/engine/settings';
 
 export function repoPath(rel: string): string {
   return fileURLToPath(new URL(`../${rel}`, import.meta.url));
 }
 
 export const gridJson = JSON.parse(fs.readFileSync(repoPath('src/data/harbor_grid.json'), 'utf8')) as GridJson;
+
+export const referenceGridJson = JSON.parse(fs.readFileSync(repoPath('giveway-starter/src/data/harbor_grid.json'), 'utf8')) as GridJson;
+
+export const STARTER_TELL = { beta: 1.3, callAt: 0.6, callSteps: 3 };
+
+export const referenceSettings: Settings = {
+  ...defaultSettings,
+  tell: { ...defaultSettings.tell, ...STARTER_TELL },
+  risk: { ...defaultSettings.risk, criticalWithinMinutes: 30 },
+};
+
+let cachedReferenceHarbor: Harbor | null = null;
+
+export function referenceHarbor(): Harbor {
+  cachedReferenceHarbor ??= buildHarbor(referenceGridJson, referenceSettings);
+  return cachedReferenceHarbor;
+}
 
 let cachedHarbor: Harbor | null = null;
 

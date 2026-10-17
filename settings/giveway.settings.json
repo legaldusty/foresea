@@ -1,5 +1,5 @@
 {
-  "tell": { "beta": 1.3, "lostPrior": 0.25, "forget": 0.04, "callAt": 0.60, "callSteps": 3, "nearnessPower": 2,
+  "tell": { "beta": 2.0, "lostPrior": 0.25, "forget": 0.04, "callAt": 0.55, "callSteps": 4, "nearnessPower": 2,
             "driftPrior": 0.10, "driftToleranceMps": 0.2, "driftSharpness": 3.0,
             "driftSpeedFalloffMps": 0.05, "evasiveMinProgressCells": 2 },
   "risk": {
@@ -16,7 +16,7 @@
     "urgentMinSeverity": 3,
     "highFloorLevel": "Serious",
     "splitOddsMin": 0.20,
-    "criticalWithinMinutes": 30,
+    "criticalWithinMinutes": 20,
     "dropAfterMinutes": 2,
     "urgentMinOdds": 0.40,
     "highFloorAfterLevel": "High",
