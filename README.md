@@ -21,7 +21,7 @@ The officer publishes every public notice. Captains see an instruction and a per
 ## Two views, one app
 
 - **Command** (laptop): the chart fills the screen. The right rail holds the contact, TELL's odds, the risk card and the notice editor. The bottom rail holds the delivery board and the on-time board.
-- **Captain** (phone, at `/captain`): a full-screen chart with your boat, the zones, your new route, a P1 takeover, a P2 banner and a "Got it" button. It can be saved to the home screen and keeps the last zones when the signal drops.
+- **Captain** (phone, at `/captain`): a full-screen chart with your boat, the zones, your new route, a P1 takeover, a P2 banner and a "Got it" button. It can be saved to the home screen, caches the chart for offline use, and keeps the last zones moving along their predicted path when the signal drops.
 
 A small hub on the laptop keeps Command and every phone in sync over the team's own hotspot.
 
@@ -50,7 +50,8 @@ Optional setup:
 
 ## Proof
 
-- `npm test` runs 197 unit, scenario and world tests.
+- `npm test` runs 198 unit, scenario and world tests.
+- `npm run e2e` runs the 90-second demo end to end in Playwright with a laptop and two phones: Tuesday whale zone, night contact, P1 on the judge's phone and a silent P4 on a teammate's, Got it, a boat that ignores the notice, All clear, and Run 1,000 nights. Screenshots land in `e2e/screenshots/`.
 - `npm run scenarios` prints the five incidents from the spec. Every "must stay true" rule holds.
 - `npm run bench` runs the benchmark: with detection at the harbor gates, TELL gives about 73 minutes of warning against 47.5 for a nearest-dock guess (1.54 times, against a bar of 1.4), and calls the right target by arrival in every run.
 - "Run 1,000 nights" in Command runs the same benchmark in a Web Worker in the browser.
