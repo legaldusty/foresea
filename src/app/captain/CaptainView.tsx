@@ -15,6 +15,7 @@ import { LanguageScreen, NoticesScreen, TodaySheet } from './screens';
 import { ReportFlow } from './report';
 import { BulletinStrip } from './conditions';
 import { ConditionsScreen } from './ConditionsScreen';
+import { SosBand, SosScreen } from './sos';
 import { boatBox, framePoints } from './frame';
 import { snapshotAt } from './timing';
 import { useLanguage } from './words';
@@ -25,7 +26,7 @@ const STALE_MS = 20_000;
 const ALL_CLEAR_SHOW_MS = 60_000;
 const MAP_PADDING = { top: 48, right: 64, bottom: 40, left: 40 };
 
-type Screen = 'main' | 'notices' | 'language' | 'report' | 'conditions';
+type Screen = 'main' | 'notices' | 'language' | 'report' | 'conditions' | 'sos';
 
 function useNow(ms: number): number {
   const [now, setNow] = useState(Date.now());
@@ -79,6 +80,7 @@ export function CaptainView() {
   const [boatMode, setBoatMode] = useState(false);
   const [picking, setPicking] = useState(false);
   const [conditionsFrom, setConditionsFrom] = useState<Screen>('main');
+  const [sosFromButton, setSosFromButton] = useState(false);
   const alerted = useRef(new Map<string, string>());
   const seen = useRef(new Set<string>());
   const snap = hub.snapshot;
@@ -180,17 +182,19 @@ export function CaptainView() {
         {banner && timing ? <Banner n={banner} {...timing} lang={lang} onGotIt={() => gotIt(banner.id)} /> : (
           <TopBar name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} offline={stale} onPick={() => setPicking(true)} onNotices={() => setScreen('notices')} />
         )}
+        {snap?.sos && screen !== 'sos' ? <SosBand sos={snap.sos} onOpen={() => { setSosFromButton(false); setScreen('sos'); }} /> : null}
         {stale ? <OfflineLine receivedAt={hub.receivedAt} now={now} /> : null}
         {!banner ? <BulletinStrip bulletins={snap?.bulletins ?? []} onOpen={openConditions} /> : null}
       </div>
       <div className="cap-map">
         <ChartMap key={theme} theme={theme} compact showLabels data={data} stamp={snap?.clock.wallMs} motionDelayMs={600} fitTo={fit} padding={MAP_PADDING} labels={youLabels} />
         {showLegend ? <div className="cap-legend-float"><Legend stacked /></div> : null}
-        <MapControls theme={theme} onCenter={center} onTheme={toggleTheme} />
+        <MapControls theme={theme} onCenter={center} onTheme={toggleTheme} onSos={() => { setSosFromButton(true); setScreen('sos'); }} />
         <span className="cap-attr">© OpenStreetMap contributors</span>
       </div>
       {sheet ? <ResizableSheet>{sheet}</ResizableSheet> : null}
       {screen === 'notices' ? <NoticesScreen notices={notices} cleared={snap?.allClear ?? []} conditions={snap?.conditions} lang={lang} onBack={() => setScreen('main')} onOpen={(id) => { setFocusId(id); setScreen('main'); }} onConditions={openConditions} /> : null}
+      {screen === 'sos' ? <SosScreen sos={sosFromButton && (snap?.sos?.state === 'recovered' || snap?.sos?.state === 'falseAlarm') ? null : snap?.sos ?? null} lonlat={vessel?.lonlat ?? null} online={hub.link === 'online'} onSend={() => hub.sos('send')} onEnd={(action) => void hub.sos(action)} onClose={() => setScreen('main')} /> : null}
       {screen === 'conditions' ? <ConditionsScreen c={snap?.conditions} bulletins={snap?.bulletins ?? []} onBack={() => setScreen(conditionsFrom)} /> : null}
       {screen === 'language' ? <LanguageScreen lang={lang} onChoose={setLang} onBack={() => setScreen('main')} /> : null}
       {screen === 'report' ? <ReportFlow snap={snap} theme={theme} onTheme={toggleTheme} stamp={snap?.clock.wallMs} onSend={hub.reportSighting} onClose={() => setScreen('main')} /> : null}

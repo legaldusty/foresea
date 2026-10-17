@@ -56,6 +56,7 @@ export interface CaptainHub {
   ack: (kind: 'delivered' | 'seen' | 'gotIt', noticeId: string) => void;
   sendSubscription: (sub: PushSubscription) => void;
   reportSighting: (report: Omit<CaptainEvents['reportSighting'], 'vesselId'>) => Promise<boolean>;
+  sos: (action: CaptainEvents['sos']['action']) => Promise<boolean>;
 }
 
 export function useCaptainHub(requestedVessel: string | null): CaptainHub {
@@ -120,5 +121,10 @@ export function useCaptainHub(requestedVessel: string | null): CaptainHub {
     const payload: CaptainEvents['reportSighting'] = { ...report, vesselId: vesselRef.current?.vesselId };
     s.timeout(5000).emit('reportSighting', payload, (err: unknown, r: { ok: boolean } | undefined) => resolve(!err && !!r?.ok));
   }), []);
-  return { snapshot, receivedAt, link, vessel, pushKey, join, ack, sendSubscription, reportSighting };
+  const sos = useMemo(() => (action: CaptainEvents['sos']['action']) => new Promise<boolean>((resolve) => {
+    const s = socketRef.current;
+    if (!s || !s.connected) { resolve(false); return; }
+    s.timeout(5000).emit('sos', { action, vesselId: vesselRef.current?.vesselId }, (err: unknown, r: { ok: boolean } | undefined) => resolve(!err && !!r?.ok));
+  }), []);
+  return { snapshot, receivedAt, link, vessel, pushKey, join, ack, sendSubscription, reportSighting, sos };
 }

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Bell, Broadcast, CaretLeft, CellSignalSlash, Circle, Fish, Gauge, HandPalm, Moon, NavigationArrow, RadioButton, Sun, Warning, WifiSlash, X } from '@phosphor-icons/react';
+import { Bell, Broadcast, CaretLeft, CellSignalSlash, Circle, Fish, Gauge, HandPalm, Lifebuoy, Moon, NavigationArrow, RadioButton, Sun, Warning, WifiSlash, X } from '@phosphor-icons/react';
 import type { CaptainNotice, ClockView, PublicReason, Species } from '../../shared/protocol';
 import { minutesUntil } from './timing';
 
@@ -59,12 +59,20 @@ export function Legend(props: { stacked?: boolean }) {
   );
 }
 
-export function MapControls(props: { theme: 'day' | 'night'; onCenter: () => void; onTheme: () => void }) {
+export function MapControls(props: { theme: 'day' | 'night'; onCenter: () => void; onTheme: () => void; onSos?: () => void }) {
   return (
-    <div className="cap-controls">
-      <button type="button" onClick={props.onCenter} aria-label="Center on my boat" title="Center on my boat" data-testid="center-boat"><NavigationArrow size={24} /></button>
-      <i />
-      <button type="button" onClick={props.onTheme} aria-label="Day or night chart" title={props.theme === 'day' ? 'Night chart' : 'Day chart'}>{props.theme === 'day' ? <Moon size={24} /> : <Sun size={24} />}</button>
+    <div className="cap-ctl-col">
+      <div className="cap-controls">
+        <button type="button" onClick={props.onCenter} aria-label="Center on my boat" title="Center on my boat" data-testid="center-boat"><NavigationArrow size={24} /></button>
+        <i />
+        <button type="button" onClick={props.onTheme} aria-label="Day or night chart" title={props.theme === 'day' ? 'Night chart' : 'Day chart'}>{props.theme === 'day' ? <Moon size={24} /> : <Sun size={24} />}</button>
+      </div>
+      {props.onSos ? (
+        <button type="button" className="cap-sos" onClick={props.onSos} aria-label="Person overboard" title="Person overboard" data-testid="sos-open">
+          <Lifebuoy size={24} />
+          <span>SOS</span>
+        </button>
+      ) : null}
     </div>
   );
 }

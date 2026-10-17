@@ -33,8 +33,11 @@ export interface ContactSpec {
   seed: number;
   driftDir?: [number, number];
   currentOverride?: CurrentVector | null;
+  overboard?: OverboardInfo | null;
   firstSeenMin: number;
 }
+
+export interface OverboardInfo { vesselId: string; vesselName: string; atMin: number; lonlat: LonLat }
 
 export interface ContactSim {
   spec: ContactSpec;

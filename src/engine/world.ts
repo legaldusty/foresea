@@ -24,7 +24,7 @@ import { minutesUntilZone, priorityFor, lessUrgent, moreUrgent, type Priority } 
 import { templateWording, allClearWording, damagePhrase, reasonAt, type WordingFacts } from './wording';
 import { rng } from './bench';
 import { clockLabel, isNight, minutesLabel, signedMinutes } from './eta';
-import { metersBetween, mpsToKnots, offsetPoint, bearingDeg, compassPoint, type LonLat } from './geo';
+import { metersBetween, mpsToKnots, offsetPoint, bearingDeg, compassPoint, formatLatLon, type LonLat } from './geo';
 import type * as P from '../shared/protocol';
 import { workLine, pointAlong, stepAlong, seedSightings, type WorkLine } from './tuesday';
 import { buildIncidentReport, type IncidentDelivery, type IncidentRecord } from './incident';
@@ -290,6 +290,8 @@ export class World {
   scheduled: ScheduledZone[] = [];
   private tuesdayOpen = false;
   private gliderSilenced = false;
+  private overboardBriefs = new Set<string>();
+  private overboardEnded = new Map<string, { how: 'recovered' | 'falseAlarm'; atMin: number; atWall: number; place: string }>();
   private forecastSeq = 0;
   private areaSeq = 0;
   conditions: P.ConditionsView = emptyConditions();
@@ -354,6 +356,8 @@ export class World {
     this.scheduled = [];
     this.tuesdayOpen = false;
     this.gliderSilenced = false;
+    this.overboardBriefs.clear();
+    this.overboardEnded.clear();
     const t = this.simMin;
     const r = rng(17);
     this.craft = [];
@@ -600,10 +604,11 @@ export class World {
   private spawnContact(spec: Omit<ContactSpec, 'id' | 'label' | 'firstSeenMin' | 'seed'> & { seed?: number }, nearness = true): ContactSim {
     const n = ++this.contactSeq;
     const registeredName = spec.registryId ? this.h.registry.find((r) => r.id === spec.registryId)?.name : undefined;
-    const full: ContactSpec = { ...spec, id: `C-${n}`, label: registeredName ?? `Contact C-${n}`, firstSeenMin: this.simMin, seed: spec.seed ?? 100 + n };
+    const full: ContactSpec = { ...spec, id: `C-${n}`, label: spec.overboard ? `Person overboard, ${spec.overboard.vesselName}` : registeredName ?? `Contact C-${n}`, firstSeenMin: this.simMin, seed: spec.seed ?? 100 + n };
     const c = createContact(this.h, this.settings, full, this.current, nearness);
     this.contacts.set(c.id, c);
     this.evaluate(c);
+    if (full.overboard) return c;
     const registered = full.registryId ? this.h.registry.find((r) => r.id === full.registryId) : null;
     this.log('machine', 'New contact', `${c.spec.label} seen at ${this.placeNear(c.cell)}: ${full.sizeM.toFixed(1)} m, ${full.speedMps.toFixed(1)} m/s, ${full.heat === 'hot' ? 'hot spot' : full.heat === 'warm' ? 'warm body' : 'no hot spot'}`);
     this.log('machine', 'Registry check', registered ? `${c.spec.label} matches ${registered.name} (${registered.owner})` : `${c.spec.label}: no registry or dive-plan match`);
@@ -680,6 +685,7 @@ export class World {
   }
 
   private needsForecast(c: ContactSim): boolean {
+    if (c.spec.overboard) return true;
     if (c.spec.reply === 'friendly') return false;
     if (c.classification.threatScored) return true;
     return !!c.spec.registryId && c.classification.kind === 'debris';
@@ -703,7 +709,7 @@ export class World {
     if (!this.needsForecast(c)) { this.forecasts.delete(c.id); return null; }
     const prev = this.forecasts.get(c.id);
     if (prev && c.silent) return prev;
-    const drifting = c.classification.kind === 'debris';
+    const drifting = c.classification.kind === 'debris' || !!c.spec.overboard;
     const odds = drifting ? this.h.targets.map(() => 0) : targetOdds(c.tell);
     const lost = drifting ? 0 : lostOnlyOdds(c.tell);
     const drift = drifting ? 1 : driftOdds(c.tell);
@@ -1445,6 +1451,7 @@ export class World {
 
   private respondTo(c: ContactSim): void {
     const kind = c.classification.kind;
+    if (c.spec.overboard) return this.respondToOverboard(c);
     if (kind === 'animal') return this.respondToAnimal(c);
     if (kind === 'person') return this.respondToPerson(c);
     if (c.spec.registryId && kind === 'debris') return this.respondToLostRobot(c);
@@ -1554,6 +1561,109 @@ export class World {
       return { area, shapes: noticeAreaShapes(this.h.grid, area), ticks: rec.ticks, version: ++this.areaSeq, key: areaKey };
     })();
     this.upsertAreaZone(zoneId, 'Search area', a, c.id, `Search area: ${reg.name}`, { label: `Search area, ${reg.name}`, filedBy: `${reg.owner}, notified` });
+  }
+
+  personOverboard(vesselId: string): ContactSim | null {
+    const boat = this.craft.find((k) => k.id === vesselId);
+    if (!boat) return null;
+    const open = [...this.contacts.values()].find((c) => c.spec.overboard?.vesselId === vesselId);
+    if (open) return open;
+    this.overboardEnded.delete(vesselId);
+    const lonlat = craftLonLat(this.h, boat);
+    const cell = this.cellAt(lonlat);
+    const place = this.placeNear(cell);
+    const dir = this.current ? [this.current.currentU, -this.current.currentV] as [number, number] : [0.6, 0.8] as [number, number];
+    const c = this.spawnContact({
+      mode: 'drift', startCell: cell, sizeM: this.settings.overboard.personSizeM, speedMps: Math.max(this.settings.overboard.minDriftMps, this.currentSpeedMps || 0), heat: 'warm', reply: 'none',
+      driftDir: dir, overboard: { vesselId, vesselName: boat.name, atMin: this.simMin, lonlat },
+    }, false);
+    this.log(`captain:${boat.name}`, 'Person overboard', `${boat.name} pressed Person overboard near ${place} at ${clockLabel(this.simMin)}. Position ${formatLatLon(lonlat)}.`, undefined, { lonlat, radiusM: null, zoneId: null, contactId: c.id, vesselId, place });
+    this.updateForecast(c, true);
+    this.lastResponseMin.set(c.id, this.simMin);
+    this.respondToOverboard(c);
+    return c;
+  }
+
+  private overboardDrift(c: ContactSim): string {
+    return `about ${mpsToKnots(c.spec.speedMps).toFixed(1)} kn toward the ${compassPoint(c.headingDeg)}`;
+  }
+
+  private respondToOverboard(c: ContactSim): void {
+    const ob = c.spec.overboard;
+    if (!ob) return;
+    const key = `overboard:${c.id}`;
+    const zoneId = `z-${c.id}`;
+    const zone = this.zones.get(zoneId);
+    const published = zone?.status === 'published';
+    const place = this.placeNear(this.cellAt(ob.lonlat));
+    const drift = this.overboardDrift(c);
+    const briefSent = this.overboardBriefs.has(c.id);
+    const brief = briefSent ? [] : [{ id: 'send', label: 'Send Coast Guard brief' }];
+    this.raiseCard(key, {
+      kind: 'person',
+      title: published ? `Person overboard: search area published` : `Person overboard from ${ob.vesselName}`,
+      body: `${ob.vesselName} pressed Person overboard at ${clockLabel(ob.atMin)} near ${place}. The person drifts with the current, ${drift}, so the search area grows with time. ${published ? 'Boats keep clear of it. Mark recovered when they are aboard.' : 'Publishing it moves every boat out of the search area. People are never scored as targets.'}`,
+      facts: [`Position ${formatLatLon(ob.lonlat)}`, `Drift ${drift}`, briefSent ? 'Coast Guard brief sent' : 'Coast Guard brief ready'],
+      actions: published
+        ? [{ id: 'recovered', label: 'Person recovered', primary: true }, ...brief]
+        : [{ id: 'publishZone', label: 'Publish search area', primary: true }, ...brief, { id: 'recovered', label: 'Person recovered' }],
+      contactId: c.id, noticeId: zone?.noticeId ?? null, draftId: zone?.draftId ?? null,
+      script: `Coast Guard Sector Los Angeles-Long Beach, this is ${this.station}. Person overboard from ${ob.vesselName} at ${clockLabel(ob.atMin)}, near ${place}, position ${formatLatLon(ob.lonlat)}. Drifting ${drift}. Boats are being moved out of the search area. Request assistance.`,
+    });
+    if (published || this.stillDismissed(zoneId, null)) return;
+    const rec = this.forecasts.get(c.id) ?? this.updateForecast(c, true);
+    if (!rec) return;
+    const f = this.settings.forecast;
+    const areaKey = `${rec.version}|search`;
+    const a: AreaRec = zone?.area?.key === areaKey ? zone.area : (() => {
+      const area = buildNoticeArea(this.h.grid, rec.forecast, rec.cell, Math.max(0.05, c.spec.speedMps), { horizonMinutes: f.horizonMinutes, zoneMeters: this.settings.overboard.zoneMeters, carefulShare: f.carefulShare, exitMinutesMax: f.exitMinutesMax }, rec.madeAtMin);
+      return { area, shapes: noticeAreaShapes(this.h.grid, area), ticks: rec.ticks, version: ++this.areaSeq, key: areaKey };
+    })();
+    this.upsertAreaZone(zoneId, 'Person in the water', a, c.id, `Search area: person overboard from ${ob.vesselName}`, { label: `Person overboard, ${ob.vesselName}`, filedBy: `Reported by ${ob.vesselName}` });
+    const draftId = this.zones.get(zoneId)?.draftId ?? null;
+    const card = this.cards.find((k) => k.key === key);
+    if (card) card.draftId = draftId;
+  }
+
+  endOverboard(contactId: string, how: 'recovered' | 'falseAlarm', actor: string): void {
+    const c = this.contacts.get(contactId);
+    const ob = c?.spec.overboard;
+    if (!c || !ob) return;
+    const z = this.zones.get(`z-${contactId}`);
+    const place = this.placeNear(this.cellAt(ob.lonlat));
+    const word = how === 'recovered' ? 'Person recovered' : 'False alarm';
+    if (z?.noticeId) this.clearNotice(z.noticeId, actor, false, word);
+    if (z) this.removeZone(z.id);
+    this.contacts.delete(contactId);
+    this.forecasts.delete(contactId);
+    this.overboardBriefs.delete(contactId);
+    this.removeCards((k) => k.contactId === contactId);
+    this.overboardEnded.set(ob.vesselId, { how, atMin: this.simMin, atWall: this.wallMs, place });
+    this.log(actor, word, how === 'recovered' ? `Person from ${ob.vesselName} is back aboard. Search area lifted.` : `${ob.vesselName} cancelled Person overboard. Search area lifted.`, undefined, { lonlat: ob.lonlat, radiusM: null, zoneId: null, contactId: null, vesselId: ob.vesselId, place });
+  }
+
+  captainSos(vesselId: string, action: P.CaptainEvents['sos']['action']): void {
+    const open = [...this.contacts.values()].find((c) => c.spec.overboard?.vesselId === vesselId);
+    if (action === 'send') { this.personOverboard(vesselId); return; }
+    if (!open) return;
+    const name = this.craft.find((k) => k.id === vesselId)?.name ?? vesselId;
+    this.endOverboard(open.id, action === 'recovered' ? 'recovered' : 'falseAlarm', `captain:${name}`);
+  }
+
+  private sosView(vesselId: string): P.CaptainSos | null {
+    const open = [...this.contacts.values()].find((c) => c.spec.overboard?.vesselId === vesselId);
+    if (open?.spec.overboard) {
+      const ob = open.spec.overboard;
+      const z = this.zones.get(`z-${open.id}`);
+      const n = z?.noticeId ? this.notices.get(z.noticeId) : undefined;
+      return {
+        state: z?.status === 'published' ? 'published' : 'sent', atLabel: clockLabel(ob.atMin), place: this.placeNear(this.cellAt(ob.lonlat)), position: formatLatLon(ob.lonlat),
+        publishedAtLabel: n ? clockLabel(n.publishedAtMin) : null, boatsTold: n ? [...n.perVessel.values()].filter((e) => e.priority !== 'P4').length : 0, briefSent: this.overboardBriefs.has(open.id), drift: this.overboardDrift(open),
+      };
+    }
+    const ended = this.overboardEnded.get(vesselId);
+    if (!ended || this.wallMs - ended.atWall > this.settings.overboard.endedShowSeconds * 1000) return null;
+    return { state: ended.how, atLabel: clockLabel(ended.atMin), place: ended.place, position: '', publishedAtLabel: null, boatsTold: 0, briefSent: false, drift: '' };
   }
 
   private respondToAnimal(c: ContactSim): void {
@@ -2335,6 +2445,8 @@ export class World {
       case 'publishZone': {
         const z = card.contactId ? this.zones.get(`z-${card.contactId}`) : undefined;
         if (z?.draftId) this.publish(z.draftId);
+        const ob = card.contactId ? this.contacts.get(card.contactId) : undefined;
+        if (ob?.spec.overboard) { this.respondToOverboard(ob); return; }
         if (card.kind === 'lost') {
           card.title = 'Search area published';
           card.body = `${card.body} Boats keep clear of the search area. Close it when the owner has it back.`;
@@ -2375,11 +2487,21 @@ export class World {
         return;
       }
       case 'send':
+        if (card.key.startsWith('overboard:') && card.contactId) {
+          this.overboardBriefs.add(card.contactId);
+          this.log('officer', 'Coast Guard brief sent', `${card.title}. Simulated: drafted and marked sent, no message leaves this laptop.`);
+          const c = this.contacts.get(card.contactId);
+          if (c) this.respondToOverboard(c);
+          return;
+        }
         this.log('officer', card.kind === 'person' ? 'Port police brief sent' : 'Coast Guard brief sent', `${card.title}. Simulated: drafted and marked sent, no message leaves this laptop.`);
         done();
         return;
       case 'confirmSighting':
         this.confirmSighting(card.key.slice('sighting:'.length));
+        return;
+      case 'recovered':
+        if (card.contactId) this.endOverboard(card.contactId, 'recovered', 'officer');
         return;
       case 'found':
         if (card.contactId) this.foundRobot(card.contactId);
@@ -3279,6 +3401,7 @@ export class World {
       serverWall: this.wall(),
       conditions: captainConditions(this.conditionsView(), { nowMs: this.wallMs, timeZone: this.settings.ais.displayTimeZone, seriesPoints: this.settings.conditions.captainSeriesPoints }),
       bulletins: captainBulletins(this.bulletins, this.wallMs, this.settings.ais.displayTimeZone),
+      sos: this.sosView(vesselId),
     };
   }
 

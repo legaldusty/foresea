@@ -584,3 +584,66 @@ describe('slow zone with no reason', () => {
     expect(w.notices.get(noticeId)!.status).toBe('active');
   });
 });
+
+describe('person overboard from a captain phone', () => {
+  const launch = () => harbor.craft.find((c) => c.phone)!.id;
+
+  it('marks the position, drafts a drifting search area and waits for a person to publish', () => {
+    const w = freshWorld('tuesday');
+    const vesselId = launch();
+    w.captainJoin(vesselId);
+    w.captainSos(vesselId, 'send');
+    const c = [...w.contacts.values()].find((k) => k.spec.overboard?.vesselId === vesselId)!;
+    expect(c).toBeDefined();
+    expect(c.spec.label).toMatch(/^Person overboard, /);
+    const snap = w.commandSnapshot();
+    const card = snap.card!;
+    expect(card.kind).toBe('person');
+    expect(card.title).toMatch(/^Person overboard from /);
+    expect(card.actions.map((a) => a.id)).toEqual(['publishZone', 'send', 'recovered']);
+    expect(card.script).toContain('Coast Guard');
+    const zone = w.zones.get(`z-${c.id}`)!;
+    expect(zone.reason).toBe('Person in the water');
+    expect(zone.status).toBe('draft');
+    expect(w.captainSnapshot(vesselId).sos).toMatchObject({ state: 'sent', briefSent: false });
+    runUntil(w, () => false, 40);
+    expect(w.zones.get(`z-${c.id}`)!.status).toBe('draft');
+    expect([...w.notices.values()].some((n) => n.publicReason === 'Person in the water')).toBe(false);
+    w.captainSos(vesselId, 'send');
+    expect([...w.contacts.values()].filter((k) => k.spec.overboard).length).toBe(1);
+  });
+
+  it('publishes on the officer tap, sends the brief, and lifts everything when the person is recovered', () => {
+    const w = freshWorld('tuesday');
+    const vesselId = launch();
+    w.captainJoin(vesselId);
+    w.captainSos(vesselId, 'send');
+    const cardId = () => w.commandSnapshot().card!.id;
+    w.cardAction(cardId(), 'publishZone');
+    const c = [...w.contacts.values()].find((k) => k.spec.overboard)!;
+    expect(w.zones.get(`z-${c.id}`)!.status).toBe('published');
+    expect(w.commandSnapshot().card!.title).toBe('Person overboard: search area published');
+    const sos = w.captainSnapshot(vesselId).sos!;
+    expect(sos.state).toBe('published');
+    expect(sos.publishedAtLabel).toMatch(/^\d{2}:\d{2}$/);
+    w.cardAction(cardId(), 'send');
+    expect(w.captainSnapshot(vesselId).sos!.briefSent).toBe(true);
+    expect(w.commandSnapshot().card!.actions.map((a) => a.id)).toEqual(['recovered']);
+    w.cardAction(cardId(), 'recovered');
+    expect([...w.contacts.values()].some((k) => k.spec.overboard)).toBe(false);
+    expect([...w.notices.values()].some((n) => n.publicReason === 'Person in the water' && n.status === 'active')).toBe(false);
+    expect(w.captainSnapshot(vesselId).sos!.state).toBe('recovered');
+  });
+
+  it('lets the captain cancel a false alarm', () => {
+    const w = freshWorld('tuesday');
+    const vesselId = launch();
+    w.captainJoin(vesselId);
+    w.captainSos(vesselId, 'send');
+    w.captainSos(vesselId, 'cancel');
+    expect([...w.contacts.values()].some((k) => k.spec.overboard)).toBe(false);
+    expect(w.commandSnapshot().card?.kind === 'person').toBe(false);
+    expect(w.captainSnapshot(vesselId).sos!.state).toBe('falseAlarm');
+    expect(w.audit.some((a) => a.action === 'False alarm' && a.actor.startsWith('captain:'))).toBe(true);
+  });
+});

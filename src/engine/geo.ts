@@ -47,3 +47,7 @@ export function formatMeters(m: number): string {
   if (m >= 1000) return `${(m / 1000).toFixed(m >= 10000 ? 0 : 1)} km`;
   return `${Math.round(m / 10) * 10} m`;
 }
+
+export function formatLatLon(ll: LonLat): string {
+  return `${Math.abs(ll[1]).toFixed(4)} ${ll[1] >= 0 ? 'N' : 'S'} ${Math.abs(ll[0]).toFixed(4)} ${ll[0] >= 0 ? 'E' : 'W'}`;
+}

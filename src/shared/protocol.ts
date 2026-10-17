@@ -615,6 +615,17 @@ export interface CaptainNotice {
 
 export interface CaptainTodayRow { id: string; label: string; reason: PublicReason; timesLabel: string; instructionText: string; onRoute: boolean; simulated: boolean }
 
+export interface CaptainSos {
+  state: 'sent' | 'published' | 'recovered' | 'falseAlarm';
+  atLabel: string;
+  place: string;
+  position: string;
+  publishedAtLabel: string | null;
+  boatsTold: number;
+  briefSent: boolean;
+  drift: string;
+}
+
 export interface CaptainSnapshot {
   vessel: { id: string; name: string; type: string; lonlat: LonLat; headingDeg: number; speedKn: number; route: LonLat[] | null; newRoute: LonLat[] | null } | null;
   notices: CaptainNotice[];
@@ -626,6 +637,7 @@ export interface CaptainSnapshot {
   serverWall: string;
   conditions: CaptainConditions;
   bulletins: CaptainBulletin[];
+  sos: CaptainSos | null;
 }
 
 export interface CommandEvents {
@@ -663,6 +675,7 @@ export interface CaptainEvents {
   gotIt: { noticeId: string; vesselId?: string };
   pushSubscription: { subscription: unknown; vesselId?: string };
   reportSighting: { species: Species; lonlat: LonLat; note?: string; vesselId?: string };
+  sos: { action: 'send' | 'cancel' | 'recovered'; vesselId?: string };
 }
 
 export interface SensorDetection {

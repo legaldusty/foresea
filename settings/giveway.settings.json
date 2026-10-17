@@ -164,6 +164,7 @@
                   "refreshMinutes": { "buoys": 5, "tide": 5, "met": 5, "alerts": 2, "forecast": 15 }, "checkSeconds": 30,
                   "maxAgeMinutes": { "buoy": 180, "station": 60, "alerts": 20, "forecast": 720 },
                   "requestTimeoutSeconds": 12, "advisoryCardsInSimulation": false },
+  "overboard": { "personSizeM": 1.8, "minDriftMps": 0.08, "zoneMeters": 150, "endedShowSeconds": 180 },
   "language": { "ollamaModels": ["granite4:micro", "granite3.3:2b", "granite3.1-dense:2b"], "timeoutMs": 6000,
                 "languages": ["es", "zh", "ko", "tl", "vi"] }
 }

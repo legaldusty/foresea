@@ -350,6 +350,17 @@ function bindCaptain(socket: Socket): void {
     emitCommand();
     ack?.({ ok: true });
   });
+  socket.on('sos', (payload: CaptainEvents['sos'], ack?: (r: unknown) => void) => {
+    const claimed = typeof payload?.vesselId === 'string' && world.captains.has(payload.vesselId) ? payload.vesselId : undefined;
+    const vesselId = (socket.data.vesselId as string | undefined) ?? claimed;
+    const action = payload?.action === 'send' || payload?.action === 'cancel' || payload?.action === 'recovered' ? payload.action : null;
+    if (!vesselId || !action) { ack?.({ ok: false }); return; }
+    world.captainSos(vesselId, action);
+    flushEffects();
+    emitCommand();
+    emitCaptains();
+    ack?.({ ok: true });
+  });
   socket.on('pushSubscription', (payload: CaptainEvents['pushSubscription']) => {
     const claimed = typeof payload?.vesselId === 'string' && world.captains.has(payload.vesselId) ? payload.vesselId : undefined;
     const vesselId = (socket.data.vesselId as string | undefined) ?? claimed;

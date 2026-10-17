@@ -339,6 +339,9 @@
     "captainDay": "86:50",
     "captainTakeover": "86:100",
     "icons": "84:86",
-    "captainConditions": "92:59"
+    "captainConditions": "92:59",
+    "captainSosControl": "95:64",
+    "captainSosConfirm": "95:76",
+    "captainSosSent": "95:103"
   }
 }
