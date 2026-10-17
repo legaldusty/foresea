@@ -476,6 +476,10 @@ export type TideTrend = 'rising' | 'falling' | 'steady';
 
 export interface TideTurnView { kind: 'high' | 'low'; at: string; label: string; meters: number }
 
+export interface SeriesPoint { at: string; value: number }
+
+export interface WindPoint { at: string; speedMps: number; gustMps: number | null }
+
 export interface AdvisoryView {
   id: string;
   event: string;
@@ -516,14 +520,38 @@ export interface ConditionsView {
   sunset: Sourced<{ at: string; label: string }> | null;
   advisories: Sourced<AdvisoryView[]> | null;
   forecast: Sourced<MarineForecastView> | null;
+  tideCurve: Sourced<SeriesPoint[]> | null;
+  tideMeasured: Sourced<SeriesPoint[]> | null;
+  tideTurns: Sourced<TideTurnView[]> | null;
+  windHistory: Sourced<WindPoint[]> | null;
+  waveHistory: Sourced<SeriesPoint[]> | null;
   missing: Partial<Record<ConditionsField, string>>;
   sources: ConditionsSourceView[];
 }
 
+export interface CaptainReading { value: number; source: string; ageMin: number }
+
 export interface CaptainConditions {
-  wind: { speedMps: number; gustMps: number | null; fromDeg: number | null; source: string; ageMin: number } | null;
-  waves: { heightM: number; periodS: number | null; source: string; ageMin: number } | null;
+  wind: { speedMps: number; gustMps: number | null; fromDeg: number | null; source: string; ageMin: number; history: WindPoint[] } | null;
+  waves: { heightM: number; periodS: number | null; fromDeg: number | null; source: string; ageMin: number; history: SeriesPoint[] } | null;
   nextTide: { kind: 'high' | 'low'; label: string; meters: number; source: string } | null;
+  tide: {
+    levelM: CaptainReading | null;
+    trend: TideTrend | null;
+    datum: string;
+    source: string;
+    turns: TideTurnView[];
+    curve: SeriesPoint[];
+    measured: SeriesPoint[];
+  } | null;
+  waterTempC: CaptainReading | null;
+  airTempC: CaptainReading | null;
+  pressureHpa: CaptainReading | null;
+  sunrise: string | null;
+  sunset: string | null;
+  forecast: { zoneName: string; issuedLabel: string | null; ageMin: number; periods: { name: string; text: string }[] } | null;
+  timeZone: string;
+  nowWall: string;
 }
 
 export interface CaptainBulletin { id: string; title: string; detail: string; until: string | null; untilLabel: string | null; source: 'NWS'; relayedBy: string; relayedAtLabel: string }

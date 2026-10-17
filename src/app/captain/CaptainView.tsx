@@ -14,6 +14,7 @@ import { Legend, MapControls, OfflineLine, TopBar } from './parts';
 import { LanguageScreen, NoticesScreen, TodaySheet } from './screens';
 import { ReportFlow } from './report';
 import { BulletinStrip } from './conditions';
+import { ConditionsScreen } from './ConditionsScreen';
 import { boatBox, framePoints } from './frame';
 import { snapshotAt } from './timing';
 import { useLanguage } from './words';
@@ -24,7 +25,7 @@ const STALE_MS = 20_000;
 const ALL_CLEAR_SHOW_MS = 60_000;
 const MAP_PADDING = { top: 48, right: 64, bottom: 40, left: 40 };
 
-type Screen = 'main' | 'notices' | 'language' | 'report';
+type Screen = 'main' | 'notices' | 'language' | 'report' | 'conditions';
 
 function useNow(ms: number): number {
   const [now, setNow] = useState(Date.now());
@@ -77,6 +78,7 @@ export function CaptainView() {
   const [centerTick, setCenterTick] = useState(0);
   const [boatMode, setBoatMode] = useState(false);
   const [picking, setPicking] = useState(false);
+  const [conditionsFrom, setConditionsFrom] = useState<Screen>('main');
   const alerted = useRef(new Map<string, string>());
   const seen = useRef(new Set<string>());
   const snap = hub.snapshot;
@@ -153,6 +155,7 @@ export function CaptainView() {
   };
   const gotIt = (id: string) => { hub.ack('gotIt', id); setFocusId(null); };
   const center = () => { setBoatMode(true); setCenterTick(centerTick + 1); };
+  const openConditions = () => { setConditionsFrom(screen === 'notices' ? 'notices' : 'main'); setScreen('conditions'); };
 
   if (!hub.vessel) {
     return <div className="cap"><Join vesselName={requested ? names[requested] ?? null : null} onJoin={() => void join()} joining={joining || hub.link !== 'online'} alerts={alertsOn} onAlerts={() => void toggleAlerts()} data={joinPreview} /></div>;
@@ -169,7 +172,7 @@ export function CaptainView() {
   else if (standing && timing) sheet = <NoticeCard n={standing} {...timing} lang={lang} />;
   else if (calm && timing) sheet = <NoticeCard n={calm} {...timing} lang={lang} />;
   else if (clear && !active.length) sheet = <AllClearCard clear={clear} />;
-  else sheet = <TodaySheet snap={snap} lang={lang} onReport={() => setScreen('report')} onLanguage={() => setScreen('language')} />;
+  else sheet = <TodaySheet snap={snap} lang={lang} onReport={() => setScreen('report')} onLanguage={() => setScreen('language')} onConditions={openConditions} />;
 
   return (
     <div className="cap" data-testid="captain">
@@ -178,7 +181,7 @@ export function CaptainView() {
           <TopBar name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} offline={stale} onPick={() => setPicking(true)} onNotices={() => setScreen('notices')} />
         )}
         {stale ? <OfflineLine receivedAt={hub.receivedAt} now={now} /> : null}
-        {!banner ? <BulletinStrip bulletins={snap?.bulletins ?? []} /> : null}
+        {!banner ? <BulletinStrip bulletins={snap?.bulletins ?? []} onOpen={openConditions} /> : null}
       </div>
       <div className="cap-map">
         <ChartMap key={theme} theme={theme} compact showLabels data={data} stamp={snap?.clock.wallMs} motionDelayMs={600} fitTo={fit} padding={MAP_PADDING} labels={youLabels} />
@@ -187,7 +190,8 @@ export function CaptainView() {
         <span className="cap-attr">© OpenStreetMap contributors</span>
       </div>
       {sheet ? <ResizableSheet>{sheet}</ResizableSheet> : null}
-      {screen === 'notices' ? <NoticesScreen notices={notices} cleared={snap?.allClear ?? []} lang={lang} onBack={() => setScreen('main')} onOpen={(id) => { setFocusId(id); setScreen('main'); }} /> : null}
+      {screen === 'notices' ? <NoticesScreen notices={notices} cleared={snap?.allClear ?? []} conditions={snap?.conditions} lang={lang} onBack={() => setScreen('main')} onOpen={(id) => { setFocusId(id); setScreen('main'); }} onConditions={openConditions} /> : null}
+      {screen === 'conditions' ? <ConditionsScreen c={snap?.conditions} bulletins={snap?.bulletins ?? []} onBack={() => setScreen(conditionsFrom)} /> : null}
       {screen === 'language' ? <LanguageScreen lang={lang} onChoose={setLang} onBack={() => setScreen('main')} /> : null}
       {screen === 'report' ? <ReportFlow snap={snap} theme={theme} onTheme={toggleTheme} stamp={snap?.clock.wallMs} onSend={hub.reportSighting} onClose={() => setScreen('main')} /> : null}
       {picking ? (

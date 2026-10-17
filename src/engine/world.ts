@@ -3277,7 +3277,7 @@ export class World {
       lastAllClearLabel: this.lastAllClearMin !== null ? clockLabel(this.lastAllClearMin) : null,
       clock: this.clockView(),
       serverWall: this.wall(),
-      conditions: captainConditions(this.conditionsView()),
+      conditions: captainConditions(this.conditionsView(), { nowMs: this.wallMs, timeZone: this.settings.ais.displayTimeZone, seriesPoints: this.settings.conditions.captainSeriesPoints }),
       bulletins: captainBulletins(this.bulletins, this.wallMs, this.settings.ais.displayTimeZone),
     };
   }

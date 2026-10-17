@@ -338,6 +338,7 @@
     "commandNight": "85:25",
     "captainDay": "86:50",
     "captainTakeover": "86:100",
-    "icons": "84:86"
+    "icons": "84:86",
+    "captainConditions": "92:59"
   }
 }

@@ -23,6 +23,9 @@ export interface ConditionsSettings {
     tideTrendMinutes: number;
     tideSteadyMeters: number;
     tidePredictionHours: number;
+    tideCurve: { pastHours: number; aheadHours: number; intervalMinutes: number };
+    windHistoryHours: number;
+    waveHistoryHours: number;
     nwsZone: string;
     nwsZoneName: string;
     nwsAlertZones: string[];
@@ -122,6 +125,16 @@ export function buildConditionsView(slots: Slot[], s: ConditionsSettings, now: n
     missing.tideTrend = missing.waterLevel;
   }
   const turns = nextTurns(tide?.turns ?? [], now);
+  const tideFresh = !!tideSlot?.lastGoodAt && freshEnough(tideSlot.lastGoodAt, now, c.maxAgeMinutes.station);
+  const curveStart = now - c.tideCurve.pastHours * 3_600_000;
+  const curveEnd = now + c.tideCurve.aheadHours * 3_600_000;
+  const inCurve = (at: string) => Date.parse(at) >= curveStart && Date.parse(at) <= curveEnd;
+  const curvePoints = (tide?.curve ?? []).filter((x) => inCurve(x.at)).map((x) => ({ at: x.at, value: x.meters }));
+  const measuredPoints = (tide?.measured ?? []).filter((x) => inCurve(x.at)).map((x) => ({ at: x.at, value: x.meters }));
+  const turnsInCurve = (tide?.turns ?? []).filter((t) => inCurve(t.at)).map((t) => ({ kind: t.kind, at: t.at, label: '', meters: t.meters }));
+  const tideCurve = tideFresh && curvePoints.length > 1 ? sourced(curvePoints, `${tideSource}, predicted`, tideSlot?.lastGoodAt as string, now) : null;
+  const tideMeasured = waterLevelM && measuredPoints.length > 1 ? sourced(measuredPoints, `${tideSource}, observed`, waterLevelM.observedAt, now) : null;
+  const tideTurns = tideFresh && turnsInCurve.length ? sourced(turnsInCurve, `${tideSource}, predicted`, tideSlot?.lastGoodAt as string, now) : null;
   const turnView = (t: TideTurn | null, field: P.ConditionsField): P.Sourced<P.TideTurnView> | null => {
     if (t && tideSlot?.lastGoodAt) return sourced({ kind: t.kind, at: t.at, label: '', meters: t.meters }, `${tideSource}, predicted`, tideSlot.lastGoodAt, now);
     missing[field] = tideFailed ?? 'No prediction ahead of now';
@@ -147,16 +160,28 @@ export function buildConditionsView(slots: Slot[], s: ConditionsSettings, now: n
     missing.forecast = forecastSlot && !forecastSlot.ok ? `No data. ${forecastSlot.label}: ${forecastSlot.detail}${forecastSlot.lastGoodAt ? `. Last good ${minutesAgo(forecastSlot.lastGoodAt, now)}` : ''}` : 'No forecast fetched yet';
   }
 
+  const windData = byId('wind')?.data as WindValue | null;
+  const windStart = now - c.windHistoryHours * 3_600_000;
+  const windPoints = (windData?.history ?? []).filter((x) => Date.parse(x.at) >= windStart);
+  const windMps = fromStation<WindValue, number>('wind', 'wind', 'wind', 'wind speed', (d) => d.speedMps);
+  const windHistory = windMps && windPoints.length > 1 ? sourced(windPoints, windMps.source, windMps.observedAt, now) : null;
+
+  const waveHeightM = fromBuoys('waveHeight', (b) => b.waveHeightM, 'wave height');
+  const waveSlot = waveHeightM ? buoySlots.find((x) => x.label === waveHeightM.source) : null;
+  const waveStart = now - c.waveHistoryHours * 3_600_000;
+  const wavePoints = ((waveSlot?.data as BuoyReading | null)?.waveHistory ?? []).filter((o) => Date.parse(o.at) >= waveStart).map((o) => ({ at: o.at, value: o.value }));
+  const waveHistory = waveHeightM && wavePoints.length > 1 ? sourced(wavePoints, waveHeightM.source, waveHeightM.observedAt, now) : null;
+
   return {
     datum: c.tideDatum,
     waterLevelM,
     tideTrend,
     nextHigh: turnView(turns.high, 'nextHigh'),
     nextLow: turnView(turns.low, 'nextLow'),
-    windMps: fromStation<WindValue, number>('wind', 'wind', 'wind', 'wind speed', (d) => d.speedMps),
+    windMps,
     gustMps: fromStation<WindValue, number>('gust', 'wind', 'wind', 'gust', (d) => d.gustMps),
     windFromDeg: fromStation<WindValue, number>('windFrom', 'wind', 'wind', 'wind direction', (d) => d.fromDeg),
-    waveHeightM: fromBuoys('waveHeight', (b) => b.waveHeightM, 'wave height'),
+    waveHeightM,
     wavePeriodS: fromBuoys('wavePeriod', (b) => b.dominantPeriodS, 'wave period'),
     waveFromDeg: fromBuoys('waveFrom', (b) => b.waveFromDeg, 'wave direction'),
     waterTempC: fromBuoys('waterTemp', (b) => b.waterTempC, 'water temperature'),
@@ -166,6 +191,11 @@ export function buildConditionsView(slots: Slot[], s: ConditionsSettings, now: n
     sunset: null,
     advisories,
     forecast,
+    tideCurve,
+    tideMeasured,
+    tideTurns,
+    windHistory,
+    waveHistory,
     missing,
     sources: slots.map((x) => ({ id: x.id, label: x.label, ok: x.ok, detail: x.detail, observedAt: x.observedAt, ageMin: x.observedAt ? Math.max(0, (now - Date.parse(x.observedAt)) / 60_000) : null })),
   };
@@ -237,18 +267,18 @@ export function createConditionsClient(options: ConditionsClientOptions = {}): C
 
   const loaders: Record<Group, () => Promise<unknown>> = {
     buoys: () => Promise.all(c.buoys.map((b) => run(slot(`buoy:${b.id}`), async () => {
-      const reading = await fetchBuoy(ctx(), b, c.maxAgeMinutes.buoy);
+      const reading = await fetchBuoy(ctx(), b, c.maxAgeMinutes.buoy, c.waveHistoryHours);
       const observedAt = buoyObservedAt(reading);
       return { data: reading, observedAt, detail: observedAt ? `Newest row ${utcClock(reading.newestRowAt)}` : `No wave or water readings in the last ${c.maxAgeMinutes.buoy} min` };
     }))),
     tide: () => run(slot('tide'), async () => {
-      const tide = await fetchTide(ctx(), settings.noaa.waterLevelStation, { datum: c.tideDatum, trendMinutes: c.tideTrendMinutes, steadyMeters: c.tideSteadyMeters, predictionHours: c.tidePredictionHours });
+      const tide = await fetchTide(ctx(), settings.noaa.waterLevelStation, { datum: c.tideDatum, trendMinutes: c.tideTrendMinutes, steadyMeters: c.tideSteadyMeters, predictionHours: c.tidePredictionHours, curve: c.tideCurve });
       slot('tide').label = `CO-OPS ${tide.station} ${tide.stationName} tide`;
       return { data: tide, observedAt: tide.level?.at ?? null, detail: `${tide.level ? 'Water level observed' : 'No water level'}, ${tide.turns.length} predicted highs and lows` };
     }),
     met: () => Promise.all([
       run(slot('wind'), async () => {
-        const w = await fetchWind(ctx(), c.windStations, station);
+        const w = await fetchWind(ctx(), c.windStations, station, c.windHistoryHours);
         slot('wind').label = `CO-OPS ${w.station} ${w.stationName} wind`;
         return { data: w, observedAt: w.at, detail: `Wind from station ${w.station}` };
       }),

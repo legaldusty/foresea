@@ -21,6 +21,7 @@ export function emptyConditions(detail = 'Starting'): P.ConditionsView {
     datum: 'MLLW', waterLevelM: null, tideTrend: null, nextHigh: null, nextLow: null, windMps: null, gustMps: null, windFromDeg: null,
     waveHeightM: null, wavePeriodS: null, waveFromDeg: null, waterTempC: null, airTempC: null, pressureHpa: null,
     sunrise: null, sunset: null, advisories: null, forecast: null,
+    tideCurve: null, tideMeasured: null, tideTurns: null, windHistory: null, waveHistory: null,
     missing: { advisories: detail, forecast: detail },
     sources: [],
   };
@@ -105,16 +106,63 @@ export function conditionsAt(view: P.ConditionsView, ctx: ConditionsContext): P.
     sunrise: sunEvent(sun.sunriseMs, ctx), sunset: sunEvent(sun.sunsetMs, ctx),
     advisories,
     forecast: aged(view.forecast, now),
+    tideCurve: aged(view.tideCurve ?? null, now),
+    tideMeasured: aged(view.tideMeasured ?? null, now),
+    tideTurns: view.tideTurns ? { ...view.tideTurns, ageMin: ageMinutes(view.tideTurns.observedAt, now) ?? view.tideTurns.ageMin, value: view.tideTurns.value.map((t) => ({ ...t, label: wallClockLabel(Date.parse(t.at), now, ctx.timeZone) })) } : null,
+    windHistory: aged(view.windHistory ?? null, now),
+    waveHistory: aged(view.waveHistory ?? null, now),
     sources: view.sources.map((s) => ({ ...s, ageMin: ageMinutes(s.observedAt, now) })),
   };
 }
 
-export function captainConditions(view: P.ConditionsView): P.CaptainConditions {
+export function thinSeries<T>(points: T[], max: number): T[] {
+  if (points.length <= max || max < 2) return points;
+  const step = (points.length - 1) / (max - 1);
+  return Array.from({ length: max }, (_, i) => points[Math.round(i * step)]);
+}
+
+function reading(s: P.Sourced<number> | null): P.CaptainReading | null {
+  return s ? { value: s.value, source: s.source, ageMin: s.ageMin } : null;
+}
+
+export interface CaptainConditionsContext { nowMs: number; timeZone: string; seriesPoints: number }
+
+export function captainConditions(view: P.ConditionsView, ctx: CaptainConditionsContext): P.CaptainConditions {
   const nextTide = [view.nextHigh, view.nextLow].filter((t): t is P.Sourced<P.TideTurnView> => t !== null).sort((a, b) => Date.parse(a.value.at) - Date.parse(b.value.at))[0] ?? null;
+  const tideSource = view.waterLevelM?.source ?? view.tideCurve?.source ?? nextTide?.source ?? null;
+  const forecast = view.forecast;
   return {
-    wind: view.windMps ? { speedMps: view.windMps.value, gustMps: view.gustMps?.value ?? null, fromDeg: view.windFromDeg?.value ?? null, source: view.windMps.source, ageMin: view.windMps.ageMin } : null,
-    waves: view.waveHeightM ? { heightM: view.waveHeightM.value, periodS: view.wavePeriodS?.value ?? null, source: view.waveHeightM.source, ageMin: view.waveHeightM.ageMin } : null,
+    wind: view.windMps ? {
+      speedMps: view.windMps.value, gustMps: view.gustMps?.value ?? null, fromDeg: view.windFromDeg?.value ?? null, source: view.windMps.source, ageMin: view.windMps.ageMin,
+      history: thinSeries(view.windHistory?.value ?? [], ctx.seriesPoints),
+    } : null,
+    waves: view.waveHeightM ? {
+      heightM: view.waveHeightM.value, periodS: view.wavePeriodS?.value ?? null, fromDeg: view.waveFromDeg?.value ?? null, source: view.waveHeightM.source, ageMin: view.waveHeightM.ageMin,
+      history: thinSeries(view.waveHistory?.value ?? [], ctx.seriesPoints),
+    } : null,
     nextTide: nextTide ? { kind: nextTide.value.kind, label: nextTide.value.label, meters: nextTide.value.meters, source: nextTide.source } : null,
+    tide: tideSource ? {
+      levelM: reading(view.waterLevelM),
+      trend: view.tideTrend?.value ?? null,
+      datum: view.datum,
+      source: tideSource,
+      turns: view.tideTurns?.value ?? [],
+      curve: thinSeries(view.tideCurve?.value ?? [], ctx.seriesPoints * 2),
+      measured: thinSeries(view.tideMeasured?.value ?? [], ctx.seriesPoints),
+    } : null,
+    waterTempC: reading(view.waterTempC),
+    airTempC: reading(view.airTempC),
+    pressureHpa: reading(view.pressureHpa),
+    sunrise: view.sunrise?.value.label ?? null,
+    sunset: view.sunset?.value.label ?? null,
+    forecast: forecast ? {
+      zoneName: forecast.value.zoneName,
+      issuedLabel: forecast.value.issuedAt ? wallClockLabel(Date.parse(forecast.value.issuedAt), ctx.nowMs, ctx.timeZone) : null,
+      ageMin: forecast.ageMin,
+      periods: forecast.value.periods,
+    } : null,
+    timeZone: ctx.timeZone,
+    nowWall: new Date(ctx.nowMs).toISOString(),
   };
 }
 

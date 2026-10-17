@@ -14,6 +14,7 @@ export interface BuoyReading {
   dominantPeriodS: Observation | null;
   waveFromDeg: Observation | null;
   waterTempC: Observation | null;
+  waveHistory?: Observation[];
 }
 
 export function parseNdbcRealtime(text: string): NdbcRow[] {
@@ -49,7 +50,17 @@ export function newestValue(rows: NdbcRow[], column: string, notBefore: number):
   return null;
 }
 
-export function buoyReading(id: string, name: string, rows: NdbcRow[], now: number, maxAgeMinutes: number): BuoyReading {
+export function valuesSince(rows: NdbcRow[], column: string, notBefore: number): Observation[] {
+  const out: Observation[] = [];
+  for (const row of rows) {
+    if (row.at < notBefore) break;
+    const v = row.values[column];
+    if (v !== null && v !== undefined) out.push({ value: v, at: new Date(row.at).toISOString() });
+  }
+  return out.reverse();
+}
+
+export function buoyReading(id: string, name: string, rows: NdbcRow[], now: number, maxAgeMinutes: number, historyHours = 0): BuoyReading {
   const notBefore = now - maxAgeMinutes * 60_000;
   return {
     id,
@@ -59,6 +70,7 @@ export function buoyReading(id: string, name: string, rows: NdbcRow[], now: numb
     dominantPeriodS: newestValue(rows, 'DPD', notBefore),
     waveFromDeg: newestValue(rows, 'MWD', notBefore),
     waterTempC: newestValue(rows, 'WTMP', notBefore),
+    waveHistory: historyHours > 0 ? valuesSince(rows, 'WVHT', now - historyHours * 3_600_000) : [],
   };
 }
 
@@ -67,7 +79,7 @@ export function buoyObservedAt(b: BuoyReading): string | null {
   return times.sort().pop() ?? null;
 }
 
-export async function fetchBuoy(ctx: FetchContext, buoy: { id: string; name: string }, maxAgeMinutes: number): Promise<BuoyReading> {
+export async function fetchBuoy(ctx: FetchContext, buoy: { id: string; name: string }, maxAgeMinutes: number, historyHours: number): Promise<BuoyReading> {
   const text = await getText(ctx, `${NDBC_REALTIME}/${encodeURIComponent(buoy.id)}.txt`);
-  return buoyReading(buoy.id, buoy.name, parseNdbcRealtime(text), ctx.now, maxAgeMinutes);
+  return buoyReading(buoy.id, buoy.name, parseNdbcRealtime(text), ctx.now, maxAgeMinutes, historyHours);
 }

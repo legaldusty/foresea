@@ -3,8 +3,9 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import settings from '../settings/giveway.settings.json';
-import { buoyReading, parseNdbcRealtime } from '../server/conditions/ndbc';
-import { levelTrend, nextTurns, parseLatestValue, parseLevelSeries, parseTideTurns, parseWind } from '../server/conditions/coops';
+import { buoyReading, parseNdbcRealtime, valuesSince } from '../server/conditions/ndbc';
+import { levelTrend, nextTurns, parseLatestValue, parseLevelSeries, parsePredictionCurve, parseTideTurns, parseWind } from '../server/conditions/coops';
+import { captainConditions, conditionsAt, thinSeries } from '../src/engine/conditions';
 import { advisorySummary, parseAlerts, parseZoneForecast } from '../server/conditions/nws';
 import { createConditionsClient, type ConditionsSettings } from '../server/conditions/client';
 import type { TextFetch } from '../server/conditions/http';
@@ -42,6 +43,13 @@ describe('NDBC realtime2 text', () => {
     expect(reading.waterTempC).toBeNull();
   });
 
+  it('keeps the recent wave heights oldest first for the chart', () => {
+    const rows = parseNdbcRealtime(fixture('ndbc-46222.txt'));
+    const since = valuesSince(rows, 'WVHT', Date.parse('2026-10-17T10:00:00Z'));
+    expect(since.map((o) => o.at)).toEqual(['2026-10-17T10:26:00.000Z', '2026-10-17T10:56:00.000Z', '2026-10-17T11:26:00.000Z', '2026-10-17T11:56:00.000Z', '2026-10-17T12:26:00.000Z']);
+    expect(buoyReading('46222', 'San Pedro', rows, NOW, 180, 12).waveHistory?.length).toBe(8);
+  });
+
   it('refuses a file without the header row', () => {
     expect(() => parseNdbcRealtime('<html>Not found</html>')).toThrow(/header/);
   });
@@ -52,6 +60,22 @@ describe('NOAA CO-OPS JSON', () => {
     expect(parseWind(fixtureJson('coops-wind-9410647.json'), '9410647')).toEqual({
       station: '9410647', stationName: 'Angels Gate', speedMps: 2.6, gustMps: 3.2, fromDeg: 358, at: '2026-10-17T12:48:00.000Z',
     });
+  });
+
+  it('keeps six hours of wind and gusts when asked for a range', () => {
+    const w = parseWind(fixtureJson('coops-wind-range-9410647.json'), '9410647');
+    expect(w?.history?.length).toBe(58);
+    expect(w?.history?.[0]).toEqual({ at: '2026-10-17T10:06:00.000Z', speedMps: 3.8, gustMps: 4.6 });
+    expect(w?.at).toBe('2026-10-17T15:48:00.000Z');
+    expect(w?.speedMps).toBe(w?.history?.[57].speedMps);
+  });
+
+  it('reads the half-hourly predicted tide curve and ignores high and low rows', () => {
+    const curve = parsePredictionCurve(fixtureJson('coops-predictions-30-9410660.json'), '9410660');
+    expect(curve.length).toBe(49);
+    expect(curve[0]).toEqual({ at: '2026-10-17T09:30:00.000Z', meters: 0.85 });
+    expect(Date.parse(curve[1].at) - Date.parse(curve[0].at)).toBe(30 * 60_000);
+    expect(parsePredictionCurve(fixtureJson('coops-hilo-9410660.json'), '9410660')).toEqual([]);
   });
 
   it('reads air temperature and pressure', () => {
@@ -124,6 +148,7 @@ const fixtureFetch: TextFetch = (url) => {
   if (url.includes('/realtime2/46222.txt')) return reply(fixture('ndbc-46222.txt'));
   if (url.includes('/realtime2/46253.txt')) return reply('', 503);
   if (url.includes('product=water_level')) return reply(fixture('coops-water-level-9410660.json'));
+  if (url.includes('product=predictions') && url.includes('interval=30')) return reply(fixture('coops-predictions-30-9410660.json'));
   if (url.includes('product=predictions')) return reply(fixture('coops-hilo-9410660.json'));
   if (url.includes('product=wind') && url.includes('station=9410647')) return reply(fixture('coops-wind-9410647.json'));
   if (url.includes('product=air_temperature') && url.includes('station=9410647')) return reply(fixture('coops-air-temperature-9410647.json'));
@@ -161,7 +186,14 @@ describe('conditions client', () => {
     expect(v.airTempC?.value).toBe(26.8);
     expect(v.pressureHpa?.value).toBe(1015.4);
     expect(v.advisories?.value.map((a) => a.event)).toEqual(['Small Craft Advisory']);
-    expect(v.forecast?.value.periods.length).toBe(2);
+    expect(v.forecast?.value.periods.length).toBe(3);
+    expect(v.tideCurve?.value.length).toBeGreaterThan(30);
+    expect(v.tideCurve?.value.every((p) => Date.parse(p.at) <= NOW + 18 * 3_600_000)).toBe(true);
+    expect(v.tideMeasured?.value.length).toBe(9);
+    expect(v.tideTurns?.value.map((t) => t.kind)).toEqual(['high', 'low']);
+    expect(v.waveHistory).toMatchObject({ source: 'NDBC 46222 San Pedro' });
+    expect(v.waveHistory?.value.length).toBe(8);
+    expect(v.windHistory).toBeNull();
     const south = v.sources.find((s) => s.id === 'buoy:46253');
     expect(south).toMatchObject({ ok: false, detail: 'answered HTTP 503' });
     expect(fs.existsSync(cacheFile)).toBe(true);
@@ -211,5 +243,42 @@ describe('conditions client', () => {
     expect(v.nextHigh).toBeNull();
     expect(v.forecast).toBeNull();
     expect(v.missing.waterLevel).toBe('CO-OPS 9410660 tide: unreachable (fetch failed)');
+  });
+});
+
+describe('captain conditions', () => {
+  let dir: string;
+
+  beforeEach(() => { dir = fs.mkdtempSync(path.join(os.tmpdir(), 'giveway-captain-conditions-')); });
+  afterEach(() => fs.rmSync(dir, { recursive: true, force: true }));
+
+  it('thins a long series but keeps its first and last points', () => {
+    const series = Array.from({ length: 60 }, (_, i) => i);
+    const thin = thinSeries(series, 25);
+    expect(thin.length).toBe(25);
+    expect(thin[0]).toBe(0);
+    expect(thin[24]).toBe(59);
+    expect(thinSeries([1, 2, 3], 25)).toEqual([1, 2, 3]);
+  });
+
+  it('gives the phone the tide curve, the readings and the forecast with harbor clock labels', async () => {
+    const client = createConditionsClient({ settings: conditionsSettings, fetch: fixtureFetch, cacheFile: path.join(dir, 'c.json'), now: () => NOW });
+    await client.refresh();
+    const view = conditionsAt(client.view(), { nowMs: NOW, timeZone: 'America/Los_Angeles', lonlat: [-118.25, 33.72], bulletins: [] });
+    const c = captainConditions(view, { nowMs: NOW, timeZone: 'America/Los_Angeles', seriesPoints: 25 });
+    expect(c.tide?.levelM?.value).toBe(1.35);
+    expect(c.tide?.turns[0]).toMatchObject({ kind: 'high', label: '13:23' });
+    expect(c.tide?.curve.length).toBeLessThanOrEqual(50);
+    expect(c.tide?.measured.length).toBe(9);
+    expect(c.waves?.fromDeg).toBe(198);
+    expect(c.waves?.history.length).toBe(8);
+    expect(c.wind?.history).toEqual([]);
+    expect(c.waterTempC?.value).toBe(22.9);
+    expect(c.pressureHpa?.value).toBe(1015.4);
+    expect(c.sunrise).toMatch(/^\d{2}:\d{2}$/);
+    expect(c.forecast?.periods.length).toBe(3);
+    expect(c.forecast?.zoneName).toContain('Point Mugu');
+    expect(c.timeZone).toBe('America/Los_Angeles');
+    expect(c.nowWall).toBe(new Date(NOW).toISOString());
   });
 });

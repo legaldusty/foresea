@@ -6,11 +6,15 @@ const APPLICATION = 'giveway';
 
 export interface StationValue { station: string; stationName: string; value: number; at: string }
 
-export interface WindValue { station: string; stationName: string; speedMps: number; gustMps: number | null; fromDeg: number | null; at: string }
+export interface WindSample { at: string; speedMps: number; gustMps: number | null }
+
+export interface WindValue { station: string; stationName: string; speedMps: number; gustMps: number | null; fromDeg: number | null; at: string; history?: WindSample[] }
 
 export interface LevelSample { at: number; meters: number }
 
 export interface TideTurn { kind: 'high' | 'low'; at: string; meters: number }
+
+export interface TidePoint { at: string; meters: number }
 
 export interface TideReading {
   station: string;
@@ -19,6 +23,8 @@ export interface TideReading {
   level: { meters: number; at: string } | null;
   trend: TideTrend | null;
   turns: TideTurn[];
+  curve?: TidePoint[];
+  measured?: TidePoint[];
 }
 
 interface CoopsBody {
@@ -55,11 +61,17 @@ export function parseLatestValue(body: unknown, station: string): StationValue |
 
 export function parseWind(body: unknown, station: string): WindValue | null {
   const b = coopsBody(body, station);
-  const row = b.data?.[b.data.length - 1];
-  const at = isoTime(row?.t as string | undefined);
-  const speedMps = finiteNumber(row?.s);
-  if (!at || speedMps === null) return null;
-  return { station, stationName: b.metadata?.name ?? station, speedMps, gustMps: finiteNumber(row?.g), fromDeg: finiteNumber(row?.d), at };
+  const history: WindSample[] = [];
+  let latest: WindValue | null = null;
+  for (const row of b.data ?? []) {
+    const at = isoTime(row.t as string | undefined);
+    const speedMps = finiteNumber(row.s);
+    if (!at || speedMps === null) continue;
+    const gustMps = finiteNumber(row.g);
+    history.push({ at, speedMps, gustMps });
+    latest = { station, stationName: b.metadata?.name ?? station, speedMps, gustMps, fromDeg: finiteNumber(row.d), at };
+  }
+  return latest && history.length > 1 ? { ...latest, history } : latest;
 }
 
 export function parseLevelSeries(body: unknown, station: string): { stationName: string; samples: LevelSample[] } {
@@ -95,18 +107,41 @@ export function parseTideTurns(body: unknown, station: string): TideTurn[] {
   return turns.sort((a, c) => Date.parse(a.at) - Date.parse(c.at));
 }
 
+export function parsePredictionCurve(body: unknown, station: string): TidePoint[] {
+  const b = coopsBody(body, station);
+  const points: TidePoint[] = [];
+  for (const row of b.predictions ?? []) {
+    const at = isoTime(row.t);
+    const meters = finiteNumber(row.v);
+    if (at && meters !== null && !row.type) points.push({ at, meters });
+  }
+  return points.sort((a, c) => Date.parse(a.at) - Date.parse(c.at));
+}
+
 export function nextTurns(turns: TideTurn[], now: number): { high: TideTurn | null; low: TideTurn | null } {
   const ahead = turns.filter((t) => Date.parse(t.at) > now);
   return { high: ahead.find((t) => t.kind === 'high') ?? null, low: ahead.find((t) => t.kind === 'low') ?? null };
 }
 
-export async function fetchTide(ctx: FetchContext, station: string, o: { datum: string; trendMinutes: number; steadyMeters: number; predictionHours: number }): Promise<TideReading> {
-  const levelUrl = coopsUrl({ product: 'water_level', station, datum: o.datum, range: String(Math.max(1, Math.ceil(o.trendMinutes / 60))) });
-  const predictionUrl = coopsUrl({ product: 'predictions', station, datum: o.datum, interval: 'hilo', begin_date: noaaDate(ctx.now - 3_600_000), range: String(o.predictionHours) });
-  const [levelResult, turnResult] = await Promise.allSettled([getJson(ctx, levelUrl), getJson(ctx, predictionUrl)]);
+export interface TideFetchOptions {
+  datum: string;
+  trendMinutes: number;
+  steadyMeters: number;
+  predictionHours: number;
+  curve: { pastHours: number; aheadHours: number; intervalMinutes: number };
+}
+
+export async function fetchTide(ctx: FetchContext, station: string, o: TideFetchOptions): Promise<TideReading> {
+  const hour = 3_600_000;
+  const levelHours = Math.max(1, Math.ceil(o.trendMinutes / 60), o.curve.pastHours);
+  const levelUrl = coopsUrl({ product: 'water_level', station, datum: o.datum, range: String(levelHours) });
+  const turnUrl = coopsUrl({ product: 'predictions', station, datum: o.datum, interval: 'hilo', begin_date: noaaDate(ctx.now - o.curve.pastHours * hour), range: String(o.predictionHours + o.curve.pastHours) });
+  const curveUrl = coopsUrl({ product: 'predictions', station, datum: o.datum, interval: String(o.curve.intervalMinutes), begin_date: noaaDate(ctx.now - o.curve.pastHours * hour), range: String(o.curve.pastHours + o.curve.aheadHours) });
+  const [levelResult, turnResult, curveResult] = await Promise.allSettled([getJson(ctx, levelUrl), getJson(ctx, turnUrl), getJson(ctx, curveUrl)]);
   if (levelResult.status === 'rejected' && turnResult.status === 'rejected') throw new Error((levelResult.reason as Error).message);
   const series = levelResult.status === 'fulfilled' ? parseLevelSeries(levelResult.value, station) : { stationName: station, samples: [] };
   const turns = turnResult.status === 'fulfilled' ? parseTideTurns(turnResult.value, station) : [];
+  const curve = curveResult.status === 'fulfilled' ? parsePredictionCurve(curveResult.value, station) : [];
   const last = series.samples[series.samples.length - 1];
   return {
     station,
@@ -115,14 +150,16 @@ export async function fetchTide(ctx: FetchContext, station: string, o: { datum: 
     level: last ? { meters: last.meters, at: new Date(last.at).toISOString() } : null,
     trend: levelTrend(series.samples, o.trendMinutes, o.steadyMeters),
     turns,
+    curve,
+    measured: series.samples.map((x) => ({ at: new Date(x.at).toISOString(), meters: x.meters })),
   };
 }
 
-async function firstFresh<T extends { at: string }>(ctx: FetchContext, stations: string[], product: string, maxAgeMinutes: number, parse: (body: unknown, station: string) => T | null): Promise<T> {
+async function firstFresh<T extends { at: string }>(ctx: FetchContext, stations: string[], product: string, maxAgeMinutes: number, parse: (body: unknown, station: string) => T | null, span: Record<string, string> = { date: 'latest' }): Promise<T> {
   const reasons: string[] = [];
   for (const station of stations) {
     try {
-      const found = parse(await getJson(ctx, coopsUrl({ product, station, date: 'latest' })), station);
+      const found = parse(await getJson(ctx, coopsUrl({ product, station, ...span })), station);
       if (found && freshEnough(found.at, ctx.now, maxAgeMinutes)) return found;
       reasons.push(found ? `station ${station}: newest reading is older than ${maxAgeMinutes} min` : `station ${station}: no reading`);
     } catch (err) {
@@ -132,8 +169,8 @@ async function firstFresh<T extends { at: string }>(ctx: FetchContext, stations:
   throw new Error(reasons.join('; ') || 'no station configured');
 }
 
-export function fetchWind(ctx: FetchContext, stations: string[], maxAgeMinutes: number): Promise<WindValue> {
-  return firstFresh(ctx, stations, 'wind', maxAgeMinutes, parseWind);
+export function fetchWind(ctx: FetchContext, stations: string[], maxAgeMinutes: number, historyHours: number): Promise<WindValue> {
+  return firstFresh(ctx, stations, 'wind', maxAgeMinutes, parseWind, { range: String(Math.max(1, historyHours)) });
 }
 
 export function fetchStationValue(ctx: FetchContext, stations: string[], product: 'air_temperature' | 'air_pressure', maxAgeMinutes: number): Promise<StationValue> {

@@ -1,9 +1,9 @@
-import { Binoculars, CaretRight, CheckCircle, Eye, MapPin, Siren, Translate, Warning } from '@phosphor-icons/react';
-import type { CaptainNotice, CaptainSnapshot, CaptainTodayRow, Priority } from '../../shared/protocol';
+import { Binoculars, CaretRight, CheckCircle, Eye, MapPin, Siren, Translate, Warning, Wind } from '@phosphor-icons/react';
+import type { CaptainConditions, CaptainNotice, CaptainSnapshot, CaptainTodayRow, Priority } from '../../shared/protocol';
 import { Button } from '../ui';
 import { ChoiceRow, Header, Num, Pin, pinForReason } from './parts';
 import { LANGUAGES, languageName, listDetail, listTitle, sentence } from './words';
-import { ConditionsLine } from './conditions';
+import { ConditionsLine, ConditionsSummary } from './conditions';
 
 function placeOf(row: CaptainTodayRow): string {
   const near = `${row.reason} near `;
@@ -11,7 +11,7 @@ function placeOf(row: CaptainTodayRow): string {
   return row.label === row.reason ? '' : row.label;
 }
 
-export function TodaySheet(props: { snap: CaptainSnapshot | null; lang: string; onReport: () => void; onLanguage: () => void }) {
+export function TodaySheet(props: { snap: CaptainSnapshot | null; lang: string; onReport: () => void; onLanguage: () => void; onConditions: () => void }) {
   const rows = props.snap?.today ?? [];
   const onRoute = rows.some((r) => r.onRoute);
   const updated = props.snap?.clock.label ?? null;
@@ -24,7 +24,7 @@ export function TodaySheet(props: { snap: CaptainSnapshot | null; lang: string; 
           {updated ? <>Updated <span className="num">{updated}</span>.</> : null}
         </span>
       </div>
-      <ConditionsLine c={props.snap?.conditions} />
+      <ConditionsLine c={props.snap?.conditions} onOpen={props.onConditions} />
       {rows.length ? (
         <div className="zones">
           {rows.map((r) => {
@@ -55,12 +55,22 @@ export function TodaySheet(props: { snap: CaptainSnapshot | null; lang: string; 
 
 const ROW_ICONS: Record<Priority, typeof Siren> = { P1: Siren, P2: Warning, P3: Eye, P4: MapPin };
 
-export function NoticesScreen(props: { notices: CaptainNotice[]; cleared: CaptainSnapshot['allClear']; lang: string; onBack: () => void; onOpen: (id: string) => void }) {
+export function NoticesScreen(props: { notices: CaptainNotice[]; cleared: CaptainSnapshot['allClear']; conditions: CaptainConditions | null | undefined; lang: string; onBack: () => void; onOpen: (id: string) => void; onConditions: () => void }) {
   const cleared = [...props.cleared].reverse();
   return (
     <div className="cap-screen" data-testid="notices">
       <Header title="Notices" onBack={props.onBack} testId="notices-back" />
       <div className="scroll">
+        {props.conditions ? (
+          <button type="button" className="cap-notice" onClick={props.onConditions} data-testid="notices-conditions">
+            <Wind size={20} className="lead" />
+            <span className="text">
+              <span className="t-heading">Conditions</span>
+              <span className="t-small c-muted"><ConditionsSummary c={props.conditions} /></span>
+            </span>
+            <CaretRight size={20} className="go" />
+          </button>
+        ) : null}
         <p className="intro">P4 notices are not on your route. They arrive silently, with no sound or buzz.</p>
         {props.notices.map((n) => {
           const Icon = ROW_ICONS[n.priority];
