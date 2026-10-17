@@ -168,7 +168,7 @@ export function templateWording(facts: WordingFacts): Wording {
     const c = facts.contact;
     brief = [
       `${facts.station} to Coast Guard Sector Los Angeles-Long Beach.`,
-      `Unidentified underwater contact ${c.label}, ${c.classification.toLowerCase()}, about ${c.sizeM.toFixed(1)} m, ${c.speedMps.toFixed(1)} m/s, at ${c.lonlatText}.`,
+      `${c.label}, an unidentified underwater contact (${c.classification.toLowerCase()}), about ${c.sizeM.toFixed(1)} m, ${c.speedMps.toFixed(1)} m/s, at ${c.lonlatText}.`,
       `Evidence: ${c.evidence.join('; ')}. Hostility estimate ${c.hostility.toFixed(2)}.`,
       `Predicted target ${c.targetName}, ${Math.round(c.odds * 100)}%${c.etaMin !== null ? `, about ${minutesLabel(c.etaMin)} out` : ''}. Risk ${c.riskScore} of 25 (${c.level}).`,
       `Actions so far: ${facts.publicReason.toLowerCase()} published, ${facts.instructionText}, ${facts.boats.length} boats rerouted. Nothing closed. Nothing has touched the vehicle.`,

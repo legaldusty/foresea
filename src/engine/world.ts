@@ -661,7 +661,7 @@ export class World {
       const ll = contactLonLat(this.h, c);
       facts.contact = {
         label: c.spec.label, classification: c.classification.label, sizeM: c.spec.sizeM, speedMps: c.spec.speedMps, hostility: c.hostility.H,
-        evidence: c.hostility.items.filter((i) => i.key !== 'start').map((i) => i.label.toLowerCase()),
+        evidence: c.hostility.items.filter((i) => i.key !== 'start').map((i) => i.label.charAt(0).toLowerCase() + i.label.slice(1)),
         targetName: tgt?.short ?? tgt?.name ?? 'no clear target', odds: top.p, etaMin: top.goal >= 0 ? etaToGoal(this.h, c, top.goal) : null,
         riskScore: c.lastRisk.R, level: c.lastRisk.levelName, damage: damagePhrase(tgt?.kind ?? ''),
         lonlatText: `${Math.abs(ll[1]).toFixed(4)} N ${Math.abs(ll[0]).toFixed(4)} W`,
