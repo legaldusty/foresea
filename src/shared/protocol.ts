@@ -1,4 +1,5 @@
 import type { LonLat } from '../engine/geo';
+import type { CustomOrder } from './orders';
 
 export type Theme = 'night' | 'day';
 export type Level = 'Low' | 'Medium' | 'Serious' | 'High' | 'Critical';
@@ -446,7 +447,7 @@ export interface AuditWhere { lonlat: LonLat; radiusM: number | null; zoneId: st
 
 export interface MarineLogEntry { id: string; atMin: number; lonlat: LonLat; kind: string; detail: string }
 
-export interface SignedOrders { signedBy: string | null; signedAtWall: string | null; orders: Record<string, number> }
+export interface SignedOrders { signedBy: string | null; signedAtWall: string | null; orders: Record<string, number>; custom?: CustomOrder[] }
 
 export interface ClockView { simMin: number; label: string; timeScale: number; paused: boolean; night: boolean; wallMs: number }
 
@@ -619,7 +620,7 @@ export interface CommandEvents {
   cardAction: { cardId: string; actionId: string };
   clock: { timeScale?: number; paused?: boolean; setHour?: number };
   undo: { auditId: string };
-  signOrders: { officer: string; orders: Record<string, number> };
+  signOrders: { officer: string; orders: Record<string, number>; custom?: CustomOrder[] };
   officer: { name: string };
   reset: { mode: 'tuesday' | 'night' | 'empty' | 'live' };
   resizeZone: { zoneId: string; radiusM: number };

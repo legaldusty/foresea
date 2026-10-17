@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { ArrowCounterClockwise, CaretDown, CheckCircle, Clock, FileText, SealCheck, ShieldCheck, UserCircle, X } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, BookOpenText, CaretDown, CheckCircle, Clock, ListPlus, PencilSimple, Plus, Prohibit, SealCheck, ShieldCheck, Trash, UserCircle, X } from '@phosphor-icons/react';
 import type { CommandEvents, CommandSnapshot } from '../../shared/protocol';
-import { ORDER_CARDS, formatBlank } from '../../shared/orders';
+import {
+  ORDER_ACTIONS, ORDER_CARDS, ORDER_EXAMPLES, ORDER_KINDS, ORDER_LEVEL_NAMES, formatBlank,
+  type CustomOrder, type OrderDo, type OrderDraftReply, type OrderHours, type OrderSource, type OrderThen, type OrderWhen, type ShipFlag,
+} from '../../shared/orders';
+import { buildOrder, dayWindow, nightWindow, parseOrder, restateOrder } from '../../engine/orderParse';
+import { defaultSettings } from '../../engine/settings';
 import { Button, Simulated, TextBox } from '../ui';
 import type { NightsProgress, NightsResult } from '../workers/nights.worker';
 import { wallTime } from '../format';
@@ -106,19 +111,147 @@ function Sentence(props: { text: string }) {
   return <>{parts.map((p, i) => (p === 'IF' || p === 'AND' || p === 'THEN' ? <b key={i}>{p}</b> : <span key={i}>{p}</span>))}</>;
 }
 
+interface TypedDraft { when: OrderWhen; then: OrderThen[]; text: string; source: OrderSource }
+
+const SOURCE_WORDS: Record<OrderSource, string> = {
+  parser: 'Read by the order parser on this laptop.',
+  granite: 'Read by IBM Granite on this laptop, then checked against the fixed limits.',
+  officer: 'Set by you.',
+};
+const LEVEL_CHOICES = ORDER_LEVEL_NAMES.map((label, value) => ({ value, label }));
+const PLACE_CHOICES = [{ value: '', label: 'anywhere' }, ...defaultSettings.harbor.targets.map((t) => ({ value: t.id, label: `near ${t.short}` }))];
+const SHIP_CHOICES: { value: ShipFlag; label: string }[] = [{ value: 'watch', label: 'to watch or anomalous' }, { value: 'anomalous', label: 'as anomalous' }];
+const VALUE_DOS = new Set<OrderDo>(['radius', 'slowKnots', 'validMinutes']);
+
+function hoursKey(h: OrderHours | null): string { return h ? `${h.from}-${h.to}` : ''; }
+
+function hoursFromKey(key: string): OrderHours | null {
+  const [from, to] = key.split('-');
+  return from && to ? { from, to } : null;
+}
+
+function hoursChoices(current: OrderHours | null): { value: string; label: string }[] {
+  const night = nightWindow(defaultSettings);
+  const day = dayWindow(defaultSettings);
+  const out = [
+    { value: '', label: 'at any hour' },
+    { value: hoursKey(night), label: `at night, ${night.from} to ${night.to}` },
+    { value: hoursKey(day), label: `by day, ${day.from} to ${day.to}` },
+  ];
+  if (current && !out.some((o) => o.value === hoursKey(current))) out.push({ value: hoursKey(current), label: `between ${current.from} and ${current.to}` });
+  return out;
+}
+
+function defaultValue(what: OrderDo): number | null {
+  const options = ORDER_ACTIONS.find((a) => a.value === what)?.options ?? [];
+  return options.length ? options[Math.floor(options.length / 2)] : null;
+}
+
+function Choice<T extends string | number>(props: { value: T; options: { value: T; label: string }[]; onChange: (v: T) => void; label: string; mono?: boolean }) {
+  return (
+    <span className="blank">
+      <span className="box">
+        <select aria-label={props.label} className={props.mono ? undefined : 'words'} value={String(props.value)}
+          onChange={(e) => { const found = props.options.find((o) => String(o.value) === e.target.value); if (found) props.onChange(found.value); }}>
+          {props.options.map((o) => <option key={String(o.value)} value={String(o.value)}>{o.label}</option>)}
+        </select>
+        <CaretDown size={14} className="caret" />
+      </span>{' '}
+    </span>
+  );
+}
+
+function TypedOrderCard(props: { draft: TypedDraft; onChange: (d: TypedDraft) => void }) {
+  const { when, then } = props.draft;
+  const change = (w: Partial<OrderWhen>, t: OrderThen[] = then) => props.onChange({ ...props.draft, when: { ...when, ...w }, then: t, source: 'officer' });
+  const levelled = when.kind === 'security' || when.kind === 'any';
+  const from = when.levelMin ?? (when.levelMax !== null ? 0 : -1);
+  const to = when.levelMax ?? ORDER_LEVEL_NAMES.length - 1;
+  const setStep = (i: number, what: OrderDo) => change({}, then.map((s, j) => (j === i ? { do: what, value: VALUE_DOS.has(what) ? defaultValue(what) : null } : s)));
+  const setValue = (i: number, value: number) => change({}, then.map((s, j) => (j === i ? { ...s, value } : s)));
+  const unused = ORDER_ACTIONS.filter((a) => !then.some((s) => s.do === a.value));
+  return (
+    <div className="order typed" data-testid="order-typed">
+      <span className="order-title"><PencilSimple size={20} />Your order</span>
+      <div className="sentence">
+        <Sentence text="IF " />
+        <Choice label="What it is about" value={when.kind} options={ORDER_KINDS}
+          onChange={(kind) => change({ kind, levelMin: kind === 'security' || kind === 'any' ? when.levelMin : null, levelMax: kind === 'security' || kind === 'any' ? when.levelMax : null, shipFlag: kind === 'flaggedShip' ? when.shipFlag ?? 'watch' : null })} />
+        {when.kind === 'flaggedShip' ? <Choice label="Flag" value={when.shipFlag ?? 'watch'} options={SHIP_CHOICES} onChange={(shipFlag) => change({ shipFlag })} /> : null}
+        {levelled ? (
+          <>
+            <span>rated </span>
+            <Choice label="Lowest level" value={from} options={[{ value: -1, label: 'any level' }, ...LEVEL_CHOICES]} onChange={(v) => change(v < 0 ? { levelMin: null, levelMax: null } : { levelMin: v, levelMax: Math.max(v, to) })} />
+            {from >= 0 ? <><span>to </span><Choice label="Highest level" value={to} options={LEVEL_CHOICES.filter((l) => l.value >= from)} onChange={(v) => change({ levelMin: from, levelMax: v })} /></> : null}
+          </>
+        ) : null}
+        <Choice label="Place" value={when.place ?? ''} options={PLACE_CHOICES} onChange={(p) => change({ place: p || null })} />
+        <Choice label="Hours" value={hoursKey(when.hours)} options={hoursChoices(when.hours)} onChange={(k) => change({ hours: hoursFromKey(k) })} />
+        {then.map((step, i) => {
+          const action = ORDER_ACTIONS.find((a) => a.value === step.do)!;
+          return (
+            <span key={`${step.do}-${i}`}>
+              <Sentence text={i === 0 ? 'THEN ' : 'AND '} />
+              <Choice label="Action" value={step.do} options={[action, ...unused]} onChange={(what) => setStep(i, what)} />
+              {VALUE_DOS.has(step.do) && step.value !== null ? (
+                <>
+                  <Choice label="Value" mono value={step.value} options={[...new Set([...action.options, step.value])].sort((a, b) => a - b).map((v) => ({ value: v, label: String(v) }))} onChange={(v) => setValue(i, v)} />
+                  <span>{action.unit} </span>
+                </>
+              ) : null}
+              {then.length > 1 ? <Button variant="quiet" icon={<X size={16} />} title="Remove this action" onClick={() => change({}, then.filter((_, j) => j !== i))} /> : null}
+            </span>
+          );
+        })}
+        {unused.length ? <Button variant="quiet" icon={<Plus size={16} />} onClick={() => change({}, [...then, { do: unused[0].value, value: VALUE_DOS.has(unused[0].value) ? defaultValue(unused[0].value) : null }])}>Add action</Button> : null}
+      </div>
+    </div>
+  );
+}
+
 export function OrdersSheet(props: { snap: CommandSnapshot; send: Send; onClose: () => void }) {
   const [values, setValues] = useState<Record<string, number>>({ ...props.snap.orders.orders });
   const [officer, setOfficer] = useState(props.snap.officer);
   const [plain, setPlain] = useState('');
-  const [suggestion, setSuggestion] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [reply, setReply] = useState<OrderDraftReply | null>(null);
+  const [typed, setTyped] = useState<TypedDraft | null>(null);
+  const [custom, setCustom] = useState<CustomOrder[]>(props.snap.orders.custom ?? []);
   const signed = props.snap.orders.signedBy;
-  const draft = async () => {
-    setSuggestion('Drafting');
+  const signedIds = new Set((props.snap.orders.custom ?? []).map((o) => o.id));
+  const vetoSeconds = values.vetoSeconds ?? defaultSettings.orders.vetoSeconds;
+  const live = typed ? buildOrder(typed.when, typed.then, typed.text, typed.source, defaultSettings, vetoSeconds) : null;
+  const show = (r: OrderDraftReply) => {
+    setReply(r);
+    setTyped(r.order ? { when: r.order.when, then: r.order.then, text: r.order.text, source: r.order.source } : null);
+  };
+  const readIt = async () => {
+    if (!plain.trim()) return;
+    setBusy(true);
+    setReply(null);
+    setTyped(null);
     try {
       const r = await fetch('/api/orders/draft', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ text: plain }) });
-      const j = await r.json();
-      setSuggestion(j.rule ?? 'The model is not available. Write the card by hand.');
-    } catch { setSuggestion('The model is not available. Write the card by hand.'); }
+      if (!r.ok) throw new Error(String(r.status));
+      show((await r.json()) as OrderDraftReply);
+    } catch {
+      const local = parseOrder(plain, defaultSettings, values);
+      show({ ...local, source: local.order ? 'parser' : 'none', examples: local.order || local.refused ? [] : ORDER_EXAMPLES });
+    } finally {
+      setBusy(false);
+    }
+  };
+  const add = () => {
+    if (!live?.order) return;
+    setCustom([...custom, { ...live.order, id: `typed-${Date.now().toString(36)}` }]);
+    setTyped(null);
+    setReply(null);
+    setPlain('');
+  };
+  const sign = () => {
+    void props.send('officer', { name: officer });
+    void props.send('signOrders', { officer, orders: values, custom });
+    props.onClose();
   };
   const meta = signed
     ? `Signed by ${signed} at ${wallTime(props.snap.orders.signedAtWall)}. The machine acts only inside these orders.`
@@ -147,19 +280,60 @@ export function OrdersSheet(props: { snap: CommandSnapshot; send: Send; onClose:
           </div>
         ))}
       </div>
+      {custom.length ? (
+        <div className="orders-custom">
+          <span className="t-heading">Orders in your words</span>
+          {custom.map((o) => {
+            const isSigned = signedIds.has(o.id);
+            return (
+              <div className="order custom" key={o.id} data-testid={`custom-order-${o.id}`}>
+                <span className="order-title-block">
+                  <span className="order-title">{isSigned ? <SealCheck size={20} /> : <PencilSimple size={20} />}In your words</span>
+                  <span className="t-small c-muted">{isSigned && signed ? `Signed by ${signed}` : 'Not signed yet'}</span>
+                </span>
+                <span className="custom-sentence">
+                  <span className="t-body">{restateOrder(o.when, o.then, defaultSettings, vetoSeconds)}</span>
+                  {o.text ? <span className="t-small c-muted">You wrote: {o.text}</span> : null}
+                </span>
+                <Button variant="quiet" icon={<Trash size={16} />} onClick={() => setCustom(custom.filter((x) => x.id !== o.id))}>Remove</Button>
+              </div>
+            );
+          })}
+        </div>
+      ) : null}
       <div className="order-free">
         <span className="t-small c-muted">Write an order in your own words</span>
-        <div style={{ display: 'flex', gap: 12 }}>
-          <div style={{ flex: 1 }}><TextBox value={plain} onChange={setPlain} placeholder="Type one order in plain English" /></div>
-          <Button variant="secondary" icon={<FileText size={16} />} onClick={() => void draft()} disabled={!plain.trim()}>Draft card</Button>
+        <div className="order-type-row">
+          <span className="box">
+            <input data-testid="order-text" value={plain} placeholder="For example: at night, publish divers zones automatically" onChange={(e) => setPlain(e.target.value)}
+              onKeyDown={(e) => { if (e.key === 'Enter') void readIt(); }} />
+          </span>
+          <Button variant="secondary" icon={<BookOpenText size={16} />} testId="order-read" onClick={() => void readIt()} disabled={!plain.trim() || busy}>Read it</Button>
         </div>
-        {suggestion ? <span className="t-body">{suggestion} <span className="t-small c-muted">Drafted by Granite. It becomes an order only when you sign.</span></span> : null}
+        {busy ? <span className="t-body c-muted">Reading</span> : null}
+        {typed && live ? (
+          <div className="order-read-out">
+            <TypedOrderCard draft={typed} onChange={setTyped} />
+            <span className="t-body">{live.understood}</span>
+            <span className="t-small c-muted">{SOURCE_WORDS[typed.source]} It becomes an order only when you add it and sign.</span>
+            {live.refused ? <span className="icon-text t-body"><Prohibit size={16} />{live.refused}</span> : null}
+            {live.missing.map((m) => <span key={m} className="t-small c-muted">Still needed: {m}.</span>)}
+            <span><Button variant="secondary" icon={<ListPlus size={16} />} testId="order-add" onClick={add} disabled={!live.order}>Add to orders</Button></span>
+          </div>
+        ) : reply && !reply.order ? (
+          <div className="order-read-out">
+            {reply.refused ? <span className="icon-text t-body"><Prohibit size={16} />{reply.refused}</span> : null}
+            {reply.understood ? <span className="t-body">{reply.understood}</span> : null}
+            {reply.missing.map((m) => <span key={m} className="t-small c-muted">Not understood: {m}.</span>)}
+            {reply.examples.length ? <span className="t-small c-muted">Try: {reply.examples.map((e) => `"${e}"`).join(' or ')}</span> : null}
+          </div>
+        ) : null}
       </div>
       <div className="order-sign">
         <span className="icon-text"><UserCircle size={20} /><span className="t-strong">Sign as</span></span>
         <div style={{ width: 240 }}><TextBox value={officer} onChange={setOfficer} /></div>
         <span style={{ flex: 1 }} />
-        <Button variant="primary" icon={<SealCheck size={16} />} testId="sign-orders" onClick={() => { void props.send('officer', { name: officer }); void props.send('signOrders', { officer, orders: values }); props.onClose(); }}>Sign</Button>
+        <Button variant="primary" icon={<SealCheck size={16} />} testId="sign-orders" onClick={sign}>Sign</Button>
       </div>
     </Sheet>
   );

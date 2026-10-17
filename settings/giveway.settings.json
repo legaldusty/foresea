@@ -30,6 +30,9 @@
               "speedAdvisoryKnots": 5, "speedAdvisoryMaxDelayMin": 2,
               "noticeValidMinutes": 240, "routineValidMinutes": 240,
               "autoPublishForecastUpdates": 0, "autoPublishUpToLevel": 2, "vetoSeconds": 20 },
+  "customOrders": { "maxOrders": 12, "maxTextLength": 400, "placeNearMeters": 1500, "shipCardEveryMinutes": 60,
+                    "radiusMinM": 50, "radiusMaxM": 3000, "slowKnotsMin": 3, "slowKnotsMax": 15,
+                    "validMinutesMin": 10, "validMinutesMax": 720 },
   "tuesday": {
     "openHour": 9.2,
     "dive": { "id": "dive-pier400", "label": "Hull dive, Pier 400", "filedBy": "Pacific Dive Services", "lon": -118.2495, "lat": 33.7235, "radiusM": 100, "slowKnots": 5, "startHour": 9, "endHour": 11.5, "robot": "HULLBOT-1" },

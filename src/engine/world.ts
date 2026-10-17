@@ -33,6 +33,8 @@ import {
   type BulletinRec,
 } from './conditions';
 import type { PublicZone } from './cap';
+import { noticeOrderKinds, orderApplies, orderDoes, validCustomOrder, type OrderSubject } from './orderParse';
+import type { CustomOrder, OrderDo } from '../shared/orders';
 
 export interface AisInputVessel {
   mmsi: number;
@@ -121,6 +123,8 @@ interface ZoneMeta {
   largeShipsOnly?: boolean;
   simulated?: boolean;
   slowKnots?: number;
+  orderRadiusM?: number;
+  orderValidMin?: number;
   startsAtMin?: number | null;
   work?: { line: WorkLine; meters: number; direction: 1 | -1; speedMps: number };
 }
@@ -226,6 +230,8 @@ const STATION = 'Los Angeles Harbor Watch';
 const NO_ARTICLE = /^(Angels Gate|Queens Gate|Pier \d+|the )/;
 const withArticle = (name: string): string => (NO_ARTICLE.test(name) ? name : `the ${name}`);
 const MAX_AUDIT = 400;
+const ROUTINE_AUTO_KINDS = new Set<P.NoticeKind>(['whale', 'divers', 'dredge', 'search']);
+const ROUTINE_CARD_TITLE: Partial<Record<P.NoticeKind, string>> = { whale: 'Whale slow zone', divers: 'Divers zone', dredge: 'Dredge zone', search: 'Search area', closure: 'Closure' };
 
 export class World {
   readonly h: Harbor;
@@ -288,6 +294,11 @@ export class World {
   private areaSeq = 0;
   conditions: P.ConditionsView = emptyConditions();
   bulletins: BulletinRec[] = [];
+  private ordersArmed = new Set<string>();
+  private ordersAlerted = new Set<string>();
+  private ordersApplied = new Set<string>();
+  private ordersCardsSeen = new Set<string>();
+  private shipCardAtMin = new Map<string, number>();
 
   constructor(o: WorldOptions) {
     this.h = o.harbor;
@@ -1403,6 +1414,7 @@ export class World {
     this.runSchedule();
     this.updateNotices();
     this.updateCards();
+    this.runCustomOrders();
     this.runAutoPublish();
     this.trackIncidents();
     const showMs = this.settings.sim.allClearShowSeconds * 1000;
@@ -1450,7 +1462,7 @@ export class World {
     if (!rec) return;
     const draft = existing?.draftId ? this.drafts.get(existing.draftId) : undefined;
     const activeNotice = existing?.noticeId ? this.notices.get(existing.noticeId) : undefined;
-    const zoneMeters = draft?.officerRadius ?? (activeNotice?.status === 'active' ? activeNotice.radiusM : o.zoneMeters);
+    const zoneMeters = draft?.officerRadius ?? (activeNotice?.status === 'active' ? activeNotice.radiusM : this.orderedSecurityMeters(c, o.zoneMeters));
     const fresh = this.areaFor(c, rec, zoneMeters);
     const zone: ZoneRec = existing ?? {
       id: zoneId, kind: 'keepOut', reason: 'Security zone', status: 'draft', geometry: this.areaGeometry(fresh), radiusM: zoneMeters, contactId: c.id, noticeId: null, draftId: null,
@@ -1600,7 +1612,7 @@ export class World {
       return existing.draftId;
     }
     const draft = existing?.draftId ? this.drafts.get(existing.draftId) : undefined;
-    const r = draft?.officerRadius ?? radiusM;
+    const r = draft?.officerRadius ?? existing?.meta?.orderRadiusM ?? radiusM;
     const geometry = circleZone(this.h.grid, cell, r);
     const zone: ZoneRec = existing ?? { id: zoneId, kind, reason, status: 'draft', geometry, radiusM: r, contactId, noticeId: null, draftId: null, movingTowardDeg: null, movingSpeedMps: 0, centerCell: cell, meta };
     zone.geometry = geometry;
@@ -1699,11 +1711,17 @@ export class World {
     const card = this.cards.find((k) => k.key === `publish:${draftId}`);
     if (!card) return;
     const o = this.orders();
-    const eligible = gentle && o.autoPublishUpToLevel >= 0 && level <= o.autoPublishUpToLevel && !this.autoHeld.has(draftId);
+    const custom = this.securityAutoOrders(draftId, level);
+    const signed = o.autoPublishUpToLevel >= 0 && level <= o.autoPublishUpToLevel;
+    const byOrder = !signed && !!custom.auto && level < CRITICAL;
+    const wouldArm = gentle && (signed || byOrder) && !this.autoHeld.has(draftId);
+    if (wouldArm && custom.never) this.noteOrderApplied(custom.never, draftId);
+    const eligible = wouldArm && !custom.never;
     if (!eligible) { card.autoAtWall = null; card.autoOrder = null; return; }
     if (!card.autoAtWall) {
       card.autoAtWall = this.wallMs + o.vetoSeconds * 1000;
-      card.autoOrder = `Standing Orders: publish give-way notices up to ${levelName(o.autoPublishUpToLevel)} on my behalf`;
+      card.autoOrder = byOrder && custom.auto ? this.orderLine(custom.auto) : `Standing Orders: publish give-way notices up to ${levelName(o.autoPublishUpToLevel)} on my behalf`;
+      if (byOrder && custom.auto) this.noteOrderApplied(custom.auto, draftId);
       const armedZone = this.zones.get(this.drafts.get(draftId)?.zoneId ?? '');
       this.log('machine', 'Auto-publish armed', `Publishing in ${o.vetoSeconds} s under the Standing Orders unless the officer stops it`, undefined, armedZone ? this.zoneWhere(armedZone) : undefined);
     }
@@ -1718,6 +1736,7 @@ export class World {
       const id = this.publish(draftId, 'machine');
       const n = id ? this.notices.get(id) : undefined;
       if (!n) continue;
+      this.dismissed.add(card.key);
       n.approvedBy = `Standing Orders of ${this.officer}`;
       const autoZone = this.zones.get(n.zoneId);
       this.log('machine', 'Published under Standing Orders', `No stop from the officer within ${this.orders().vetoSeconds} s. Undo from the log.`, undefined, autoZone ? this.zoneWhere(autoZone) : undefined);
@@ -1771,12 +1790,13 @@ export class World {
   private upsertDraft(zone: ZoneRec, plan: ResponsePlan, kind: P.NoticeKind, instruction: Instruction, routine: boolean, c: ContactSim | null, label: string | null): string | null {
     const o = this.orders();
     let d = zone.draftId ? this.drafts.get(zone.draftId) : undefined;
+    if (!d && this.shapeNewDraftZone(zone, kind, routine, c)) plan = this.routinePlan(zone);
     const slowKnots = zone.meta?.slowKnots ?? (kind === 'whale' ? o.animalSlowKnots : o.speedAdvisoryKnots);
     if (!d) {
       const id = this.id('d');
       d = {
         id, kind, contactId: c?.id ?? zone.contactId, zoneId: zone.id, instruction, instructionText: '', radiusM: zone.radiusM, slowKnots,
-        recipients: 'all', named: [], publicReason: zone.reason, validForMin: routine ? o.routineValidMinutes : o.noticeValidMinutes, approvedBy: this.officer,
+        recipients: 'all', named: [], publicReason: zone.reason, validForMin: zone.meta?.orderValidMin ?? (routine ? o.routineValidMinutes : o.noticeValidMinutes), approvedBy: this.officer,
         plan: this.planView(plan, zone.radiusM, slowKnots), wording: templateWording(this.blankFacts(zone)), createdAtMin: this.simMin, updatedAtMin: this.simMin,
         edited: false, routine, responsePlan: plan, wordingKey: '', factsKey: '', wordingInFlight: false, officerRadius: null, officerInstruction: null,
       };
@@ -2563,9 +2583,229 @@ export class World {
     return out;
   }
 
-  signOrders(officer: string, orders: Record<string, number>): void {
-    this.signedOrders = { signedBy: officer, signedAtWall: this.wall(), orders: { ...this.signedOrders.orders, ...orders } };
+  signOrders(officer: string, orders: Record<string, number>, custom?: unknown): void {
+    const merged = { ...this.signedOrders.orders, ...orders };
+    const offered = custom === undefined ? this.signedOrders.custom ?? [] : custom;
+    const kept = this.cleanCustomOrders(offered, merged.vetoSeconds);
+    this.signedOrders = { signedBy: officer, signedAtWall: this.wall(), orders: merged, custom: kept };
     this.log('officer', 'Standing Orders signed', `${officer}: ${Object.entries(orders).map(([k, v]) => `${k} ${v}`).join(', ')}`);
+    if (custom === undefined) return;
+    for (const order of kept) this.log('officer', 'Order signed', order.understood);
+    const dropped = (Array.isArray(custom) ? custom.length : 0) - kept.length;
+    if (dropped > 0) this.log('machine', 'Order not signed', `${dropped} order${dropped === 1 ? '' : 's'} outside the fixed limits or not readable. Nothing from ${dropped === 1 ? 'it' : 'them'} was applied.`);
+  }
+
+  private cleanCustomOrders(list: unknown, vetoSeconds: number | undefined): CustomOrder[] {
+    if (!Array.isArray(list)) return [];
+    const seen = new Set<string>();
+    const out: CustomOrder[] = [];
+    for (const raw of list.slice(0, this.settings.customOrders.maxOrders)) {
+      const order = validCustomOrder(raw, this.settings, vetoSeconds ?? this.settings.orders.vetoSeconds);
+      if (!order || seen.has(order.id)) continue;
+      seen.add(order.id);
+      out.push(order);
+    }
+    return out;
+  }
+
+  private customOrders(): CustomOrder[] { return this.signedOrders.custom ?? []; }
+
+  private ordersFor(subject: OrderSubject): CustomOrder[] {
+    return this.customOrders().filter((o) => orderApplies(o, subject, this.simMin, this.settings));
+  }
+
+  private firstDoing(orders: CustomOrder[], what: OrderDo): CustomOrder | null {
+    return orders.find((o) => orderDoes(o, what)) ?? null;
+  }
+
+  private orderLine(order: CustomOrder): string { return `Standing Orders: ${order.understood.replace(/\.$/, '')}`; }
+
+  private noteOrderApplied(order: CustomOrder, targetId: string): void {
+    const key = `${order.id}:${targetId}`;
+    if (this.ordersApplied.has(key)) return;
+    this.ordersApplied.add(key);
+    this.log('machine', 'Applied order', order.understood);
+  }
+
+  private contactSubject(c: ContactSim): OrderSubject {
+    const top = topGoal(c.tell);
+    return {
+      kinds: ['security'], level: c.lastRisk?.level ?? null, lonlat: contactLonLat(this.h, c),
+      targetId: top.goal >= 0 ? this.h.targets[top.goal].id : null, shipLevel: null,
+    };
+  }
+
+  private zoneSubject(zone: ZoneRec, kind: P.NoticeKind, c: ContactSim | null): OrderSubject {
+    const contact = c ?? (zone.contactId ? this.contacts.get(zone.contactId) ?? null : null);
+    if (kind === 'security' && contact) return this.contactSubject(contact);
+    return { kinds: noticeOrderKinds(kind, zone.id.startsWith('z-sighting-')), level: null, lonlat: this.lonlatOf(zone.centerCell), targetId: null, shipLevel: null };
+  }
+
+  private aisById(id: string): (AisInputVessel & { cell: number }) | undefined {
+    return this.ais.find((v) => `ais-${v.mmsi}` === id);
+  }
+
+  private cardSubject(card: CardRec): OrderSubject {
+    const blank: OrderSubject = { kinds: [], level: null, lonlat: null, targetId: null, shipLevel: null };
+    const d = card.draftId ? this.drafts.get(card.draftId) : undefined;
+    const z = d ? this.zones.get(d.zoneId) : undefined;
+    if (d && z) return this.zoneSubject(z, d.kind, null);
+    if (card.key.startsWith('ship:')) {
+      const id = card.key.slice('ship:'.length);
+      const v = this.aisById(id);
+      return { ...blank, kinds: ['flaggedShip'], lonlat: v ? this.aisLonLat(v) : null, shipLevel: this.vesselIntel.get(id)?.level ?? null };
+    }
+    if (card.key.startsWith('sighting:')) {
+      const s = this.sightings.find((x) => x.id === card.key.slice('sighting:'.length));
+      return { ...blank, kinds: s?.species === 'whale' ? ['sighting', 'whale'] : ['sighting'], lonlat: s?.lonlat ?? null };
+    }
+    const n = card.noticeId ? this.notices.get(card.noticeId) : undefined;
+    const nz = n ? this.zones.get(n.zoneId) : undefined;
+    if (n && nz) return this.zoneSubject(nz, n.kind, null);
+    const c = card.contactId ? this.contacts.get(card.contactId) : undefined;
+    if (!c) return blank;
+    if (card.kind === 'lost') return { ...blank, kinds: ['search'], lonlat: contactLonLat(this.h, c) };
+    if (card.kind === 'animal') return { ...blank, kinds: ['whale'], lonlat: contactLonLat(this.h, c) };
+    if (card.kind === 'person') return { ...blank, lonlat: contactLonLat(this.h, c) };
+    return this.contactSubject(c);
+  }
+
+  private orderedSecurityMeters(c: ContactSim, fallback: number): number {
+    if (!this.customOrders().length) return fallback;
+    let meters = fallback;
+    for (const order of this.ordersFor(this.contactSubject(c))) meters = orderDoes(order, 'radius')?.value ?? meters;
+    return meters;
+  }
+
+  private shapeNewDraftZone(zone: ZoneRec, kind: P.NoticeKind, routine: boolean, c: ContactSim | null): boolean {
+    if (zone.meta) delete zone.meta.orderValidMin;
+    if (!this.customOrders().length) return false;
+    let reshaped = false;
+    for (const order of this.ordersFor(this.zoneSubject(zone, kind, c))) {
+      const radius = orderDoes(order, 'radius')?.value ?? null;
+      const knots = orderDoes(order, 'slowKnots')?.value ?? null;
+      const valid = orderDoes(order, 'validMinutes')?.value ?? null;
+      let changed = false;
+      if (valid !== null) { zone.meta = { ...zone.meta, orderValidMin: valid }; changed = true; }
+      if (radius !== null && kind === 'security') changed = true;
+      if (radius !== null && routine && !zone.area) {
+        zone.meta = { ...zone.meta, orderRadiusM: radius };
+        zone.radiusM = radius;
+        zone.geometry = circleZone(this.h.grid, zone.centerCell, radius);
+        changed = reshaped = true;
+      }
+      if (knots !== null && routine && zone.kind === 'slow') { zone.meta = { ...zone.meta, slowKnots: knots }; changed = reshaped = true; }
+      if (changed) this.log('machine', 'Applied order', order.understood);
+    }
+    return reshaped;
+  }
+
+  private securityAutoOrders(draftId: string, level: number): { auto: CustomOrder | null; never: CustomOrder | null } {
+    if (!this.customOrders().length) return { auto: null, never: null };
+    const d = this.drafts.get(draftId);
+    const c = d?.contactId ? this.contacts.get(d.contactId) : undefined;
+    if (!d || !c) return { auto: null, never: null };
+    const matched = this.ordersFor({ ...this.contactSubject(c), level });
+    return { auto: this.firstDoing(matched, 'autoPublish'), never: this.firstDoing(matched, 'neverAuto') };
+  }
+
+  private runCustomOrders(): void {
+    if (!this.customOrders().length) return;
+    for (const d of [...this.drafts.values()]) if (d.routine) this.applyRoutineOrders(d);
+    this.raiseShipCards();
+    for (const card of [...this.cards]) this.callBackupByOrder(card);
+  }
+
+  private applyRoutineOrders(d: DraftRec): void {
+    const zone = this.zones.get(d.zoneId);
+    if (!zone || zone.status !== 'draft') return;
+    const matched = this.ordersFor(this.zoneSubject(zone, d.kind, null));
+    if (!matched.length) return;
+    const card = this.cards.find((k) => k.draftId === d.id);
+    const never = this.firstDoing(matched, 'neverAuto');
+    const auto = ROUTINE_AUTO_KINDS.has(d.kind) ? this.firstDoing(matched, 'autoPublish') : null;
+    if (never) {
+      if (card?.autoAtWall && this.ordersArmed.has(d.id)) {
+        card.autoAtWall = null;
+        card.autoOrder = null;
+        card.actions = [{ id: 'publish', label: 'Publish', primary: true }, { id: 'discard', label: 'Discard' }];
+        this.noteOrderApplied(never, d.id);
+      } else if (auto) this.noteOrderApplied(never, d.id);
+    } else if (auto && !this.autoHeld.has(d.id)) this.armRoutineAuto(d, card, auto);
+    const alert = this.firstDoing(matched, 'alert');
+    if (alert && !card && !this.ordersAlerted.has(d.id) && !this.ordersArmed.has(d.id)) {
+      this.ordersAlerted.add(d.id);
+      this.raiseDraftCard(d, alert);
+      if (this.cards.some((k) => k.draftId === d.id)) this.noteOrderApplied(alert, d.id);
+    }
+  }
+
+  private armRoutineAuto(d: DraftRec, existing: CardRec | undefined, order: CustomOrder): void {
+    const first = !this.ordersArmed.has(d.id);
+    if (!first && !existing) return;
+    if (!existing) this.raiseDraftCard(d, order);
+    const card = existing ?? this.cards.find((k) => k.draftId === d.id);
+    if (!card) return;
+    if (first) {
+      const vetoSeconds = this.orders().vetoSeconds;
+      this.ordersArmed.add(d.id);
+      card.autoAtWall = this.wallMs + vetoSeconds * 1000;
+      card.autoOrder = this.orderLine(order);
+      this.noteOrderApplied(order, d.id);
+      this.log('machine', 'Auto-publish armed', `Publishing in ${vetoSeconds} s under the Standing Orders unless the officer stops it`);
+    }
+    if (card.autoAtWall) card.actions = [{ id: 'publish', label: 'Publish now', primary: true }, { id: 'holdAuto', label: 'Stop' }, { id: 'discard', label: 'Discard' }];
+  }
+
+  private raiseDraftCard(d: DraftRec, order: CustomOrder): void {
+    const zone = this.zones.get(d.zoneId);
+    this.raiseCard(`publish:${d.id}`, {
+      kind: 'publish', title: `${d.label ?? ROUTINE_CARD_TITLE[d.kind] ?? `${d.publicReason} zone`} ready`,
+      body: `${d.instructionText} near ${zone ? this.placeNear(zone.centerCell) : 'the harbor'}. Raised under your Standing Orders.`,
+      facts: [d.plan.comparison.chosen, `Order: ${order.understood}`],
+      actions: [{ id: 'publish', label: 'Publish', primary: true }, { id: 'discard', label: 'Discard' }],
+      contactId: d.contactId, noticeId: null, draftId: d.id, script: null,
+    });
+  }
+
+  private raiseShipCards(): void {
+    const watchers = this.customOrders().filter((o) => o.when.kind === 'flaggedShip' && (orderDoes(o, 'alert') || orderDoes(o, 'callBackup')));
+    if (!watchers.length || !this.vesselIntel.size) return;
+    const every = this.settings.customOrders.shipCardEveryMinutes;
+    for (const [id, intel] of this.vesselIntel) {
+      if (intel.level === 'normal') continue;
+      const key = `ship:${id}`;
+      const last = this.shipCardAtMin.get(id);
+      if ((last !== undefined && Math.abs(this.simMin - last) < every) || this.cards.some((k) => k.key === key)) continue;
+      const v = this.aisById(id);
+      const subject: OrderSubject = { kinds: ['flaggedShip'], level: null, lonlat: v ? this.aisLonLat(v) : null, targetId: null, shipLevel: intel.level };
+      const order = watchers.find((o) => orderApplies(o, subject, this.simMin, this.settings));
+      if (!order) continue;
+      this.shipCardAtMin.set(id, this.simMin);
+      this.dismissed.delete(key);
+      const name = v?.name?.trim() || `MMSI ${id.replace(/^ais-/, '')}`;
+      const reason = intel.reasons[0] ?? (intel.level === 'anomalous' ? 'Moving unlike the usual harbor traffic' : 'Worth a look');
+      this.raiseCard(key, {
+        kind: 'info', title: `Ship to watch: ${name}. ${reason}`,
+        body: `The traffic model rates ${name} ${intel.level === 'anomalous' ? 'anomalous' : 'one to watch'} against real AIS. Nothing is sent to the ship; this card is for you.`,
+        facts: [...intel.reasons.slice(1, 3), `Model score ${intel.score.toFixed(2)}`, `Order: ${order.understood}`],
+        actions: [{ id: 'dismiss', label: 'Dismiss', primary: true }],
+        contactId: null, noticeId: null, draftId: null, script: null,
+      });
+      const card = this.cards.find((k) => k.key === key);
+      if (card) this.noteOrderApplied(order, card.id);
+    }
+  }
+
+  private callBackupByOrder(card: CardRec): void {
+    if (this.ordersCardsSeen.has(card.id)) return;
+    this.ordersCardsSeen.add(card.id);
+    if (card.backupCalled) return;
+    const order = this.firstDoing(this.ordersFor(this.cardSubject(card)), 'callBackup');
+    if (!order) return;
+    card.backupCalled = true;
+    this.noteOrderApplied(order, card.id);
+    this.log('machine', 'Backup officer called', `${card.title}. Called at once under the Standing Orders.`);
   }
 
   setClock(e: P.CommandEvents['clock']): void {
@@ -3052,7 +3292,7 @@ export class World {
       case 'cardAction': { const e = p as P.CommandEvents['cardAction']; this.cardAction(e.cardId, e.actionId); return; }
       case 'clock': this.setClock(p); return;
       case 'undo': this.undo((p as P.CommandEvents['undo']).auditId); return;
-      case 'signOrders': { const e = p as P.CommandEvents['signOrders']; this.signOrders(e.officer, e.orders); return; }
+      case 'signOrders': { const e = p as P.CommandEvents['signOrders']; this.signOrders(e.officer, e.orders, e.custom); return; }
       case 'officer': this.officer = (p as P.CommandEvents['officer']).name || this.officer; return;
       case 'reset': this.resetHarbor((p as P.CommandEvents['reset']).mode); return;
       case 'resizeZone': { const e = p as P.CommandEvents['resizeZone']; this.resizeZone(e.zoneId, e.radiusM); return; }

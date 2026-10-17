@@ -19,7 +19,7 @@ import { PILOT_REQUESTS, pilotDecision } from '../src/engine/pilot';
 import { parseDetections, sensorAccess } from './sensor';
 import { openAuditLog } from './audit';
 import { createPushService } from './push';
-import { createLanguageModel } from './llm';
+import { createLanguageModel, readTypedOrder } from './llm';
 import { createSmsService } from './sms';
 import { joinUrls, lanAddresses } from './net';
 import { createAisFeed, type FeedMode } from './ais/live';
@@ -186,8 +186,7 @@ app.get('/api/incident/:id', (req, res) => {
 });
 
 app.post('/api/orders/draft', async (req, res) => {
-  const rule = await language.draftOrder(String(req.body?.text ?? '').slice(0, 400));
-  res.json({ rule, source: rule ? 'granite' : 'none' });
+  res.json(await readTypedOrder(String(req.body?.text ?? ''), settings, world.signedOrders.orders, language));
 });
 app.post('/api/sensor/detections', (req, res) => {
   const access = sensorAccess({ configuredKey: process.env.GIVEWAY_SENSOR_KEY, providedKey: req.get('x-giveway-key'), remoteAddress: req.socket.remoteAddress, headers: req.headers });

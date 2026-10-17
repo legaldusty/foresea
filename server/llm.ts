@@ -1,6 +1,9 @@
 import type { Wording } from '../src/shared/protocol';
 import type { WordingFacts } from '../src/engine/wording';
 import { LANGUAGE_NAMES, type Lang } from '../src/engine/wording';
+import type { Settings } from '../src/engine/settings';
+import { groundedFields, orderFromFields, orderJsonSchema, orderVocabulary, parseOrder } from '../src/engine/orderParse';
+import { ORDER_EXAMPLES, type OrderDraftReply, type OrderReading, type OrderSource } from '../src/shared/orders';
 import { BANNED, EMOJI } from './wording-rules.mjs';
 
 interface LanguageSettings { ollamaModels: string[]; timeoutMs: number; languages: string[] }
@@ -8,8 +11,16 @@ interface LanguageSettings { ollamaModels: string[]; timeoutMs: number; language
 export interface LanguageModel {
   status: () => { source: 'granite' | 'template'; model: string | null; detail: string };
   word: (facts: WordingFacts, template: Wording) => Promise<Wording>;
-  draftOrder: (plainEnglish: string) => Promise<string | null>;
+  readOrder: (plainEnglish: string, vocabulary: string, schema: object) => Promise<Record<string, unknown> | null>;
 }
+
+const READ_ORDER = [
+  'You read one standing order written by a harbor watch officer and map it onto a closed vocabulary.',
+  'Use only what the officer wrote. Never add a condition, a place, an hour or a number the officer did not write.',
+  'If part of the order does not fit the vocabulary, leave that part out. If nothing fits, use kind unknown and no actions.',
+  'Holding or closing anything, contacting responders, anything touching the vehicle and anything about people in the water are never automated.',
+  'Reply with JSON only.',
+].join(' ');
 
 const SYSTEM = [
   'You write short harbor messages for the Port of Los Angeles watch officer.',
@@ -162,13 +173,30 @@ export function createLanguageModel(settings: LanguageSettings, host = process.e
       };
     },
 
-    async draftOrder(plainEnglish) {
-      const out = await call([
-        { role: 'system', content: 'You turn a harbor officer\'s plain English standing order into one rule card sentence of the form IF <condition> THEN <action>. Use only the officer\'s words and numbers. Reply with JSON only.' },
-        { role: 'user', content: plainEnglish },
-      ], { type: 'object', properties: { rule: { type: 'string' } }, required: ['rule'] }, settings.timeoutMs);
-      const rule = cleanText(out?.rule);
-      return rule || null;
+    async readOrder(plainEnglish, vocabulary, schema) {
+      const text = cleanText(plainEnglish);
+      if (!text) return null;
+      return call([
+        { role: 'system', content: `${READ_ORDER}\n\nVocabulary:\n${vocabulary}` },
+        { role: 'user', content: text },
+      ], schema, Math.max(settings.timeoutMs, 9000));
     },
   };
+}
+
+function orderReply(reading: OrderReading, source: OrderSource | 'none'): OrderDraftReply {
+  return { ...reading, source: reading.order ? source : 'none', examples: reading.order || reading.refused ? [] : ORDER_EXAMPLES };
+}
+
+export async function readTypedOrder(text: string, settings: Settings, signed: Record<string, number>, language: Pick<LanguageModel, 'readOrder'>): Promise<OrderDraftReply> {
+  const typed = text.slice(0, settings.customOrders.maxTextLength);
+  const vetoSeconds = signed.vetoSeconds ?? settings.orders.vetoSeconds;
+  const parsed = parseOrder(typed, settings, signed);
+  if (parsed.order || parsed.refused) return orderReply(parsed, 'parser');
+  const raw = await language.readOrder(typed, orderVocabulary(settings), orderJsonSchema(settings));
+  if (raw) {
+    const second = orderFromFields(groundedFields(raw, typed, settings), typed, 'granite', settings, vetoSeconds);
+    if (second.order || second.refused) return orderReply(second, 'granite');
+  }
+  return orderReply(parsed, 'none');
 }
