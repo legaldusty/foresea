@@ -1,6 +1,7 @@
 {
   "tell": { "beta": 1.3, "lostPrior": 0.25, "forget": 0.04, "callAt": 0.60, "callSteps": 3, "nearnessPower": 2,
-            "driftPrior": 0.10, "driftToleranceMps": 0.2, "driftSharpness": 3.0 },
+            "driftPrior": 0.10, "driftToleranceMps": 0.2, "driftSharpness": 3.0,
+            "driftSpeedFalloffMps": 0.05, "evasiveMinProgressCells": 2 },
   "risk": {
     "startHostility": 0.50,
     "evidence": { "friendlyConfirmed": 0.02, "registryNoReply": 0.25, "spoofedId": 0.30, "noReply": 0.15,
@@ -16,7 +17,11 @@
     "highFloorLevel": "Serious",
     "splitOddsMin": 0.20,
     "criticalWithinMinutes": 30,
-    "dropAfterMinutes": 2
+    "dropAfterMinutes": 2,
+    "urgentMinOdds": 0.40,
+    "highFloorAfterLevel": "High",
+    "levelMaxScores": [4, 9, 14, 19],
+    "consequenceMaxScore": 5
   },
   "orders": { "draftRiskMin": 10, "draftOddsMin": 0.60, "maxDelayPerBoatMin": 8, "zoneMeters": 250,
               "zoneGrowWhenUnsure": 2.0, "realertMinutes": 2, "backupOfficerMinutes": 4,
@@ -50,6 +55,7 @@
     "islands":     { "people": 2, "hazard": 5, "economy": 3, "environment": 5 }
   },
   "harbor": {
+    "placeSearchCells": 30,
     "targets": [
       { "id": "cruise",   "name": "Cruise Terminal",            "short": "Cruise Terminal", "kind": "passenger", "lon": -118.2775, "lat": 33.7440, "emptyId": "cruiseEmpty" },
       { "id": "research", "name": "Research Dock (AltaSea)",    "short": "Research Dock",   "kind": "research",  "lon": -118.2700, "lat": 33.7250 },
@@ -84,15 +90,38 @@
       { "id": "HULLBOT-1",  "name": "Hull Robot 1",     "owner": "Pacific Dive Services", "kind": "hullRobot", "homeTarget": "pier400", "sizeM": 1.2, "divePlan": true }
     ]
   },
+  "bench": {
+    "nights": 600, "seed": 7, "speedMps": 1.0, "arriveCells": 1.5, "maxSteps": 3000, "stepNoise": 2.5,
+    "decoyStartFraction": 0.35, "decoySpanFraction": 0.3, "decoyReachCells": 3, "decoyStretch": 1.4,
+    "closeInMinMeters": 1000, "closeInMaxMeters": 3000,
+    "styles": {
+      "direct": { "sloppy": 0.15, "decoy": false },
+      "sloppy": { "sloppy": 0.9, "decoy": false },
+      "decoy":  { "sloppy": 0.3, "decoy": true }
+    },
+    "acceptance": { "minWarningRatio": 1.4, "minRightByArrival": 0.99 }
+  },
+  "scenarios": {
+    "towardNoise": 2.5, "driftNoise": 2.2, "maxLegSteps": 4000, "arriveCells": 1.5,
+    "current": { "gridDirection": [0.6, 0.8], "speedMps": 0.2 },
+    "acceptance": { "minWithinOne": 0.92 }
+  },
   "delivery": { "resendMinutes": 2, "vhfCardMinutes": 4, "simulatedFleetSize": 12,
                 "simulatedSeenRate": 0.75, "simulatedAckRate": 0.6 },
   "channels": { "captainApp": true, "push": true, "sms": false, "vhf": true, "aisMarker": true },
-  "sim": { "timeScale": 20, "tickMs": 250, "nightStartHour": 19, "nightEndHour": 6, "driveSpeedMps": 2.0, "silenceAfterSeconds": 60 },
+  "sim": { "timeScale": 20, "tickMs": 250, "nightStartHour": 19, "nightEndHour": 6, "driveSpeedMps": 1.6, "driveSizeM": 1.9, "silenceAfterSeconds": 60 },
   "map": { "bbox": [-118.300, 33.690, -118.140, 33.785], "center": [-118.225, 33.735], "zoom": 13.2 },
   "ais": { "bbox": [[33.690, -118.300], [33.785, -118.140]],
            "messageTypes": ["PositionReport", "StandardClassBPositionReport", "ShipStaticData"],
-           "berthRadiusMeters": 450, "berthedMaxKnots": 0.5, "staleMinutes": 20, "onTimeLateMinutes": 15 },
-  "noaa": { "waterLevelStation": "9410660", "currentStations": ["LAB0101", "LAB0201"], "cacheMinutes": 30 },
+           "berthRadiusMeters": 450, "berthedMaxKnots": 0.5, "staleMinutes": 20, "onTimeLateMinutes": 15,
+           "onTimeMinKnots": 2, "onTimeStaleEtaHours": 12,
+           "breakwaterLonLat": [[-118.2800, 33.7080], [-118.2520, 33.7080], [-118.2360, 33.7135], [-118.1900, 33.7232], [-118.1360, 33.7232]],
+           "recording": "ais-fri-night.jsonl", "replaySpeed": 1, "replayMaxGapSeconds": 30, "replayLoopPauseSeconds": 2, "replayWarmStartMinutes": 4,
+           "connectTimeoutSeconds": 10, "liveFirstVesselSeconds": 20, "reconnectBaseSeconds": 2, "reconnectMaxSeconds": 60,
+           "emitMaxPerSecond": 2, "berthMinLengthM": 150, "displayTimeZone": "America/Los_Angeles" },
+  "noaa": { "waterLevelStation": "9410660", "currentStations": ["lb0101"], "cacheMinutes": 30,
+            "observedMaxAgeMinutes": 60, "predictionHours": 48, "predictionIntervalMinutes": 10, "stationSearchPadDeg": 0.05,
+            "requestTimeoutSeconds": 15 },
   "language": { "ollamaModels": ["granite4:micro", "granite3.3:2b", "granite3.1-dense:2b"], "timeoutMs": 6000,
                 "languages": ["es", "zh", "ko", "tl", "vi"] }
 }
