@@ -88,6 +88,7 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
     properties: {
       id: v.id, type: silhouetteFor(v.type, v.lengthM), heading: v.headingDeg, inZone: !!v.affected && v.inZone, stale: false,
       scale: v.lengthM && v.lengthM > 200 ? 1.5 : v.lengthM && v.lengthM > 80 ? 1.2 : 0.85, source: v.source, bg: !foreground(v),
+      flag: v.intel && v.intel.level !== 'normal' ? v.intel.level : 'none',
     },
     geometry: { type: 'Point', coordinates: v.lonlat },
   }));

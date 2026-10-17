@@ -21,7 +21,8 @@
     "certs": "tsx scripts/certs.ts",
     "tune:tell": "tsx scripts/tune-tell.ts",
     "hub:smoke": "tsx scripts/hub-smoke.ts",
-    "calibration": "tsx scripts/calibration.ts"
+    "calibration": "tsx scripts/calibration.ts",
+    "train:traffic": "tsx scripts/train-traffic.ts"
   },
   "dependencies": {
     "@fontsource/ibm-plex-mono": "^5.1.0",

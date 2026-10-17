@@ -391,3 +391,10 @@ body.dragging { user-select: none; cursor: grabbing; }
   .top-sources .src.lang { display: none; }
   .top-sources { gap: var(--space-12); }
 }
+
+.watch-row { display: grid; grid-template-columns: 1fr 32px; gap: 2px var(--space-8); width: 100%; padding: var(--space-8) 0 var(--space-8) var(--space-12); border: 0; border-top: 1px solid var(--line); background: none; color: var(--text); text-align: left; cursor: pointer; font: var(--type-body); }
+.watch-row:hover { background: var(--raised); }
+.watch-row.watch { box-shadow: inset 3px 0 0 var(--risk-medium); }
+.watch-row.anomalous { box-shadow: inset 3px 0 0 var(--risk-serious); }
+.watch-row .mono { text-align: right; font: var(--type-data); }
+.watch-row .why { grid-column: 1 / -1; font: var(--type-small); color: var(--muted); }

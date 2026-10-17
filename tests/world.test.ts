@@ -391,3 +391,21 @@ describe('autonomy under the Standing Orders', () => {
     expect(w.commandSnapshot().zones.find((z) => z.id === zoneId)!.radiusM).toBe(640);
   });
 });
+
+describe('boats react to a published warning', () => {
+  it('a boat inside a published security area slows to the advisory speed', () => {
+    const w = freshWorld('night');
+    driveToFuel(w);
+    runUntil(w, () => w.drafts.size > 0);
+    w.publish([...w.drafts.keys()][0]);
+    const advisoryMps = w.commandSnapshot().orders.orders.speedAdvisoryKnots * 0.514444;
+    let slowedInside = 0;
+    runUntil(w, () => {
+      const area = [...w.notices.values()].find((n) => n.status === 'active');
+      if (!area) return false;
+      for (const k of w.craft) if (!k.ignoresNotices && k.slowMps !== null && k.slowMps <= advisoryMps + 1e-6) slowedInside++;
+      return slowedInside > 0;
+    }, 2000);
+    expect(slowedInside).toBeGreaterThan(0);
+  });
+});

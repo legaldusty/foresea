@@ -202,6 +202,7 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
         'icon-size': ['interpolate', ['linear'], ['zoom'], 11, ['*', 0.55, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]], 13, ['*', 0.8, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]], 15, ['*', 1.25, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]]],
         'symbol-sort-key': ['case', ['==', ['get', 'bg'], true], 0, 1],
       }, paint: { 'icon-opacity': ['case', ['==', ['get', 'bg'], true], 0.4, ['==', ['get', 'stale'], true], 0.5, 1] } },
+      { id: 'vessels-flag', type: 'circle', source: 'vessels', filter: ['in', ['get', 'flag'], ['literal', ['watch', 'anomalous']]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 9, 15, 18], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 1.5, 'circle-stroke-color': ['case', ['==', ['get', 'flag'], 'anomalous'], c.riskSerious, c.riskMedium] } },
       { id: 'vessels-alert', type: 'symbol', source: 'vessels', filter: ['get', 'inZone'], layout: { 'icon-image': 'ring-alert', 'icon-allow-overlap': true, 'icon-size': 0.6 } },
       { id: 'contacts-ring', type: 'symbol', source: 'contacts', filter: ['==', ['get', 'selected'], true], layout: { 'icon-image': 'symbol-ring', 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': 1 } },
       { id: 'contacts', type: 'symbol', source: 'contacts', layout: {

@@ -48,7 +48,10 @@ export interface AisInputVessel {
 
 export interface ModelFacts {
   calibration?: { honestEce: number; decoyEce: number; insideCareful: number; insideLikely: number; timeRight: number; nights: number };
-  traffic?: { reports: number; vessels: number; hours: number; falseAlarm: number | null };
+  traffic?: {
+    reports: number; vessels: number; movingVessels: number; movingReports: number; hours: number; falseAlarm: number | null;
+    catchesSilence: number; catchesLaneStop: number; trainedAt: string; lastRunMs: number | null; runsPerMinute: number;
+  };
 }
 
 function reportedEtaLabel(iso: string | null): string | null {
@@ -951,7 +954,7 @@ export class World {
     const f = this.settings.forecast;
     const cal = this.modelFacts.calibration;
     const traffic = this.modelFacts.traffic;
-    const pct = (v: number) => `${Math.round(v * 100)}%`;
+    const pct = (v: number) => (v > 0 && v < 0.1 ? `${(v * 100).toFixed(1)}%` : `${Math.round(v * 100)}%`);
     const top = this.focusContact();
     const lang = this.sources.language;
     return [
@@ -998,14 +1001,16 @@ export class World {
         lastRunMs: null, runsPerMinute: null,
       },
       {
-        id: 'traffic', name: 'Traffic behavior model', kind: 'Lane model learned from real AIS', role: 'Flags real ships that move unlike the harbor\'s normal traffic: off the lanes, against the flow, odd speed, loitering, AIS gaps',
-        decides: false, trainedOn: traffic ? `${traffic.reports.toLocaleString()} real AIS reports from ${traffic.vessels} ships over ${traffic.hours.toFixed(1)} h` : 'Not loaded',
+        id: 'traffic', name: 'Traffic behavior model', kind: 'Lane model learned from real AIS', role: 'Flags real ships that go dark on AIS while under way or stop where ships keep moving. Heading, speed and lane checks are in the model but need more recorded traffic before they fire reliably',
+        decides: false, trainedOn: traffic ? `${traffic.reports.toLocaleString()} real AIS reports from ${traffic.vessels} ships (${traffic.movingReports} moving reports from ${traffic.movingVessels} ships) over ${traffic.hours.toFixed(1)} h, recorded from aisstream.io` : 'Not loaded',
         metrics: [
           { label: 'Ships scored now', value: String(this.vesselIntel.size) },
           { label: 'Flagged now', value: String([...this.vesselIntel.values()].filter((v) => v.level !== 'normal').length) },
           { label: 'False alarms on held-out real traffic', value: traffic?.falseAlarm !== null && traffic?.falseAlarm !== undefined ? pct(traffic.falseAlarm) : 'not measured' },
+          { label: 'Catches 15 min of AIS silence under way', value: traffic ? pct(traffic.catchesSilence) : 'not measured' },
+          { label: 'Catches a 10 min stop in a busy lane', value: traffic ? pct(traffic.catchesLaneStop) : 'not measured' },
         ],
-        lastRunMs: null, runsPerMinute: null,
+        lastRunMs: traffic?.lastRunMs ?? null, runsPerMinute: traffic?.runsPerMinute ?? null,
       },
       {
         id: 'language', name: lang.model ? `IBM Granite (${lang.model})` : 'IBM Granite', kind: 'Local language model through Ollama, on this laptop', role: 'Writes notice wording, radio scripts, the Coast Guard brief and translations from checked facts; never decides',

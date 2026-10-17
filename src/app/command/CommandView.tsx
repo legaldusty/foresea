@@ -147,6 +147,7 @@ export function CommandView() {
       const n = active.find((x) => x.zoneId === z.id) ?? snap.drafts.find((d) => d.zoneId === z.id);
       return { id: z.id, center: z.center, radiusM: z.radiusM, label: n ? `${n.label ?? n.publicReason}, ${z.status === 'draft' ? 'draft' : 'published'}` : z.reason };
     });
+  const flagged = snap.vessels.filter((v) => v.intel && v.intel.level !== 'normal').sort((a, b) => (b.intel?.score ?? 0) - (a.intel?.score ?? 0)).slice(0, 6);
   const inspectedVessel = inspect?.kind === 'vessel' ? snap.vessels.find((v) => v.id === inspect.id) ?? null : null;
   const dossierContact = inspect?.kind === 'contact' ? snap.contacts.find((c) => c.id === inspect.id) ?? null : null;
   const centerOn = (points: [number, number][]) => setRecenter({ id: `${Date.now()}`, points: points.length === 1 ? [[points[0][0] - 0.006, points[0][1] - 0.004], [points[0][0] + 0.006, points[0][1] + 0.004]] : points });
@@ -220,6 +221,18 @@ export function CommandView() {
             <div className="block-title"><span className="t-heading">Today so far</span>{snap.report.simulatedShare > 0 ? <span className="t-small c-muted">Simulated schedule</span> : null}</div>
             {snap.report.lines.map((l, i) => <p key={i} className="t-body">{l}</p>)}
             {active.length ? <button className="link t-small" data-testid="all-clear" onClick={() => void hub.send('allClear', {})}>All clear for every zone</button> : null}
+          </section>
+        ) : null}
+        {flagged.length ? (
+          <section className="rail-block" data-testid="ships-to-watch">
+            <div className="block-title"><span className="t-heading">Ships to watch</span><span className="t-small c-muted">Traffic model, real AIS</span></div>
+            {flagged.map((v) => (
+              <button key={v.id} className={`watch-row ${v.intel?.level}`} onClick={() => setInspect({ kind: 'vessel', id: v.id })} data-testid={`watch-${v.id}`}>
+                <span className="name">{v.name}</span>
+                <span className="mono">{Math.round((v.intel?.score ?? 0) * 100)}</span>
+                <span className="why">{v.intel?.reasons[0] ?? ''}</span>
+              </button>
+            ))}
           </section>
         ) : null}
         {!focus && !snap.card && !active.length ? (

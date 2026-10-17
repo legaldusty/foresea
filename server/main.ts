@@ -23,6 +23,7 @@ import { createAisFeed, type FeedMode } from './ais/live';
 import { berthedAt } from './ais/berth';
 import { sightingsCsv, sightingsGeoJson } from '../src/engine/tuesday';
 import { onTimeBoard } from './ais/ontime';
+import { createTrafficIntel } from './ais/intel';
 import { createNoaaClient } from './noaa/client';
 import type { AisVessel } from '../src/shared/ais-types';
 import type { AisSettings } from './ais/settings';
@@ -331,6 +332,11 @@ setInterval(guarded('tick', () => {
   if (++tickCount % 2 === 0) emitCaptains();
 }), settings.sim.tickMs);
 setInterval(refreshOnTime, 5000);
+const trafficIntel = createTrafficIntel();
+setInterval(guarded('traffic', () => {
+  world.vesselIntel = trafficIntel.score(aisVessels, world.sources.ais.mode === 'live');
+  world.modelFacts = { ...world.modelFacts, traffic: trafficIntel.facts() };
+}), 5000);
 setInterval(() => void refreshNoaa(), 10 * 60_000);
 void refreshNoaa();
 setTimeout(refreshOnTime, 2500);
