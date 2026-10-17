@@ -3,6 +3,8 @@ import gridJson from '../src/data/harbor_grid.json';
 import { defaultSettings } from '../src/engine/settings';
 import { buildHarbor } from '../src/engine/harbor';
 import { createWorld, type World } from '../src/engine/world';
+import { parseOrder } from '../src/engine/orderParse';
+import type { CustomOrder } from '../src/shared/orders';
 
 const harbor = buildHarbor(gridJson as never, defaultSettings);
 const QUEENS_GATE_CURRENT = { u: -0.05, v: -0.027, speedMps: 0.057, towardDeg: 242 };
@@ -389,6 +391,141 @@ describe('autonomy under the Standing Orders', () => {
     w.resizeZone(zoneId, 640);
     expect(w.notices.get(noticeId)!.radiusM).toBe(640);
     expect(w.commandSnapshot().zones.find((z) => z.id === zoneId)!.radiusM).toBe(640);
+  });
+});
+
+describe('orders in the officer\'s own words', () => {
+  function order(text: string): CustomOrder {
+    const r = parseOrder(text, defaultSettings);
+    if (!r.order) throw new Error(`not an order: ${text}`);
+    return r.order;
+  }
+
+  function signed(mode: 'tuesday' | 'night', texts: string[], overrides: Record<string, number> = {}): World {
+    const w = freshWorld(mode);
+    w.signOrders('Officer on watch', { ...w.commandSnapshot().orders.orders, ...overrides }, texts.map(order));
+    return w;
+  }
+
+  it('signing keeps the orders, rebuilt from their structure', () => {
+    const w = signed('tuesday', ['Publish divers zones automatically']);
+    const custom = w.commandSnapshot().orders.custom!;
+    expect(custom).toHaveLength(1);
+    expect(custom[0].understood).toBe('When divers are in the water, publish the divers zone automatically after the 20 s countdown.');
+    expect(w.audit.some((a) => a.action === 'Order signed')).toBe(true);
+  });
+
+  it('a never-automatically order blocks security auto-publish', () => {
+    const w = signed('night', ['Never publish give-way notices automatically'], { autoPublishUpToLevel: 4, vetoSeconds: 20 });
+    driveToFuel(w);
+    expect(runUntil(w, () => w.drafts.size > 0)).toBe(true);
+    runUntil(w, () => false, 600);
+    expect(w.notices.size).toBe(0);
+    expect(w.cards.some((k) => !!k.autoAtWall)).toBe(false);
+    expect(w.audit.some((a) => a.action === 'Applied order' && a.detail.includes('always wait for the officer'))).toBe(true);
+  });
+
+  it('an auto-publish order arms a security draft the signed level would not, and never at Critical', () => {
+    const w = signed('night', ['Auto-publish give-way notices up to High'], { autoPublishUpToLevel: -1 });
+    driveToFuel(w);
+    expect(runUntil(w, () => !!w.commandSnapshot().card?.autoAtWall)).toBe(true);
+    const card = w.commandSnapshot().card!;
+    expect(card.autoOrder).toBe('Standing Orders: When a security contact is rated up to High, publish the give-way notice automatically after the 20 s countdown');
+    expect(w.contactView([...w.contacts.values()][0]).risk!.level).not.toBe('Critical');
+  });
+
+  it('an auto-publish order for divers publishes the drafted zone after the countdown', () => {
+    const w = signed('tuesday', ['Publish divers zones automatically']);
+    const draftId = w.dropZone({ kind: 'divers', lonlat: [-118.2495, 33.7235] })!;
+    const zoneId = w.drafts.get(draftId)!.zoneId;
+    expect(runUntil(w, () => !!w.cards.find((k) => k.draftId === draftId)?.autoAtWall, 10)).toBe(true);
+    const card = w.cards.find((k) => k.draftId === draftId)!;
+    expect(card.actions.map((a) => a.id)).toContain('holdAuto');
+    expect(card.autoOrder).toContain('publish the divers zone automatically');
+    expect(runUntil(w, () => w.zones.get(zoneId)?.status === 'published', 200)).toBe(true);
+    const n = w.notices.get(w.zones.get(zoneId)!.noticeId!)!;
+    expect(n.approvedBy.startsWith('Standing Orders')).toBe(true);
+    expect([...w.audit].reverse().find((a) => a.action === 'Published')!.actor).toBe('machine');
+  });
+
+  it('Stop on a divers countdown keeps the zone waiting for the officer', () => {
+    const w = signed('tuesday', ['Publish divers zones automatically']);
+    const draftId = w.dropZone({ kind: 'divers', lonlat: [-118.2495, 33.7235] })!;
+    runUntil(w, () => !!w.cards.find((k) => k.draftId === draftId)?.autoAtWall, 10);
+    w.cardAction(w.cards.find((k) => k.draftId === draftId)!.id, 'holdAuto');
+    runUntil(w, () => false, 200);
+    expect(w.drafts.has(draftId)).toBe(true);
+    expect(w.cards.find((k) => k.draftId === draftId)!.autoAtWall ?? null).toBeNull();
+  });
+
+  it('a night-only whale order publishes a confirmed sighting at night and waits by day', () => {
+    const text = 'When a whale sighting is confirmed between 22:00 and 6 am, publish the slow zone automatically';
+    const day = signed('tuesday', [text]);
+    const daySighting = day.reportSighting({ species: 'whale', lonlat: [-118.262, 33.716] }, 'phone', 'Tug Millie');
+    day.confirmSighting(daySighting.id);
+    runUntil(day, () => false, 120);
+    expect(day.zones.get(`z-sighting-${daySighting.id}`)!.status).toBe('draft');
+    expect(day.cards.some((k) => !!k.autoAtWall)).toBe(false);
+
+    const night = signed('night', [text]);
+    const s = night.reportSighting({ species: 'whale', lonlat: [-118.262, 33.716] }, 'phone', 'Tug Millie');
+    night.confirmSighting(s.id);
+    expect(runUntil(night, () => night.zones.get(`z-sighting-${s.id}`)?.status === 'published', 200)).toBe(true);
+  });
+
+  it('a radius order changes the drafted divers zone and nothing else', () => {
+    const w = signed('tuesday', ['Keep 400 m clear around divers']);
+    const draftId = w.dropZone({ kind: 'divers', lonlat: [-118.2495, 33.7235] })!;
+    const d = w.drafts.get(draftId)!;
+    expect(d.radiusM).toBe(400);
+    expect(d.instructionText).toBe('KEEP 400 m CLEAR');
+    expect(w.commandSnapshot().zones.find((z) => z.id === d.zoneId)!.radiusM).toBe(400);
+    expect(w.audit.some((a) => a.action === 'Applied order' && a.detail.includes('400 m'))).toBe(true);
+    const dredge = w.drafts.get(w.dropZone({ kind: 'dredge', lonlat: [-118.2700, 33.7300] })!)!;
+    expect(dredge.radiusM).toBe(defaultSettings.orders.routineZoneMeters);
+  });
+
+  it('slow and valid-for orders shape a whale slow zone', () => {
+    const w = signed('tuesday', ['Whale zones: slow to 6 knots for 2 hours']);
+    const d = w.drafts.get(w.dropZone({ kind: 'whale', lonlat: [-118.262, 33.716] })!)!;
+    expect(d.instructionText).toBe('SLOW TO 6 KNOTS');
+    expect(d.validForMin).toBe(120);
+  });
+
+  it('a flagged-ship order raises one card per ship per hour', () => {
+    const w = signed('night', ['If the traffic model flags a ship as anomalous, alert me']);
+    w.setAis([{ mmsi: 366999001, name: 'PACIFIC TRADER', lat: 33.715, lon: -118.24, sogKn: 11, cogDeg: 20, headingDeg: 20, typeLabel: 'cargo', lengthM: 190, aisClass: 'A', source: 'replay' }]);
+    w.vesselIntel = new Map([
+      ['ais-366999001', { score: 0.93, level: 'anomalous', reasons: ['No AIS report for 9 minutes while under way'], features: [] }],
+      ['ais-366999002', { score: 0.41, level: 'watch', reasons: ['Slow in the lane'], features: [] }],
+    ]);
+    runUntil(w, () => false, 1);
+    const cards = w.cards.filter((k) => k.key.startsWith('ship:'));
+    expect(cards).toHaveLength(1);
+    expect(cards[0].title).toBe('Ship to watch: PACIFIC TRADER. No AIS report for 9 minutes while under way');
+    expect(cards[0].actions.map((a) => a.id)).toEqual(['dismiss']);
+    w.cardAction(cards[0].id, 'dismiss');
+    runUntil(w, () => false, 40);
+    expect(w.cards.some((k) => k.key.startsWith('ship:'))).toBe(false);
+    expect(runUntil(w, () => w.cards.some((k) => k.key.startsWith('ship:')), 1000)).toBe(true);
+  });
+
+  it('a call-the-backup order calls the backup officer as soon as the card is raised', () => {
+    const w = signed('night', ['When a security contact is Serious or above, call the backup officer at once']);
+    driveToFuel(w);
+    expect(runUntil(w, () => w.cards.some((k) => k.kind === 'publish'))).toBe(true);
+    const card = w.cards.find((k) => k.kind === 'publish')!;
+    expect(card.backupCalled).toBe(true);
+    expect((w.wallMs - card.shownAtWall) / 60_000).toBeLessThan(defaultSettings.orders.backupOfficerMinutes);
+    expect(w.audit.some((a) => a.action === 'Backup officer called' && a.detail.includes('at once'))).toBe(true);
+  });
+
+  it('a hand-made order outside the fixed limits is not signed', () => {
+    const w = freshWorld('tuesday');
+    const closure = { ...order('When an area is closed, call the backup'), then: [{ do: 'autoPublish' as const, value: null }] };
+    w.signOrders('Officer on watch', w.commandSnapshot().orders.orders, [closure]);
+    expect(w.commandSnapshot().orders.custom).toEqual([]);
+    expect(w.audit.some((a) => a.action === 'Order not signed')).toBe(true);
   });
 });
 
