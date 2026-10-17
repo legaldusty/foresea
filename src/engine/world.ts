@@ -151,6 +151,8 @@ interface CardRec extends P.Card {
   key: string;
   lastAlertMin: number;
   rank: number;
+  shownAtWall: number;
+  lastAlertWall: number;
 }
 
 interface CaptainRec { vesselId: string; connected: boolean; lastSeenWall: string | null }
@@ -1820,7 +1822,7 @@ export class World {
     if (this.dismissed.has(key)) return;
     const existing = this.cards.find((k) => k.key === key);
     if (existing) { existing.body = card.body; existing.facts = card.facts; existing.script = card.script ?? existing.script; existing.title = card.title; existing.actions = card.actions; return; }
-    this.cards.push({ ...card, id: this.id('card'), key, createdAtMin: this.simMin, realerts: 0, backupCalled: false, lastAlertMin: this.simMin, rank: CARD_RANK[card.kind] });
+    this.cards.push({ ...card, id: this.id('card'), key, createdAtMin: this.simMin, realerts: 0, backupCalled: false, lastAlertMin: this.simMin, rank: CARD_RANK[card.kind], shownAtWall: this.wallMs, lastAlertWall: this.wallMs });
     this.cards.sort((a, b) => a.rank - b.rank || a.createdAtMin - b.createdAtMin);
     this.log('machine', 'Card raised', card.title);
   }
@@ -1831,12 +1833,13 @@ export class World {
     const o = this.orders();
     const top = this.cards[0];
     if (!top) return;
-    if (this.simMin - top.lastAlertMin >= o.realertMinutes) {
+    const waitedMin = (this.wallMs - top.shownAtWall) / 60_000;
+    if ((this.wallMs - top.lastAlertWall) / 60_000 >= o.realertMinutes) {
       top.realerts++;
-      top.lastAlertMin = this.simMin;
-      this.log('machine', 'Re-alert', `${top.title} (no answer for ${Math.round(this.simMin - top.createdAtMin)} min). It will not act on its own.`);
+      top.lastAlertWall = this.wallMs;
+      this.log('machine', 'Re-alert', `${top.title} (no answer for ${Math.round(waitedMin)} min). It will not act on its own.`);
     }
-    if (!top.backupCalled && this.simMin - top.createdAtMin >= o.backupOfficerMinutes) {
+    if (!top.backupCalled && waitedMin >= o.backupOfficerMinutes) {
       top.backupCalled = true;
       this.log('machine', 'Backup officer called', `${top.title} unanswered for ${o.backupOfficerMinutes} min`);
     }

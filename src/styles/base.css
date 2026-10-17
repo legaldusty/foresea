@@ -6,3 +6,4 @@ body { background: var(--bg); color: var(--text); font-family: var(--font-sans);
 .chart-label-water { font-style: italic; font-weight: 400; color: var(--muted); letter-spacing: 0.08em; }
 .chart-label-gate, .chart-label-channel { font-weight: 400; color: var(--muted); }
 .chart-label-contact { font: 400 13px/1 var(--font-sans); color: var(--text); }
+.chart-label-time { font: 500 12px/1 var(--font-mono); font-variant-numeric: tabular-nums; color: var(--text); background: var(--bg); padding: 2px 4px; border-radius: 2px; }

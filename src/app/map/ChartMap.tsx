@@ -24,6 +24,8 @@ export interface ChartData {
   contacts: GeoJSON.FeatureCollection;
   arrows: GeoJSON.FeatureCollection;
   you: GeoJSON.FeatureCollection;
+  forecast: GeoJSON.FeatureCollection;
+  ticks: GeoJSON.FeatureCollection;
 }
 
 export const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -47,9 +49,32 @@ export interface ChartMapProps {
   motionDelayMs?: number;
 }
 
-const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you'];
+const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you', 'ticks'];
+const FADE_MS = 400;
+const FORECAST_OPACITY = { carefulFill: 0.22, carefulEdge: 1, likelyFill: 0.38, likelyEdge: 1 };
+const FORECAST_SIDES = ['a', 'b'] as const;
+type Side = (typeof FORECAST_SIDES)[number];
+
+function forecastLayers(c: ChartColors, side: Side): maplibregl.LayerSpecification[] {
+  const source = `forecast-${side}`;
+  const fade = { duration: FADE_MS, delay: 0 };
+  const layers = [
+    { id: `fc-careful-fill-${side}`, type: 'fill', source, filter: ['==', ['get', 'layer'], 'careful'], paint: { 'fill-color': c.riskMedium, 'fill-opacity': 0, 'fill-opacity-transition': fade } },
+    { id: `fc-careful-edge-${side}`, type: 'line', source, filter: ['==', ['get', 'layer'], 'careful'], layout: { 'line-join': 'round' }, paint: { 'line-color': c.riskMedium, 'line-width': 1.4, 'line-opacity': 0, 'line-opacity-transition': fade } },
+    { id: `fc-likely-fill-${side}`, type: 'fill', source, filter: ['==', ['get', 'layer'], 'likely'], paint: { 'fill-color': c.riskHigh, 'fill-opacity': 0, 'fill-opacity-transition': fade } },
+    { id: `fc-likely-edge-${side}`, type: 'line', source, filter: ['==', ['get', 'layer'], 'likely'], layout: { 'line-join': 'round' }, paint: { 'line-color': c.riskHigh, 'line-width': 1.6, 'line-opacity': 0, 'line-opacity-transition': fade } },
+  ];
+  return layers as unknown as maplibregl.LayerSpecification[];
+}
+
+function showForecast(map: MLMap, side: Side, on: boolean): void {
+  map.setPaintProperty(`fc-careful-fill-${side}`, 'fill-opacity', on ? FORECAST_OPACITY.carefulFill : 0);
+  map.setPaintProperty(`fc-careful-edge-${side}`, 'line-opacity', on ? FORECAST_OPACITY.carefulEdge : 0);
+  map.setPaintProperty(`fc-likely-fill-${side}`, 'fill-opacity', on ? FORECAST_OPACITY.likelyFill : 0);
+  map.setPaintProperty(`fc-likely-edge-${side}`, 'line-opacity', on ? FORECAST_OPACITY.likelyEdge : 0);
+}
 const MOTION_SOURCES: (keyof ChartData)[] = ['vessels', 'contacts', 'you'];
-const STATIC_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'arrows'];
+const STATIC_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'arrows', 'ticks'];
 const FRAMES_KEPT = 4;
 const EXTRAPOLATE_MAX = 2;
 
@@ -101,6 +126,8 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       chart: { type: 'vector', url: `pmtiles://${location.origin}/tiles/harbor.pmtiles`, attribution: 'OpenStreetMap contributors' },
       nearshore: { type: 'geojson', data: nearShoreBand() },
       ...Object.fromEntries(DATA_SOURCES.map((k) => [k, { type: 'geojson', data: EMPTY }])),
+      'forecast-a': { type: 'geojson', data: EMPTY },
+      'forecast-b': { type: 'geojson', data: EMPTY },
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': c.water } },
@@ -112,17 +139,18 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'roads', type: 'line', source: 'chart', 'source-layer': 'roads', filter: ['in', ['get', 'kind'], ['literal', ['highway', 'major_road']]], paint: { 'line-color': c.landEdge, 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.4, 15, 1.2], 'line-opacity': night ? 0.55 : 0.7 } },
       { id: 'coast', type: 'line', source: 'chart', 'source-layer': 'earth', paint: { 'line-color': c.landEdge, 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 0.6, 15, 1.4] } },
       { id: 'pier-edge', type: 'line', source: 'chart', 'source-layer': 'landuse', filter: ['==', ['get', 'kind'], 'pier'], paint: { 'line-color': c.landEdge, 'line-width': 0.8 } },
-      { id: 'zone-fill-slow', type: 'fill', source: 'zones', filter: ['==', ['get', 'kind'], 'slow'], paint: { 'fill-pattern': 'hatch-slow', 'fill-opacity': ['case', ['==', ['get', 'status'], 'draft'], 0.55, 1] } },
-      { id: 'zone-fill-keepout', type: 'fill', source: 'zones', filter: ['==', ['get', 'kind'], 'keepOut'], paint: { 'fill-pattern': 'hatch-keepout', 'fill-opacity': ['case', ['==', ['get', 'status'], 'draft'], 0.55, 1] } },
+      ...forecastLayers(c, 'a'),
+      ...forecastLayers(c, 'b'),
+      { id: 'zone-fill-slow', type: 'fill', source: 'zones', filter: ['all', ['==', ['get', 'kind'], 'slow'], ['!', ['get', 'area']]], paint: { 'fill-pattern': 'hatch-slow', 'fill-opacity': ['case', ['==', ['get', 'status'], 'draft'], 0.55, 1] } },
+      { id: 'zone-fill-keepout', type: 'fill', source: 'zones', filter: ['all', ['==', ['get', 'kind'], 'keepOut'], ['!', ['get', 'area']]], paint: { 'fill-pattern': 'hatch-keepout', 'fill-opacity': ['case', ['==', ['get', 'status'], 'draft'], 0.55, 1] } },
       { id: 'zone-edge', type: 'line', source: 'zones', filter: ['==', ['get', 'status'], 'published'], paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.6 } },
       { id: 'zone-edge-draft', type: 'line', source: 'zones', filter: ['==', ['get', 'status'], 'draft'], paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.4, 'line-dasharray': [3, 2] } },
       { id: 'route-old', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'planned'], paint: { 'line-color': withAlpha(c.muted, night ? 0.55 : 0.6), 'line-width': 1.2, 'line-dasharray': [2, 2] } },
       { id: 'route-new', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'new'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.tide, 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2, 15, 4] } },
-      { id: 'path-predicted', type: 'line', source: 'paths', layout: { 'line-cap': 'butt', 'line-join': 'round' }, paint: { 'line-color': ['case', ['==', ['get', 'rank'], 0], c.text, c.muted], 'line-width': ['case', ['==', ['get', 'rank'], 0], 1.6, 1.1], 'line-dasharray': [3, 2.5], 'line-opacity': ['case', ['==', ['get', 'rank'], 0], 0.9, 0.6] } },
-      { id: 'track', type: 'line', source: 'paths', filter: ['==', ['get', 'kind'], 'track'], paint: { 'line-color': c.muted, 'line-width': 1, 'line-opacity': 0.6 } },
+      { id: 'track', type: 'line', source: 'paths', filter: ['==', ['get', 'kind'], 'track'], layout: { 'line-join': 'round', 'line-cap': 'round' }, paint: { 'line-color': c.text, 'line-width': 1, 'line-opacity': 0.7 } },
+      { id: 'tick-rings', type: 'circle', source: 'ticks', paint: { 'circle-radius': 4, 'circle-color': c.bg, 'circle-stroke-width': 1.5, 'circle-stroke-color': c.text } },
       { id: 'arrows-line', type: 'line', source: 'arrows', paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.4, 'line-dasharray': [2, 1.6] } },
       { id: 'arrows-head', type: 'symbol', source: 'arrows', filter: ['==', ['geometry-type'], 'Point'], layout: { 'icon-image': ['case', ['==', ['get', 'kind'], 'slow'], 'arrow-slow', 'arrow-keepout'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-size': 0.5 } },
-      { id: 'path-heads', type: 'symbol', source: 'paths', filter: ['==', ['geometry-type'], 'Point'], layout: { 'icon-image': 'arrow-path', 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-size': 0.45 } },
       { id: 'vessels', type: 'symbol', source: 'vessels', layout: {
         'icon-image': ['coalesce', ['image', ['concat', 'v-', ['get', 'type']]], ['image', 'v-other']],
         'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
@@ -149,6 +177,9 @@ export function ChartMap(props: ChartMapProps) {
   const frames = useRef<MotionFrame[]>([]);
   const clockOffset = useRef<number | null>(null);
   const staticKeys = useRef(new Map<keyof ChartData, string>());
+  const forecastFront = useRef<Side>('a');
+  const forecastKey = useRef('');
+  const tickLabels = useRef(new Map<string, maplibregl.Marker>());
   const motionStats = useRef<{ frames: number; lastMs: number; contact: number[] | null }>({ frames: 0, lastMs: 0, contact: null });
 
   useEffect(() => {
@@ -176,7 +207,9 @@ export function ChartMap(props: ChartMapProps) {
       await loadChartImages(map, colors, el);
       readyRef.current = true;
       staticKeys.current.clear();
+      forecastKey.current = '';
       pushStatic(map, propsRef.current.data, staticKeys.current);
+      pushForecast(map, propsRef.current.data);
       pushMotion(map, propsRef.current.data);
       addLabels();
     });
@@ -251,7 +284,7 @@ export function ChartMap(props: ChartMapProps) {
     }
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [props.theme]);
 
   useEffect(() => {
@@ -265,7 +298,7 @@ export function ChartMap(props: ChartMapProps) {
     else list.push({ at, data: props.data });
     while (list.length > FRAMES_KEPT) list.shift();
     const map = mapRef.current;
-    if (map && readyRef.current) pushStatic(map, props.data, staticKeys.current);
+    if (map && readyRef.current) { pushStatic(map, props.data, staticKeys.current); pushForecast(map, props.data); }
   }, [props.data]);
 
   useEffect(() => {
@@ -311,6 +344,36 @@ export function ChartMap(props: ChartMapProps) {
     for (const p of props.fitTo) b.extend(p);
     map.fitBounds(b, { padding: props.padding ?? 60, maxZoom: 15, duration: 700 });
   }, [JSON.stringify(props.fitTo)]);
+
+  function pushForecast(map: MLMap, data: ChartData): void {
+    const key = JSON.stringify(data.forecast);
+    if (key !== forecastKey.current) {
+      forecastKey.current = key;
+      const back: Side = forecastFront.current === 'a' ? 'b' : 'a';
+      (map.getSource(`forecast-${back}`) as GeoJSONSource | undefined)?.setData(data.forecast);
+      showForecast(map, back, true);
+      showForecast(map, forecastFront.current, false);
+      forecastFront.current = back;
+    }
+    const want = new Map<string, { label: string; lonlat: [number, number] }>();
+    for (const f of data.ticks.features) {
+      const props = f.properties as Record<string, unknown> | null;
+      if (f.geometry.type !== 'Point' || !props) continue;
+      want.set(String(props.id), { label: String(props.label), lonlat: f.geometry.coordinates as [number, number] });
+    }
+    for (const [id, m] of tickLabels.current) if (!want.has(id)) { m.remove(); tickLabels.current.delete(id); }
+    for (const [id, t] of want) {
+      let m = tickLabels.current.get(id);
+      if (!m) {
+        const div = document.createElement('div');
+        div.className = 'chart-label chart-label-time';
+        m = new maplibregl.Marker({ element: div, anchor: 'left', offset: [8, 0] }).setLngLat(t.lonlat).addTo(map);
+        tickLabels.current.set(id, m);
+      }
+      (m.getElement() as HTMLElement).textContent = t.label;
+      m.setLngLat(t.lonlat);
+    }
+  }
 
   return <div className="chart-wrap" data-theme={props.theme}><div ref={holder} className="chart-map" /></div>;
 }

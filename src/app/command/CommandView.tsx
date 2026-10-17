@@ -29,7 +29,7 @@ export function CommandView() {
   const cardId = snap?.card?.id ?? null;
   useEffect(() => { if (cardId) railRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }, [cardId]);
 
-  const data = useMemo(() => commandChart(snap, selected), [snap, selected]);
+  const data = useMemo(() => commandChart(snap, selected, hub.forecasts), [snap, selected, hub.forecasts]);
   if (!snap) return <div className="rail-empty">Connecting to the hub</div>;
 
   const contact = pickContact(snap.contacts, selected);

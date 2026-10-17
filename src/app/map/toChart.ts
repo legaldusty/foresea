@@ -1,5 +1,5 @@
-import type { CaptainSnapshot, CommandSnapshot, ContactView, ZoneView } from '../../shared/protocol';
-import { bearingDeg, offsetPoint, type LonLat } from '../../engine/geo';
+import type { AreaView, CaptainSnapshot, CommandSnapshot, ContactView, ForecastTickView, ForecastView, ZoneView } from '../../shared/protocol';
+import { offsetPoint, type LonLat } from '../../engine/geo';
 import { silhouetteFor } from './chartImages';
 import { EMPTY, type ChartData } from './ChartMap';
 
@@ -7,11 +7,26 @@ type F = GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>;
 
 const fc = (features: F[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
 
-function zoneFeatures(zones: Pick<ZoneView, 'id' | 'kind' | 'status' | 'rings'>[]): F[] {
+function zoneFeatures(zones: (Pick<ZoneView, 'id' | 'kind' | 'status' | 'rings'> & { area?: boolean })[]): F[] {
   return zones.filter((z) => z.rings.length).map((z) => ({
-    type: 'Feature', properties: { id: z.id, kind: z.kind, status: z.status },
+    type: 'Feature', properties: { id: z.id, kind: z.kind, status: z.status, area: !!z.area },
     geometry: { type: 'MultiPolygon', coordinates: z.rings },
   }));
+}
+
+function layerFeatures(owner: string, shapes: { likely: LonLat[][][]; careful: LonLat[][][] }): F[] {
+  const out: F[] = [];
+  if (shapes.careful.length) out.push({ type: 'Feature', properties: { owner, layer: 'careful' }, geometry: { type: 'MultiPolygon', coordinates: shapes.careful } });
+  if (shapes.likely.length) out.push({ type: 'Feature', properties: { owner, layer: 'likely' }, geometry: { type: 'MultiPolygon', coordinates: shapes.likely } });
+  return out;
+}
+
+function tickFeatures(owner: string, ticks: ForecastTickView[]): F[] {
+  return ticks.map((t) => ({ type: 'Feature', properties: { id: `${owner}:${t.minutes}`, label: t.label }, geometry: { type: 'Point', coordinates: t.lonlat } }));
+}
+
+function areaOf(a: AreaView | null): { likely: LonLat[][][]; careful: LonLat[][][] } {
+  return a ? { likely: a.likely, careful: a.careful } : { likely: [], careful: [] };
 }
 
 function arrowFeatures(zones: { id: string; kind: string; centerline: LonLat[]; movingTowardDeg: number | null; movingSpeedMps: number }[]): F[] {
@@ -38,17 +53,18 @@ export function contactState(c: ContactView): string {
   return c.risk.level.toLowerCase();
 }
 
-function lineWithHead(coords: LonLat[], props: Record<string, unknown>): F[] {
-  if (coords.length < 2) return [];
-  const a = coords[coords.length - 2], b = coords[coords.length - 1];
-  return [
-    { type: 'Feature', properties: props, geometry: { type: 'LineString', coordinates: coords } },
-    { type: 'Feature', properties: { ...props, bearing: bearingDeg(a, b) }, geometry: { type: 'Point', coordinates: b } },
-  ];
-}
+const BLANK: ChartData = { zones: EMPTY, paths: EMPTY, routes: EMPTY, vessels: EMPTY, contacts: EMPTY, arrows: EMPTY, you: EMPTY, forecast: EMPTY, ticks: EMPTY };
 
-export function commandChart(s: CommandSnapshot | null, selectedId: string | null): ChartData {
-  if (!s) return { zones: EMPTY, paths: EMPTY, routes: EMPTY, vessels: EMPTY, contacts: EMPTY, arrows: EMPTY, you: EMPTY };
+export function commandChart(s: CommandSnapshot | null, selectedId: string | null, forecasts: ForecastView[] = []): ChartData {
+  if (!s) return BLANK;
+  const live = new Set(s.contacts.map((c) => c.id));
+  const forecast: F[] = [];
+  const ticks: F[] = [];
+  for (const f of forecasts) {
+    if (!live.has(f.contactId)) continue;
+    forecast.push(...layerFeatures(f.contactId, f));
+    ticks.push(...tickFeatures(f.contactId, f.ticks));
+  }
   const paths: F[] = [];
   for (const c of s.contacts) {
     if (c.track.length > 1) paths.push({ type: 'Feature', properties: { kind: 'track', rank: 9 }, geometry: { type: 'LineString', coordinates: c.track } });
@@ -71,19 +87,28 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
     geometry: { type: 'Point', coordinates: c.lonlat },
   }));
   return {
-    zones: fc(zoneFeatures(s.zones)),
+    zones: fc(zoneFeatures(s.zones.map((z) => ({ ...z, area: !!z.area })))),
     paths: fc(paths),
     routes: fc(routes),
     vessels: fc(vessels),
     contacts: fc(contacts),
-    arrows: fc(arrowFeatures(s.zones)),
+    arrows: fc(arrowFeatures(s.zones.filter((z) => !z.area))),
     you: EMPTY,
+    forecast: fc(forecast),
+    ticks: fc(ticks),
   };
 }
 
 export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number): ChartData {
-  if (!s) return { zones: EMPTY, paths: EMPTY, routes: EMPTY, vessels: EMPTY, contacts: EMPTY, arrows: EMPTY, you: EMPTY };
-  const zones = s.notices.map((n) => {
+  if (!s) return BLANK;
+  const forecast: F[] = [];
+  const ticks: F[] = [];
+  for (const n of s.notices) {
+    if (!n.area) continue;
+    forecast.push(...layerFeatures(n.id, areaOf(n.area)));
+    ticks.push(...tickFeatures(n.id, n.area.ticks));
+  }
+  const zones = s.notices.filter((n) => !n.area).map((n) => {
     const shift = n.zone.movingTowardDeg !== null && extrapolateMin > 0 ? n.zone.movingSpeedMps * extrapolateMin * 60 : 0;
     const rings = shift > 0 && n.zone.movingTowardDeg !== null
       ? n.zone.rings.map((poly) => poly.map((ring) => ring.map((p) => offsetPoint(p, shift, n.zone.movingTowardDeg as number))))
@@ -104,6 +129,6 @@ export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number):
   }));
   return {
     zones: fc(zoneFeatures(zones)), paths: EMPTY, routes: fc(routes), vessels: fc(vessels), contacts: EMPTY,
-    arrows: fc(arrowFeatures(zones)), you: fc(you),
+    arrows: fc(arrowFeatures(zones)), you: fc(you), forecast: fc(forecast), ticks: fc(ticks),
   };
 }
