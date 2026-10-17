@@ -30,6 +30,14 @@
               "speedAdvisoryKnots": 5, "speedAdvisoryMaxDelayMin": 2,
               "noticeValidMinutes": 240, "routineValidMinutes": 240,
               "autoPublishForecastUpdates": 0 },
+  "tuesday": {
+    "openHour": 9.2,
+    "dive": { "id": "dive-pier400", "label": "Hull dive, Pier 400", "filedBy": "Pacific Dive Services", "lon": -118.2495, "lat": 33.7235, "radiusM": 100, "slowKnots": 5, "startHour": 9, "endHour": 11.5, "robot": "HULLBOT-1" },
+    "dredge": { "id": "dredge-main", "label": "Dredge, Main Channel", "filedBy": "Port of Los Angeles, Construction and Maintenance", "line": [[-118.2700, 33.7270], [-118.2712, 33.7330], [-118.2725, 33.7385]], "radiusM": 150, "speedKn": 0.4, "startHour": 7, "endHour": 17 },
+    "whale": { "id": "whale-approach", "label": "Blue whale, approach lanes", "reportedBy": "Crew of an inbound container ship", "lon": -118.2150, "lat": 33.6985, "radiusM": 1500, "slowKnots": 10, "minLengthM": 40, "reportedHour": 9.0833, "confirmedHour": 9.1167 },
+    "glider": { "registryId": "ALTASEA-G3", "lon": -118.2660, "lat": 33.7230, "silentHour": 10.5 },
+    "history": { "days": 6, "count": 26, "seed": 61 }
+  },
   "forecast": { "samples": 600, "beta": 3, "lostBeta": 0.6, "driftSharpness": 3, "speedSpread": 0.15, "horizonMinutes": 90,
                 "radiusCells": 2, "radiusGrowMinutes": 15, "radiusMaxCells": 6, "likelyShare": 0.5, "likelyMaxRadiusCells": 9,
                 "carefulShare": 0.125, "tickMinutes": 10, "seed": 11, "everySeconds": 1,

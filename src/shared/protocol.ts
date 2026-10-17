@@ -6,8 +6,9 @@ export type Priority = 'P1' | 'P2' | 'P3' | 'P4';
 export type DeliveryState = 'sent' | 'delivered' | 'seen' | 'acknowledged' | 'complying';
 export type Channel = 'app' | 'push' | 'sms' | 'vhf' | 'ais';
 export type ContactKind = 'powered' | 'debris' | 'animal' | 'person' | 'friendly' | 'unknown';
-export type NoticeKind = 'security' | 'whale' | 'divers' | 'dredge' | 'person';
-export type PublicReason = 'Security zone' | 'Whale nearby' | 'Divers in water' | 'Dredge working' | 'Person in the water';
+export type NoticeKind = 'security' | 'whale' | 'divers' | 'dredge' | 'person' | 'closure' | 'search';
+export type PublicReason = 'Security zone' | 'Whale nearby' | 'Divers in water' | 'Dredge working' | 'Person in the water' | 'Area closed' | 'Search area';
+export type Species = 'whale' | 'dolphin' | 'sea lion' | 'debris' | 'hazard';
 export type Recipients = 'all' | 'small' | 'named';
 export type DataSource = 'simulated' | 'ais-live' | 'ais-replay';
 
@@ -190,6 +191,11 @@ export interface NoticeDraft {
   updatedAtMin: number;
   edited: boolean;
   routine: boolean;
+  label?: string | null;
+  filedBy?: string | null;
+  startsAtMin?: number | null;
+  largeShipsOnly?: boolean;
+  simulated?: boolean;
 }
 
 export interface Notice extends NoticeDraft {
@@ -240,6 +246,50 @@ export interface OnTimeRow {
   deltaMin: number | null;
   status: 'on time' | 'at risk' | 'berthed' | 'anchored' | 'unknown' | 'late';
   why: string;
+  zoneNote?: string | null;
+}
+
+export interface Sighting {
+  id: string;
+  species: Species;
+  lonlat: LonLat;
+  atMin: number;
+  dayOffset: number;
+  whenLabel: string;
+  source: 'desk' | 'phone' | 'ship crew' | 'sensor' | 'researcher';
+  reporter: string;
+  status: 'reported' | 'confirmed';
+  simulated: boolean;
+  note: string;
+}
+
+export interface TodayRow {
+  id: string;
+  noticeId: string | null;
+  label: string;
+  reason: PublicReason;
+  kind: NoticeKind;
+  status: 'active' | 'scheduled';
+  timesLabel: string;
+  filedBy: string | null;
+  boatsAffected: number;
+  ackRate: number | null;
+  simulated: boolean;
+  lonlat: LonLat;
+}
+
+export interface DailyReport {
+  dayLabel: string;
+  zonesIssued: number;
+  boatsNotified: number;
+  acknowledged: number;
+  ackRate: number | null;
+  delayMinutes: number;
+  whaleShips: number;
+  whaleHonored: number;
+  sightings: number;
+  simulatedShare: number;
+  lines: string[];
 }
 
 export interface AuditEntry {
@@ -287,6 +337,9 @@ export interface CommandSnapshot {
   captains: CaptainLink[];
   officer: string;
   joinUrls: string[];
+  sightings: Sighting[];
+  today: TodayRow[];
+  report: DailyReport;
 }
 
 export interface CaptainNotice {
@@ -335,7 +388,13 @@ export interface CommandEvents {
   editDraft: { draftId: string; edits: Partial<Pick<NoticeDraft, 'instruction' | 'radiusM' | 'recipients' | 'named' | 'publicReason' | 'validForMin' | 'slowKnots'>> };
   publish: { draftId: string };
   discardDraft: { draftId: string };
-  dropZone: { kind: 'whale' | 'divers' | 'dredge'; lonlat: LonLat; radiusM?: number };
+  dropZone: { kind: 'whale' | 'divers' | 'dredge' | 'closure'; lonlat: LonLat; radiusM?: number };
+  reportSighting: { species: Species; lonlat: LonLat; note?: string };
+  confirmSighting: { id: string };
+  extendZone: { noticeId: string; minutes: number };
+  endZone: { noticeId: string };
+  fileDivePlan: { by: string; lonlat: LonLat; startHour: number; endHour: number; radiusM?: number };
+  foundRobot: { contactId: string };
   allClear: { noticeId?: string };
   cardAction: { cardId: string; actionId: string };
   clock: { timeScale?: number; paused?: boolean; setHour?: number };
@@ -352,4 +411,5 @@ export interface CaptainEvents {
   seen: { noticeId: string; vesselId?: string };
   gotIt: { noticeId: string; vesselId?: string };
   pushSubscription: { subscription: unknown; vesselId?: string };
+  reportSighting: { species: Species; lonlat: LonLat; note?: string; vesselId?: string };
 }

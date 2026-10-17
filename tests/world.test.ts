@@ -178,17 +178,17 @@ describe('officer decisions hold', () => {
     w.discardDraft([...w.drafts.keys()][0]);
     const back = runUntil(w, () => w.drafts.size > 0, 120);
     if (back) expect(w.contacts.get(id)!.lastRisk!.level).toBeGreaterThan(levelAtDiscard);
-    expect(w.audit.filter((a) => a.action === 'Notice drafted').length).toBe(back ? 2 : 1);
+    expect(w.audit.filter((a) => a.action === 'Notice drafted' && a.detail.startsWith('Give-way')).length).toBe(back ? 2 : 1);
   });
 
   it('a lost glider gets one search-area draft that the card publishes', () => {
     const w = freshWorld('tuesday');
     w.spawn({ preset: 'glider' });
     runUntil(w, () => false, 600);
-    expect(w.audit.filter((a) => a.action === 'Notice drafted').length).toBe(1);
+    expect(w.audit.filter((a) => a.action === 'Notice drafted' && a.detail.startsWith('Search area')).length).toBe(1);
     const card = w.cards.find((k) => k.kind === 'lost')!;
     w.cardAction(card.id, 'publishZone');
-    expect([...w.notices.values()].filter((n) => n.status === 'active').length).toBe(1);
+    expect([...w.notices.values()].filter((n) => n.status === 'active' && n.kind === 'search').length).toBe(1);
   });
 
   it('after the sensor loses the contact the draft area stretches along the last forecast, never past it', () => {
@@ -225,6 +225,62 @@ describe('officer decisions hold', () => {
     expect(w.captainSnapshot('launch1').allClear.length).toBe(1);
     w.tick(250, start + 61_000);
     expect(w.captainSnapshot('launch1').allClear.length).toBe(0);
+  });
+});
+
+describe('Tuesday opens busy', () => {
+  it('opens with the hull dive, the dredge and the whale zone active, a week of sightings and the hull robot at Log', () => {
+    const w = freshWorld('tuesday');
+    runUntil(w, () => false, 8);
+    const s = w.commandSnapshot();
+    const labels = s.today.filter((r) => r.status === 'active').map((r) => r.label);
+    expect(labels).toEqual(expect.arrayContaining(['Hull dive, Pier 400', 'Dredge, Main Channel', 'Blue whale, approach lanes']));
+    expect(s.sightings.filter((x) => x.dayOffset < 0).length).toBeGreaterThan(10);
+    expect(s.sightings.every((x) => x.dayOffset === 0 || x.simulated)).toBe(true);
+    const robot = s.contacts.find((c) => c.label === 'Hull Robot 1')!;
+    expect(robot.risk?.level ?? 'Low').toBe('Low');
+    expect(s.report.zonesIssued).toBe(3);
+  });
+
+  it('the dredge zone moves along its work line', () => {
+    const w = freshWorld('tuesday');
+    const before = w.zones.get('z-dredge-main')!.centerCell;
+    runUntil(w, () => false, 400);
+    expect(w.zones.get('z-dredge-main')!.centerCell).not.toBe(before);
+  });
+
+  it('a whale reported from a phone becomes a slow zone draft once the desk confirms it', () => {
+    const w = freshWorld('tuesday');
+    const sighting = w.reportSighting({ species: 'whale', lonlat: [-118.24, 33.715], note: 'Blow seen' }, 'phone', 'Harbor Launch 7');
+    expect(w.cards.some((k) => k.key === `sighting:${sighting.id}`)).toBe(true);
+    const card = w.cards.find((k) => k.key === `sighting:${sighting.id}`)!;
+    w.cardAction(card.id, 'confirmSighting');
+    expect(w.sightings.find((x) => x.id === sighting.id)!.status).toBe('confirmed');
+    expect([...w.drafts.values()].some((d) => d.kind === 'whale' && (d.label ?? '').includes('Harbor Launch 7'))).toBe(true);
+  });
+
+  it('the glider goes silent at 10:30, its drift forecast is the search area, and Found closes it', () => {
+    const w = freshWorld('tuesday');
+    w.handle('clock', { setHour: 10.5 });
+    runUntil(w, () => w.cards.some((k) => k.kind === 'lost'), 200);
+    const glider = [...w.contacts.values()].find((c) => c.spec.registryId === 'ALTASEA-G3')!;
+    expect(glider).toBeDefined();
+    const zone = w.zones.get(`z-${glider.id}`)!;
+    expect(zone.reason).toBe('Search area');
+    expect(zone.area).toBeTruthy();
+    const card = w.cards.find((k) => k.kind === 'lost')!;
+    expect(card.script).toContain('AltaSea Research');
+    w.cardAction(card.id, 'found');
+    expect(w.contacts.has(glider.id)).toBe(false);
+    expect(w.zones.has(`z-${glider.id}`)).toBe(false);
+  });
+
+  it('a filed dive plan is scheduled, then opens on time', () => {
+    const w = freshWorld('tuesday');
+    w.fileDivePlan({ by: 'Harbor Divers LLC', lonlat: [-118.2775, 33.744], startHour: 9.5, endHour: 10.5 });
+    expect(w.commandSnapshot().today.some((r) => r.status === 'scheduled' && r.filedBy === 'Harbor Divers LLC')).toBe(true);
+    runUntil(w, () => w.scheduled.length === 0, 400);
+    expect(w.commandSnapshot().today.some((r) => r.status === 'active' && r.filedBy === 'Harbor Divers LLC')).toBe(true);
   });
 });
 
@@ -278,10 +334,10 @@ describe('Tuesday operations', () => {
   it('every automatic step is logged and the publish can be undone', () => {
     const w = freshWorld('tuesday');
     const draftId = w.dropZone({ kind: 'divers', lonlat: [-118.2495, 33.7235] })!;
-    w.publish(draftId);
+    const noticeId = w.publish(draftId)!;
     const entry = [...w.audit].reverse().find((a) => a.action === 'Published')!;
     expect(entry.undoable).toBe(true);
     w.undo(entry.id);
-    expect([...w.notices.values()].filter((n) => n.status === 'active').length).toBe(0);
+    expect(w.notices.get(noticeId)!.status).not.toBe('active');
   });
 });

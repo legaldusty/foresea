@@ -26,6 +26,7 @@ import { rng } from './bench';
 import { clockLabel, isNight, minutesLabel, signedMinutes } from './eta';
 import { metersBetween, mpsToKnots, offsetPoint, bearingDeg, compassPoint, type LonLat } from './geo';
 import type * as P from '../shared/protocol';
+import { workLine, pointAlong, stepAlong, seedSightings, type WorkLine } from './tuesday';
 
 export interface AisInputVessel {
   mmsi: number;
@@ -64,6 +65,28 @@ interface ZoneRec {
   area?: AreaRec | null;
   changedAtMin?: number | null;
   pendingArea?: AreaRec | null;
+  meta?: ZoneMeta;
+}
+
+interface ZoneMeta {
+  label?: string | null;
+  filedBy?: string | null;
+  largeShipsOnly?: boolean;
+  simulated?: boolean;
+  slowKnots?: number;
+  startsAtMin?: number | null;
+  work?: { line: WorkLine; meters: number; direction: 1 | -1; speedMps: number };
+}
+
+interface ScheduledZone {
+  id: string;
+  label: string;
+  filedBy: string;
+  cell: number;
+  lonlat: LonLat;
+  radiusM: number;
+  startMin: number;
+  endMin: number;
 }
 
 interface ForecastRec {
@@ -200,6 +223,10 @@ export class World {
   private lastResponseMin = new Map<string, number>();
   forecasts = new Map<string, ForecastRec>();
   private aisShown = new Map<number, AisShown>();
+  sightings: P.Sighting[] = [];
+  scheduled: ScheduledZone[] = [];
+  private tuesdayOpen = false;
+  private gliderSilenced = false;
   private forecastSeq = 0;
   private areaSeq = 0;
 
@@ -249,7 +276,11 @@ export class World {
     this.dismissed.clear();
     this.discardedAtLevel.clear();
     this.allClearRecent = [];
-    this.simMin = mode === 'night' ? 2 * 60 : 9 * 60;
+    this.simMin = mode === 'night' ? 2 * 60 : mode === 'tuesday' ? Math.round(this.settings.tuesday.openHour * 60) : 9 * 60;
+    this.sightings = [];
+    this.scheduled = [];
+    this.tuesdayOpen = false;
+    this.gliderSilenced = false;
     const t = this.simMin;
     const r = rng(17);
     this.craft = [];
@@ -269,7 +300,8 @@ export class World {
     }
     const presetIds = new Set(this.h.craft.map((spec) => spec.id));
     for (const cap of this.captains.values()) if (!presetIds.has(cap.vesselId)) this.captains.delete(cap.vesselId);
-    this.log('officer', 'Reset harbor', mode === 'night' ? 'Night watch, 02:00' : mode === 'tuesday' ? 'Tuesday operations, 09:00' : 'Empty harbor');
+    this.log('officer', 'Reset harbor', mode === 'night' ? 'Night watch, 02:00' : mode === 'tuesday' ? `Tuesday operations, ${clockLabel(this.simMin)}` : 'Empty harbor');
+    if (mode === 'tuesday') this.openTuesday();
   }
 
   setCurrent(c: { u: number; v: number; speedMps: number; towardDeg: number } | null): void {
@@ -600,6 +632,275 @@ export class World {
     return { version: rec.version, madeAtLabel: clockLabel(rec.madeAtMin), topId: tgt?.id ?? null, topName: name, topP: p, arrival, words, drifting };
   }
 
+  private dayStartMin(): number {
+    return Math.floor(this.simMin / 1440) * 1440;
+  }
+
+  private openScheduledZone(id: string, kind: 'keepOut' | 'slow', reason: P.PublicReason, lonlat: LonLat, radiusM: number, instruction: Instruction, meta: ZoneMeta, startMin: number, endMin: number): string | null {
+    const draftId = this.upsertRoutineZone(`z-${id}`, kind, reason, this.cellAt(lonlat), radiusM, null, instruction, meta.label ?? null, { ...meta, startsAtMin: startMin });
+    if (!draftId) return null;
+    const noticeId = this.publish(draftId, 'machine');
+    const n = noticeId ? this.notices.get(noticeId) : undefined;
+    if (n) {
+      n.publishedAtMin = Math.min(n.publishedAtMin, startMin);
+      n.expiresAtMin = endMin;
+      n.validForMin = endMin - n.publishedAtMin;
+    }
+    return noticeId;
+  }
+
+  private openTuesday(): void {
+    const t = this.settings.tuesday;
+    const day = this.dayStartMin();
+    this.tuesdayOpen = true;
+    this.sightings = seedSightings(this.settings, day);
+    const dive = t.dive;
+    this.openScheduledZone(dive.id, 'slow', 'Divers in water', [dive.lon, dive.lat], dive.radiusM * 2, 'SLOW',
+      { label: dive.label, filedBy: dive.filedBy, simulated: true, slowKnots: dive.slowKnots }, day + dive.startHour * 60, day + dive.endHour * 60);
+    this.log('system', 'Dive plan active', `${dive.label}, ${clockLabel(day + dive.startHour * 60)} to ${clockLabel(day + dive.endHour * 60)}, filed by ${dive.filedBy}. Divers keep ${dive.radiusM} m; boats nearby slow to ${dive.slowKnots} kn. Simulated schedule.`);
+    this.spawnContact({ mode: 'bot', startCell: this.cellAt([dive.lon + 0.0008, dive.lat - 0.0004]), sizeM: 1.2, speedMps: 0.5, heat: 'hot', reply: 'friendly', registryId: dive.robot, planFiled: true, plan: [{ goal: 'pier400', sloppy: 0.6 }] });
+    const dr = t.dredge;
+    const line = workLine(dr.line as LonLat[]);
+    const start = pointAlong(line, line.lengthM * 0.35);
+    this.openScheduledZone(dr.id, 'keepOut', 'Dredge working', start.lonlat, dr.radiusM, 'KEEP CLEAR',
+      { label: dr.label, filedBy: dr.filedBy, simulated: true, work: { line, meters: line.lengthM * 0.35, direction: 1, speedMps: dr.speedKn * KNOT_MPS } }, day + dr.startHour * 60, day + dr.endHour * 60);
+    this.log('system', 'Work zone active', `${dr.label}, weekdays ${clockLabel(day + dr.startHour * 60)} to ${clockLabel(day + dr.endHour * 60)}, ${dr.filedBy}. The zone moves along the work line. Simulated schedule.`);
+    const wh = t.whale;
+    const reportedAt = day + Math.round(wh.reportedHour * 60);
+    const confirmedAt = day + Math.round(wh.confirmedHour * 60);
+    this.sightings.unshift({ id: 's-whale-today', species: 'whale', lonlat: [wh.lon, wh.lat], atMin: reportedAt, dayOffset: 0, whenLabel: '', source: 'ship crew', reporter: wh.reportedBy, status: 'confirmed', simulated: true, note: 'Blue whale surfacing in the approach lanes, confirmed by the desk' });
+    this.openScheduledZone(wh.id, 'slow', 'Whale nearby', [wh.lon, wh.lat], wh.radiusM, 'SLOW',
+      { label: wh.label, filedBy: `Reported by ${wh.reportedBy.toLowerCase()}, confirmed by the desk ${clockLabel(confirmedAt)}`, simulated: true, slowKnots: wh.slowKnots, largeShipsOnly: true }, confirmedAt, day + 18 * 60);
+    this.log('system', 'Whale slow zone active', `${wh.label}: ships over 300 tons slow to ${wh.slowKnots} kn within ${(wh.radiusM / 1852).toFixed(1)} nm, as the Protecting Blue Whales and Blue Skies program asks off California. Reported ${clockLabel(reportedAt)}, confirmed ${clockLabel(confirmedAt)}. Simulated sighting.`);
+  }
+
+  private moveWorkZones(dtSec: number): void {
+    for (const z of this.zones.values()) {
+      const work = z.meta?.work;
+      if (!work) continue;
+      const next = stepAlong(work.line, work.meters, work.direction, work.speedMps * dtSec);
+      work.meters = next.meters;
+      work.direction = next.direction;
+      const at = pointAlong(work.line, work.meters);
+      const cell = this.cellAt(at.lonlat);
+      if (cell !== z.centerCell) { z.centerCell = cell; z.geometry = circleZone(this.h.grid, cell, z.radiusM); }
+      z.movingTowardDeg = work.direction === 1 ? at.bearing : (at.bearing + 180) % 360;
+      z.movingSpeedMps = work.speedMps;
+    }
+  }
+
+  private runSchedule(): void {
+    if (!this.tuesdayOpen) return;
+    const t = this.settings.tuesday;
+    const day = this.dayStartMin();
+    if (!this.gliderSilenced && this.simMin >= day + t.glider.silentHour * 60) {
+      this.gliderSilenced = true;
+      const c = this.spawn({ preset: 'glider', at: [t.glider.lon, t.glider.lat] });
+      if (c) this.log('machine', 'Robot silent', `${c.spec.label} stopped reporting at ${clockLabel(this.simMin)}. Its drift forecast is the search area.`);
+    }
+    for (const plan of [...this.scheduled]) {
+      if (this.simMin < plan.startMin) continue;
+      this.scheduled = this.scheduled.filter((p) => p !== plan);
+      this.openScheduledZone(plan.id, 'slow', 'Divers in water', plan.lonlat, plan.radiusM * 2, 'SLOW', { label: plan.label, filedBy: plan.filedBy, slowKnots: this.orders().speedAdvisoryKnots }, plan.startMin, plan.endMin);
+      this.log('machine', 'Dive plan active', `${plan.label} started, filed by ${plan.filedBy}.`);
+    }
+  }
+
+  reportSighting(e: { species: P.Species; lonlat: LonLat; note?: string }, source: P.Sighting['source'], reporter: string): P.Sighting {
+    const sighting: P.Sighting = {
+      id: this.id('s'), species: e.species, lonlat: e.lonlat, atMin: this.simMin, dayOffset: 0, whenLabel: '', source, reporter,
+      status: source === 'desk' ? 'confirmed' : 'reported', simulated: false, note: (e.note ?? '').slice(0, 200),
+    };
+    this.sightings.unshift(sighting);
+    const near = this.placeNear(this.cellAt(e.lonlat));
+    this.log(source === 'desk' ? 'officer' : `captain:${reporter}`, 'Sighting reported', `${e.species.charAt(0).toUpperCase()}${e.species.slice(1)} near ${near}, from ${reporter}${sighting.note ? `: ${sighting.note}` : ''}`);
+    if (source === 'desk') { if (e.species === 'whale') this.confirmSighting(sighting.id); return sighting; }
+    this.raiseCard(`sighting:${sighting.id}`, {
+      kind: e.species === 'whale' || e.species === 'dolphin' || e.species === 'sea lion' ? 'animal' : 'info',
+      title: `${e.species.charAt(0).toUpperCase()}${e.species.slice(1)} reported by ${reporter}`,
+      body: e.species === 'whale' ? `Reported near ${near}. Confirm it to draft a whale slow zone for boats nearby.` : `Reported near ${near}. Confirm it to add it to the sightings log for researchers.`,
+      facts: [`${clockLabel(this.simMin)}`, sighting.note || 'No note'],
+      actions: [{ id: 'confirmSighting', label: 'Confirm', primary: true }, { id: 'notNow', label: 'Not now' }],
+      contactId: null, noticeId: null, draftId: null, script: null,
+    });
+    return sighting;
+  }
+
+  confirmSighting(id: string): void {
+    const s = this.sightings.find((x) => x.id === id);
+    if (!s) return;
+    s.status = 'confirmed';
+    this.removeCards((k) => k.key === `sighting:${id}`);
+    this.log('officer', 'Sighting confirmed', `${s.species} from ${s.reporter}`);
+    if (s.species !== 'whale') return;
+    const o = this.orders();
+    const draftId = this.upsertRoutineZone(`z-sighting-${id}`, 'slow', 'Whale nearby', this.cellAt(s.lonlat), o.animalSlowMeters, null, 'SLOW', `Whale reported by ${s.reporter}`, { label: `Whale, reported by ${s.reporter}`, filedBy: `Reported by ${s.reporter}, confirmed by the desk` });
+    if (!draftId) return;
+    this.raiseCard(`publish:${draftId}`, {
+      kind: 'publish', title: 'Whale slow zone ready',
+      body: `Boats within ${o.animalSlowMeters} m slow to ${o.animalSlowKnots} knots. It uses the routine template you signed.`,
+      facts: [this.drafts.get(draftId)?.plan.comparison.chosen ?? '', `Reported by ${s.reporter}`],
+      actions: [{ id: 'publish', label: 'Publish', primary: true }, { id: 'discard', label: 'Discard' }],
+      contactId: null, noticeId: null, draftId, script: null,
+    });
+  }
+
+  extendZone(noticeId: string, minutes: number): void {
+    const n = this.notices.get(noticeId);
+    if (!n || n.status !== 'active') return;
+    n.expiresAtMin += Math.max(5, Math.min(480, minutes));
+    n.validForMin = n.expiresAtMin - n.publishedAtMin;
+    this.log('officer', 'Zone extended', `${n.label ?? n.publicReason} now until ${clockLabel(n.expiresAtMin)}`);
+  }
+
+  fileDivePlan(e: P.CommandEvents['fileDivePlan']): void {
+    const day = this.dayStartMin();
+    const cell = this.cellAt(e.lonlat);
+    const plan: ScheduledZone = {
+      id: this.id('dive'), label: `Dive, ${this.placeNear(cell).replace(/^the /, '')}`, filedBy: e.by.trim().slice(0, 60) || 'Dive team', cell, lonlat: e.lonlat,
+      radiusM: e.radiusM ?? 100, startMin: day + e.startHour * 60, endMin: day + e.endHour * 60,
+    };
+    this.log('officer', 'Dive plan filed', `${plan.label}, ${clockLabel(plan.startMin)} to ${clockLabel(plan.endMin)}, by ${plan.filedBy}. Approved by ${this.officer}; it opens on time.`);
+    if (plan.startMin <= this.simMin) {
+      this.openScheduledZone(plan.id, 'slow', 'Divers in water', plan.lonlat, plan.radiusM * 2, 'SLOW', { label: plan.label, filedBy: plan.filedBy, slowKnots: this.orders().speedAdvisoryKnots }, this.simMin, plan.endMin);
+      return;
+    }
+    this.scheduled.push(plan);
+  }
+
+  foundRobot(contactId: string): void {
+    const c = this.contacts.get(contactId);
+    if (!c) return;
+    const z = this.zones.get(`z-${contactId}`);
+    if (z?.noticeId) this.clearNotice(z.noticeId, 'officer', false, 'Found');
+    if (z) this.removeZone(z.id);
+    this.contacts.delete(contactId);
+    this.forecasts.delete(contactId);
+    this.removeCards((k) => k.contactId === contactId);
+    this.log('officer', 'Found', `${c.spec.label} recovered by its owner. Search area lifted.`);
+  }
+
+  private aisZoneDelays(): Map<string, { addedMin: number; note: string }> {
+    const out = new Map<string, { addedMin: number; note: string }>();
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active' || n.kind !== 'whale') continue;
+      const z = this.zones.get(n.zoneId);
+      if (!z) continue;
+      const knots = n.slowKnots;
+      const minLength = this.settings.tuesday.whale.minLengthM;
+      for (const v of this.ais) {
+        if (v.sogKn <= knots || v.aisClass !== 'A' || (v.lengthM ?? 0) < minLength) continue;
+        const route = this.aisProjectedRoute(v);
+        let inside = 0;
+        for (const cell of route) if (z.geometry.mask[cell]) inside++;
+        if (!inside) continue;
+        const meters = inside * this.h.grid.cellMeters;
+        const added = (meters / (knots * KNOT_MPS) - meters / (v.sogKn * KNOT_MPS)) / 60;
+        if (added < 0.1) continue;
+        out.set(`ais-${v.mmsi}`, { addedMin: added, note: `+${Math.max(1, Math.round(added))} min from whale zone` });
+      }
+    }
+    return out;
+  }
+
+  private todayRows(): P.TodayRow[] {
+    const rows: P.TodayRow[] = [];
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active') continue;
+      const z = this.zones.get(n.zoneId);
+      let relevant = 0;
+      let acked = 0;
+      let affected = 0;
+      for (const [vid, e] of n.perVessel) {
+        if (e.action !== 'none' || e.priority !== 'P4') affected++;
+        const rec = this.deliveries.get(`${n.id}:${vid}`);
+        if (!rec || (e.priority === 'P4' && e.action === 'none')) continue;
+        relevant++;
+        if (rec.states.acknowledged !== undefined) acked++;
+      }
+      rows.push({
+        id: n.id, noticeId: n.id, label: n.label ?? `${n.publicReason} near ${this.placeNear(z?.centerCell ?? 0).replace(/^the /, '')}`,
+        reason: n.publicReason, kind: n.kind, status: 'active',
+        timesLabel: `${clockLabel(n.startsAtMin ?? n.publishedAtMin)} to ${clockLabel(n.expiresAtMin)}`,
+        filedBy: n.filedBy ?? (n.routine ? `Approved by ${n.approvedBy}` : `Published by ${n.approvedBy}`), boatsAffected: affected,
+        ackRate: relevant ? acked / relevant : null, simulated: !!n.simulated, lonlat: this.lonlatOf(z?.centerCell ?? 0),
+      });
+    }
+    for (const p of this.scheduled) {
+      rows.push({
+        id: p.id, noticeId: null, label: p.label, reason: 'Divers in water', kind: 'divers', status: 'scheduled',
+        timesLabel: `${clockLabel(p.startMin)} to ${clockLabel(p.endMin)}`, filedBy: p.filedBy, boatsAffected: 0, ackRate: null, simulated: false, lonlat: p.lonlat,
+      });
+    }
+    return rows.sort((a, b) => (a.status === b.status ? 0 : a.status === 'active' ? -1 : 1));
+  }
+
+  dailyReport(): P.DailyReport {
+    const day = this.dayStartMin();
+    const today = [...this.notices.values()].filter((n) => n.publishedAtMin >= day - 60);
+    let notified = 0;
+    let relevant = 0;
+    let acked = 0;
+    let delay = 0;
+    const boats = new Set<string>();
+    for (const n of today) {
+      for (const [vid, e] of n.perVessel) {
+        boats.add(vid);
+        const rec = this.deliveries.get(`${n.id}:${vid}`);
+        if (e.priority === 'P4' && e.action === 'none') continue;
+        relevant++;
+        if (rec?.states.acknowledged !== undefined) acked++;
+        delay += e.addedMin;
+      }
+    }
+    notified = boats.size;
+    const whale = this.aisZoneDelays();
+    let whaleShips = 0;
+    let honored = 0;
+    for (const n of today) {
+      if (n.kind !== 'whale' || !n.largeShipsOnly) continue;
+      const z = this.zones.get(n.zoneId);
+      for (const v of this.ais) {
+        if (v.aisClass !== 'A' || (v.lengthM ?? 0) < this.settings.tuesday.whale.minLengthM || !z || v.cell < 0 || !z.geometry.mask[v.cell] || v.sogKn < 0.5) continue;
+        whaleShips++;
+        if (v.sogKn <= n.slowKnots + 0.5) honored++;
+      }
+    }
+    for (const w of whale.values()) delay += w.addedMin;
+    const simulated = today.filter((n) => n.simulated).length;
+    const label = this.night ? 'Tonight' : `Today, ${clockLabel(day)} to ${clockLabel(this.simMin)}`;
+    return {
+      dayLabel: label, zonesIssued: today.length, boatsNotified: notified, acknowledged: acked, ackRate: relevant ? acked / relevant : null,
+      delayMinutes: Math.round(delay * 10) / 10, whaleShips, whaleHonored: honored, sightings: this.sightings.filter((x) => x.dayOffset === 0).length,
+      simulatedShare: today.length ? simulated / today.length : 0,
+      lines: [
+        `${today.length} zone${today.length === 1 ? '' : 's'} issued, ${simulated} from the simulated schedule.`,
+        `${notified} boats notified; ${acked} of ${relevant} that had to act acknowledged.`,
+        `${(Math.round(delay * 10) / 10).toFixed(1)} minutes of delay caused in total.`,
+        whaleShips ? `${honored} of ${whaleShips} large ships in the whale zone at or under ${this.settings.tuesday.whale.slowKnots} kn right now (AIS).` : 'No large ships in a whale zone right now.',
+      ],
+    };
+  }
+
+  private withZoneDelays(rows: P.OnTimeRow[]): P.OnTimeRow[] {
+    const delays = this.aisZoneDelays();
+    if (!delays.size) return rows;
+    return rows.map((r) => {
+      const d = delays.get(r.id);
+      if (!d) return r;
+      return { ...r, deltaMin: Math.round(((r.deltaMin ?? 0) + d.addedMin) * 10) / 10, zoneNote: d.note, status: r.status === 'on time' && d.addedMin >= this.settings.ais.onTimeLateMinutes ? 'at risk' : r.status };
+    });
+  }
+
+  private sightingViews(): P.Sighting[] {
+    const day = this.dayStartMin();
+    return this.sightings.slice(0, 200).map((x) => {
+      const offset = Math.floor((x.atMin - day) / 1440);
+      const when = offset === 0 ? clockLabel(x.atMin) : offset === -1 ? `Yesterday ${clockLabel(x.atMin)}` : `${-offset} days ago`;
+      return { ...x, dayOffset: offset, whenLabel: when };
+    });
+  }
+
   placeNear(cell: number): string {
     const [x, y] = this.h.grid.xy(cell);
     let best = 'the harbor', bd = Infinity;
@@ -627,6 +928,8 @@ export class World {
     }
     for (const id of [...this.forecasts.keys()]) if (!this.contacts.has(id)) this.forecasts.delete(id);
     for (const craft of this.craft) moveCraft(this.h, craft, dtSec, t, null);
+    this.moveWorkZones(dtSec);
+    this.runSchedule();
     this.updateNotices();
     this.updateCards();
     const showMs = this.settings.sim.allClearShowSeconds * 1000;
@@ -747,14 +1050,24 @@ export class World {
     this.raiseCard(key, {
       kind: 'lost', title: 'Lost, not hostile',
       body: `${reg.name} stopped reporting. It is drifting with the current, not aiming. It was heading back to its dock at the ${home?.short ?? 'home berth'}.`,
-      facts: [`Owner: ${reg.owner} (notified)`, `Drift ${mpsToKnots(c.spec.speedMps).toFixed(1)} kn toward ${compassPoint(c.headingDeg)}`, 'Keep-clear zone drafted for boats'],
-      actions: [{ id: 'publishZone', label: 'Publish keep-clear zone', primary: true }, { id: 'ok', label: 'OK' }],
-      contactId: c.id, noticeId: null, draftId: null, script: null,
+      facts: [`Owner: ${reg.owner}, message ready`, `Drift ${mpsToKnots(c.spec.speedMps).toFixed(1)} kn toward ${compassPoint(c.headingDeg)}`, 'Search area drafted from the drift forecast'],
+      actions: [{ id: 'publishZone', label: 'Publish search area', primary: true }, { id: 'found', label: 'Found' }],
+      contactId: c.id, noticeId: null, draftId: null,
+      script: `${reg.owner}, this is ${this.station}. ${reg.name} stopped reporting at ${clockLabel(c.spec.firstSeenMin)} near ${this.placeNear(c.cell)}. It is drifting with the current toward the ${compassPoint(c.headingDeg)} at about ${mpsToKnots(c.spec.speedMps).toFixed(1)} kn. The search area for the next hour is on the harbor chart. Please call us when it is recovered.`,
     });
     const zoneId = `z-${c.id}`;
     if (this.stillDismissed(zoneId, null)) return;
-    const radius = 150 + c.spec.speedMps * (this.simMin - c.spec.firstSeenMin) * 60 * 0.5;
-    this.upsertRoutineZone(zoneId, 'keepOut', 'Dredge working', c.cell, Math.min(600, radius), c.id, 'KEEP CLEAR', 'Search area: lost research robot');
+    const rec = this.forecasts.get(c.id) ?? this.updateForecast(c, true);
+    if (!rec) return;
+    const f = this.settings.forecast;
+    const existing = this.zones.get(zoneId);
+    if (existing?.status === 'published') return;
+    const areaKey = `${rec.version}|search`;
+    const a: AreaRec = existing?.area?.key === areaKey ? existing.area : (() => {
+      const area = buildNoticeArea(this.h.grid, rec.forecast, rec.cell, Math.max(0.05, this.currentSpeedMps), { horizonMinutes: f.horizonMinutes, zoneMeters: 150, carefulShare: f.carefulShare, exitMinutesMax: f.exitMinutesMax }, rec.madeAtMin);
+      return { area, shapes: noticeAreaShapes(this.h.grid, area), ticks: rec.ticks, version: ++this.areaSeq, key: areaKey };
+    })();
+    this.upsertAreaZone(zoneId, 'Search area', a, c.id, `Search area: ${reg.name}`, { label: `Search area, ${reg.name}`, filedBy: `${reg.owner}, notified` });
   }
 
   private respondToAnimal(c: ContactSim): void {
@@ -787,7 +1100,25 @@ export class World {
     });
   }
 
-  private upsertRoutineZone(zoneId: string, kind: 'keepOut' | 'slow', reason: P.PublicReason, cell: number, radiusM: number, contactId: string | null, instruction: Instruction, label: string | null): string | null {
+  private noticeKindFor(reason: P.PublicReason): P.NoticeKind {
+    switch (reason) {
+      case 'Whale nearby': return 'whale';
+      case 'Divers in water': return 'divers';
+      case 'Person in the water': return 'person';
+      case 'Area closed': return 'closure';
+      case 'Search area': return 'search';
+      case 'Security zone': return 'security';
+      default: return 'dredge';
+    }
+  }
+
+  private routinePlan(zone: ZoneRec): ResponsePlan {
+    return zone.kind === 'slow'
+      ? this.slowPlan(zone.geometry.mask, zone.centerCell, zone.radiusM, zone.meta?.slowKnots, !!zone.meta?.largeShipsOnly)
+      : chooseResponse(this.h.grid, zone.geometry.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(0, true), null);
+  }
+
+  private upsertRoutineZone(zoneId: string, kind: 'keepOut' | 'slow', reason: P.PublicReason, cell: number, radiusM: number, contactId: string | null, instruction: Instruction, label: string | null, meta?: ZoneMeta): string | null {
     const existing = this.zones.get(zoneId);
     if (existing?.status === 'published') {
       existing.geometry = circleZone(this.h.grid, cell, existing.radiusM);
@@ -797,23 +1128,36 @@ export class World {
     const draft = existing?.draftId ? this.drafts.get(existing.draftId) : undefined;
     const r = draft?.officerRadius ?? radiusM;
     const geometry = circleZone(this.h.grid, cell, r);
-    const zone: ZoneRec = existing ?? { id: zoneId, kind, reason, status: 'draft', geometry, radiusM: r, contactId, noticeId: null, draftId: null, movingTowardDeg: null, movingSpeedMps: 0, centerCell: cell };
+    const zone: ZoneRec = existing ?? { id: zoneId, kind, reason, status: 'draft', geometry, radiusM: r, contactId, noticeId: null, draftId: null, movingTowardDeg: null, movingSpeedMps: 0, centerCell: cell, meta };
     zone.geometry = geometry;
     zone.radiusM = r;
     zone.centerCell = cell;
+    if (meta) zone.meta = { ...zone.meta, ...meta };
     this.zones.set(zoneId, zone);
-    const plan = kind === 'slow' ? this.slowPlan(geometry.mask, cell, r) : chooseResponse(this.h.grid, geometry.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(0, true), null);
-    const noticeKind: P.NoticeKind = reason === 'Whale nearby' ? 'whale' : reason === 'Divers in water' ? 'divers' : reason === 'Person in the water' ? 'person' : 'dredge';
-    return this.upsertDraft(zone, plan, noticeKind, instruction, true, null, label);
+    return this.upsertDraft(zone, this.routinePlan(zone), this.noticeKindFor(reason), instruction, true, null, label);
   }
 
-  private slowPlan(mask: Uint8Array, centerCell: number | null = null, radiusM = 0): ResponsePlan {
+  private upsertAreaZone(zoneId: string, reason: P.PublicReason, a: AreaRec, contactId: string | null, label: string, meta?: ZoneMeta): string | null {
+    const existing = this.zones.get(zoneId);
+    if (existing?.status === 'published') return existing.draftId;
+    const geometry = this.areaGeometry(a);
+    const zone: ZoneRec = existing ?? { id: zoneId, kind: 'keepOut', reason, status: 'draft', geometry, radiusM: 150, contactId, noticeId: null, draftId: null, movingTowardDeg: null, movingSpeedMps: 0, centerCell: a.area.contactCell, area: a, meta };
+    zone.geometry = geometry;
+    zone.area = a;
+    zone.centerCell = a.area.contactCell;
+    if (meta) zone.meta = { ...zone.meta, ...meta };
+    this.zones.set(zoneId, zone);
+    const plan = chooseResponse(this.h.grid, geometry.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(0, true), null);
+    return this.upsertDraft(zone, plan, this.noticeKindFor(reason), 'KEEP CLEAR', true, null, label);
+  }
+
+  private slowPlan(mask: Uint8Array, centerCell: number | null = null, radiusM = 0, slowKnots?: number, largeShipsOnly = false): ResponsePlan {
     const o = this.orders();
     const pr = this.settings.priority;
-    const slowMps = o.animalSlowKnots * 0.514444;
+    const slowMps = (slowKnots ?? o.animalSlowKnots) * KNOT_MPS;
     const core = centerCell !== null && radiusM > 0 ? circleZone(this.h.grid, centerCell, radiusM * o.animalCoreFraction).mask : null;
     const everyone = this.boats().map((b) => {
-      const onRoute = routeEntersMask(b.route, mask);
+      const onRoute = !largeShipsOnly && routeEntersMask(b.route, mask);
       const minutesToZone = onRoute ? minutesUntilZone(this.h.grid, b.route, mask, b.speedMps) : null;
       let addedMin = 0;
       let reroute: ReturnType<typeof rerouteAround> | null = null;
@@ -879,7 +1223,7 @@ export class World {
   private upsertDraft(zone: ZoneRec, plan: ResponsePlan, kind: P.NoticeKind, instruction: Instruction, routine: boolean, c: ContactSim | null, label: string | null): string | null {
     const o = this.orders();
     let d = zone.draftId ? this.drafts.get(zone.draftId) : undefined;
-    const slowKnots = kind === 'whale' ? o.animalSlowKnots : o.speedAdvisoryKnots;
+    const slowKnots = zone.meta?.slowKnots ?? (kind === 'whale' ? o.animalSlowKnots : o.speedAdvisoryKnots);
     if (!d) {
       const id = this.id('d');
       d = {
@@ -888,6 +1232,11 @@ export class World {
         plan: this.planView(plan, zone.radiusM, slowKnots), wording: templateWording(this.blankFacts(zone)), createdAtMin: this.simMin, updatedAtMin: this.simMin,
         edited: false, routine, responsePlan: plan, wordingKey: '', factsKey: '', wordingInFlight: false, officerRadius: null, officerInstruction: null,
       };
+      d.label = zone.meta?.label ?? null;
+      d.filedBy = zone.meta?.filedBy ?? null;
+      d.largeShipsOnly = !!zone.meta?.largeShipsOnly;
+      d.simulated = !!zone.meta?.simulated;
+      d.startsAtMin = zone.meta?.startsAtMin ?? null;
       this.drafts.set(id, d);
       zone.draftId = id;
       const draftRef = d;
@@ -1013,8 +1362,7 @@ export class World {
       const c = z.contactId ? this.contacts.get(z.contactId) : undefined;
       if (c && c.classification.threatScored && c.classification.kind !== 'debris') this.respondTo(c);
       else if (z.status === 'draft') {
-        const plan = z.kind === 'slow' ? this.slowPlan(z.geometry.mask, z.centerCell, z.radiusM) : chooseResponse(this.h.grid, z.geometry.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(0, true), null);
-        this.upsertDraft(z, plan, d.kind, (d.officerInstruction ?? d.instruction) as Instruction, d.routine, null, null);
+        this.upsertDraft(z, this.routinePlan(z), d.kind, (d.officerInstruction ?? d.instruction) as Instruction, d.routine, null, null);
       }
     }
     this.log('officer', 'Draft edited', Object.entries(ed).map(([k, v]) => `${k} ${Array.isArray(v) ? v.join(', ') : v}`).join('; '));
@@ -1029,6 +1377,11 @@ export class World {
       this.marineLog.push({ id: this.id('m'), atMin: this.simMin, lonlat: this.lonlatOf(cell), kind: 'Whale sighting', detail: `Reported by the officer near ${this.placeNear(cell)}` });
       this.attachUndoToLast(() => this.removeZone(zoneId));
       return draftId;
+    }
+    if (e.kind === 'closure') {
+      const id = this.upsertRoutineZone(zoneId, 'keepOut', 'Area closed', cell, e.radiusM ?? o.routineZoneMeters, null, 'KEEP CLEAR', 'Closure', { label: `Closure near ${this.placeNear(cell).replace(/^the /, '')}` });
+      this.attachUndoToLast(() => this.removeZone(zoneId));
+      return id;
     }
     const reason: P.PublicReason = e.kind === 'divers' ? 'Divers in water' : 'Dredge working';
     const draftId = this.upsertRoutineZone(zoneId, 'keepOut', reason, cell, e.radiusM ?? o.routineZoneMeters, null, 'KEEP CLEAR', `${reason} zone`);
@@ -1051,7 +1404,7 @@ export class World {
     this.zones.delete(zoneId);
   }
 
-  publish(draftId: string): string | null {
+  publish(draftId: string, actor = 'officer'): string | null {
     const d = this.drafts.get(draftId);
     if (!d) return null;
     const z = this.zones.get(d.zoneId);
@@ -1070,7 +1423,7 @@ export class World {
     z.noticeId = id;
     z.draftId = null;
     this.refreshNotice(notice);
-    this.log('officer', 'Published', `${d.publicReason}: ${d.instructionText}. ${notice.perVessel.size} recipients. ${plan?.comparison.chosen ?? ''}`, () => this.clearNotice(id, 'officer', true, 'All clear', false));
+    this.log(actor, 'Published', `${d.publicReason}: ${d.instructionText}. ${notice.perVessel.size} recipients. ${plan?.comparison.chosen ?? ''}`, () => this.clearNotice(id, 'officer', true, 'All clear', false));
     if (notice.wording.source === 'template') this.effects.wording.push({ draftId: id, facts: this.wordingFacts(z.contactId ? this.contacts.get(z.contactId) ?? null : null, z, plan ?? this.slowPlan(z.geometry.mask), null), template: notice.wording, key: 'notice' });
     return id;
   }
@@ -1435,6 +1788,13 @@ export class World {
         this.log('officer', card.kind === 'person' ? 'Port police brief sent' : 'Coast Guard brief sent', `${card.title}. Simulated: drafted and marked sent, no message leaves this laptop.`);
         done();
         return;
+      case 'confirmSighting':
+        this.confirmSighting(card.key.slice('sighting:'.length));
+        return;
+      case 'found':
+        if (card.contactId) this.foundRobot(card.contactId);
+        this.removeCards((k) => k.id === cardId);
+        return;
       case 'called': {
         const [, noticeId, vesselId] = card.key.split(':');
         this.markVhfCalled(noticeId, vesselId);
@@ -1731,7 +2091,7 @@ export class World {
       })),
       card: top ? { id: top.id, kind: top.kind, title: top.title, body: top.body, facts: top.facts, actions: top.actions, createdAtMin: top.createdAtMin, realerts: top.realerts, backupCalled: top.backupCalled, contactId: top.contactId, noticeId: top.noticeId, draftId: top.draftId, script: top.script } : null,
       cardsWaiting: Math.max(0, this.cards.length - 1),
-      onTime: [...this.onTimeRows(), ...(extra.aisOnTime ?? [])],
+      onTime: [...this.onTimeRows(), ...this.withZoneDelays(extra.aisOnTime ?? [])],
       audit: this.audit.slice(-80).reverse(),
       marineLog: this.marineLog.slice(-30).reverse(),
       orders: this.signedOrders,
@@ -1740,6 +2100,9 @@ export class World {
       captains: [...this.captains.values()].map((c) => ({ vesselId: c.vesselId, vesselName: this.craft.find((k) => k.id === c.vesselId)?.name ?? c.vesselId, connected: c.connected, lastSeenWall: c.lastSeenWall })),
       officer: this.officer,
       joinUrls: extra.joinUrls ?? [],
+      sightings: this.sightingViews(),
+      today: this.todayRows(),
+      report: this.dailyReport(),
     };
   }
 
@@ -1861,6 +2224,12 @@ export class World {
       case 'officer': this.officer = (p as P.CommandEvents['officer']).name || this.officer; return;
       case 'reset': this.resetHarbor((p as P.CommandEvents['reset']).mode); return;
       case 'markVhfCalled': { const e = p as P.CommandEvents['markVhfCalled']; this.markVhfCalled(e.noticeId, e.vesselId); return; }
+      case 'reportSighting': { const e = p as P.CommandEvents['reportSighting']; this.reportSighting(e, 'desk', 'Harbor desk'); return; }
+      case 'confirmSighting': this.confirmSighting((p as P.CommandEvents['confirmSighting']).id); return;
+      case 'extendZone': { const e = p as P.CommandEvents['extendZone']; this.extendZone(e.noticeId, e.minutes); return; }
+      case 'endZone': this.clearNotice((p as P.CommandEvents['endZone']).noticeId, 'officer'); return;
+      case 'fileDivePlan': this.fileDivePlan(p); return;
+      case 'foundRobot': this.foundRobot((p as P.CommandEvents['foundRobot']).contactId); return;
     }
   }
 

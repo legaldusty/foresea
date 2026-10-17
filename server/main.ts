@@ -21,6 +21,7 @@ import { createSmsService } from './sms';
 import { joinUrls, lanAddresses } from './net';
 import { createAisFeed, type FeedMode } from './ais/live';
 import { berthedAt } from './ais/berth';
+import { sightingsCsv, sightingsGeoJson } from '../src/engine/tuesday';
 import { onTimeBoard } from './ais/ontime';
 import { createNoaaClient } from './noaa/client';
 import type { AisVessel } from '../src/shared/ais-types';
@@ -134,6 +135,23 @@ app.get('/api/join', async (_req, res) => {
   res.json({ urls: base, phones: out, any: { url: base[0], svg: await QRCode.toString(base[0], { type: 'svg', margin: 1 }) } });
 });
 app.get('/api/audit', (_req, res) => res.json(audit.recent(500)));
+app.get('/api/sightings.csv', (_req, res) => {
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="giveway-sightings.csv"');
+  res.send(sightingsCsv(world.commandSnapshot().sightings));
+});
+app.get('/api/sightings.geojson', (_req, res) => {
+  res.setHeader('Content-Type', 'application/geo+json');
+  res.setHeader('Content-Disposition', 'attachment; filename="giveway-sightings.geojson"');
+  res.send(JSON.stringify(sightingsGeoJson(world.commandSnapshot().sightings)));
+});
+app.get('/api/report.csv', (_req, res) => {
+  const r = world.dailyReport();
+  const rows = [['measure', 'value'], ['period', r.dayLabel], ['zones issued', r.zonesIssued], ['boats notified', r.boatsNotified], ['acknowledged', r.acknowledged], ['acknowledgment rate', r.ackRate === null ? '' : r.ackRate.toFixed(2)], ['minutes of delay caused', r.delayMinutes], ['large ships in whale zones', r.whaleShips], ['at or under the whale speed', r.whaleHonored], ['sightings today', r.sightings], ['share from the simulated schedule', r.simulatedShare.toFixed(2)]];
+  res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+  res.setHeader('Content-Disposition', 'attachment; filename="giveway-daily-report.csv"');
+  res.send(rows.map((row) => row.map((v) => (/[",]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v))).join(',')).join('\n'));
+});
 app.post('/api/orders/draft', async (req, res) => {
   const rule = await language.draftOrder(String(req.body?.text ?? '').slice(0, 400));
   res.json({ rule, source: rule ? 'granite' : 'none' });
@@ -191,7 +209,7 @@ function flushEffects(): void {
   world.setSources({ language: language.status() });
 }
 
-const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled'];
+const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled', 'reportSighting', 'confirmSighting', 'extendZone', 'endZone', 'fileDivePlan', 'foundRobot'];
 const STEERING_EVENTS = new Set<keyof CommandEvents>(['drive', 'contactParams']);
 
 function bindCommand(socket: Socket): void {
@@ -244,6 +262,18 @@ function bindCaptain(socket: Socket): void {
   on('delivered');
   on('seen');
   on('gotIt');
+  socket.on('reportSighting', (payload: CaptainEvents['reportSighting'], ack?: (r: unknown) => void) => {
+    const claimed = typeof payload?.vesselId === 'string' && world.captains.has(payload.vesselId) ? payload.vesselId : undefined;
+    const vesselId = (socket.data.vesselId as string | undefined) ?? claimed;
+    const species = ['whale', 'dolphin', 'sea lion', 'debris', 'hazard'].includes(String(payload?.species)) ? payload.species : null;
+    const lonlat = Array.isArray(payload?.lonlat) && payload.lonlat.length === 2 && payload.lonlat.every((n) => Number.isFinite(n)) ? payload.lonlat : null;
+    if (!vesselId || !species || !lonlat) { ack?.({ ok: false }); return; }
+    const name = world.craft.find((c) => c.id === vesselId)?.name ?? vesselId;
+    world.reportSighting({ species, lonlat, note: typeof payload.note === 'string' ? payload.note : '' }, 'phone', name);
+    flushEffects();
+    emitCommand();
+    ack?.({ ok: true });
+  });
   socket.on('pushSubscription', (payload: CaptainEvents['pushSubscription']) => {
     const claimed = typeof payload?.vesselId === 'string' && world.captains.has(payload.vesselId) ? payload.vesselId : undefined;
     const vesselId = (socket.data.vesselId as string | undefined) ?? claimed;

@@ -62,11 +62,11 @@ const PHRASES: Record<Lang, Record<PhraseKey, (n: number) => string>> = {
 };
 
 const REASONS: Record<Lang, Record<PublicReason, string>> = {
-  es: { 'Security zone': 'Zona de seguridad', 'Whale nearby': 'Ballena cerca', 'Divers in water': 'Buzos en el agua', 'Dredge working': 'Draga trabajando', 'Person in the water': 'Persona en el agua' },
-  zh: { 'Security zone': '安全区', 'Whale nearby': '附近有鲸鱼', 'Divers in water': '水中有潜水员', 'Dredge working': '疏浚作业中', 'Person in the water': '有人在水中' },
-  ko: { 'Security zone': '보안 구역', 'Whale nearby': '근처에 고래 출현', 'Divers in water': '잠수부 작업 중', 'Dredge working': '준설 작업 중', 'Person in the water': '물에 사람이 있음' },
-  tl: { 'Security zone': 'Sonang pangseguridad', 'Whale nearby': 'May balyena sa malapit', 'Divers in water': 'May mga maninisid sa tubig', 'Dredge working': 'May dredge na gumagana', 'Person in the water': 'May tao sa tubig' },
-  vi: { 'Security zone': 'Khu vực an ninh', 'Whale nearby': 'Có cá voi gần đây', 'Divers in water': 'Có thợ lặn dưới nước', 'Dredge working': 'Tàu nạo vét đang hoạt động', 'Person in the water': 'Có người dưới nước' },
+  es: { 'Security zone': 'Zona de seguridad', 'Whale nearby': 'Ballena cerca', 'Divers in water': 'Buzos en el agua', 'Dredge working': 'Draga trabajando', 'Person in the water': 'Persona en el agua', 'Area closed': 'Zona cerrada', 'Search area': 'Zona de búsqueda' },
+  zh: { 'Security zone': '安全区', 'Whale nearby': '附近有鲸鱼', 'Divers in water': '水中有潜水员', 'Dredge working': '疏浚作业中', 'Person in the water': '有人在水中', 'Area closed': '区域关闭', 'Search area': '搜索区域' },
+  ko: { 'Security zone': '보안 구역', 'Whale nearby': '근처에 고래 출현', 'Divers in water': '잠수부 작업 중', 'Dredge working': '준설 작업 중', 'Person in the water': '물에 사람이 있음', 'Area closed': '구역 폐쇄', 'Search area': '수색 구역' },
+  tl: { 'Security zone': 'Sonang pangseguridad', 'Whale nearby': 'May balyena sa malapit', 'Divers in water': 'May mga maninisid sa tubig', 'Dredge working': 'May dredge na gumagana', 'Person in the water': 'May tao sa tubig', 'Area closed': 'Saradong lugar', 'Search area': 'Lugar ng paghahanap' },
+  vi: { 'Security zone': 'Khu vực an ninh', 'Whale nearby': 'Có cá voi gần đây', 'Divers in water': 'Có thợ lặn dưới nước', 'Dredge working': 'Tàu nạo vét đang hoạt động', 'Person in the water': 'Có người dưới nước', 'Area closed': 'Khu vực đóng', 'Search area': 'Khu vực tìm kiếm' },
 };
 
 export interface WordingFacts {
@@ -105,11 +105,11 @@ function phraseNumber(instruction: string, facts: WordingFacts): number {
 }
 
 const REASON_AT: Record<Lang, Record<PublicReason, (p: string) => string>> = {
-  es: { 'Security zone': (p) => `Zona de seguridad cerca de ${p}`, 'Whale nearby': (p) => `Ballena cerca de ${p}`, 'Divers in water': (p) => `Buzos en el agua cerca de ${p}`, 'Dredge working': (p) => `Draga trabajando cerca de ${p}`, 'Person in the water': (p) => `Persona en el agua cerca de ${p}` },
-  zh: { 'Security zone': (p) => `${p}附近安全区`, 'Whale nearby': (p) => `${p}附近有鲸鱼`, 'Divers in water': (p) => `${p}附近有潜水员`, 'Dredge working': (p) => `${p}附近疏浚作业中`, 'Person in the water': (p) => `${p}附近有人在水中` },
-  ko: { 'Security zone': (p) => `${p} 근처 보안 구역`, 'Whale nearby': (p) => `${p} 근처에 고래 출현`, 'Divers in water': (p) => `${p} 근처 잠수부 작업 중`, 'Dredge working': (p) => `${p} 근처 준설 작업 중`, 'Person in the water': (p) => `${p} 근처 물에 사람이 있음` },
-  tl: { 'Security zone': (p) => `Sonang pangseguridad malapit sa ${p}`, 'Whale nearby': (p) => `May balyena malapit sa ${p}`, 'Divers in water': (p) => `May mga maninisid malapit sa ${p}`, 'Dredge working': (p) => `May dredge na gumagana malapit sa ${p}`, 'Person in the water': (p) => `May tao sa tubig malapit sa ${p}` },
-  vi: { 'Security zone': (p) => `Khu vực an ninh gần ${p}`, 'Whale nearby': (p) => `Có cá voi gần ${p}`, 'Divers in water': (p) => `Có thợ lặn gần ${p}`, 'Dredge working': (p) => `Tàu nạo vét đang hoạt động gần ${p}`, 'Person in the water': (p) => `Có người dưới nước gần ${p}` },
+  es: { 'Security zone': (p) => `Zona de seguridad cerca de ${p}`, 'Whale nearby': (p) => `Ballena cerca de ${p}`, 'Divers in water': (p) => `Buzos en el agua cerca de ${p}`, 'Dredge working': (p) => `Draga trabajando cerca de ${p}`, 'Person in the water': (p) => `Persona en el agua cerca de ${p}`, 'Area closed': (p) => `Zona cerrada cerca de ${p}`, 'Search area': (p) => `Zona de búsqueda cerca de ${p}` },
+  zh: { 'Security zone': (p) => `${p}附近安全区`, 'Whale nearby': (p) => `${p}附近有鲸鱼`, 'Divers in water': (p) => `${p}附近有潜水员`, 'Dredge working': (p) => `${p}附近疏浚作业中`, 'Person in the water': (p) => `${p}附近有人在水中`, 'Area closed': (p) => `${p}附近区域关闭`, 'Search area': (p) => `${p}附近搜索区域` },
+  ko: { 'Security zone': (p) => `${p} 근처 보안 구역`, 'Whale nearby': (p) => `${p} 근처에 고래 출현`, 'Divers in water': (p) => `${p} 근처 잠수부 작업 중`, 'Dredge working': (p) => `${p} 근처 준설 작업 중`, 'Person in the water': (p) => `${p} 근처 물에 사람이 있음`, 'Area closed': (p) => `${p} 근처 구역 폐쇄`, 'Search area': (p) => `${p} 근처 수색 구역` },
+  tl: { 'Security zone': (p) => `Sonang pangseguridad malapit sa ${p}`, 'Whale nearby': (p) => `May balyena malapit sa ${p}`, 'Divers in water': (p) => `May mga maninisid malapit sa ${p}`, 'Dredge working': (p) => `May dredge na gumagana malapit sa ${p}`, 'Person in the water': (p) => `May tao sa tubig malapit sa ${p}`, 'Area closed': (p) => `Saradong lugar malapit sa ${p}`, 'Search area': (p) => `Lugar ng paghahanap malapit sa ${p}` },
+  vi: { 'Security zone': (p) => `Khu vực an ninh gần ${p}`, 'Whale nearby': (p) => `Có cá voi gần ${p}`, 'Divers in water': (p) => `Có thợ lặn gần ${p}`, 'Dredge working': (p) => `Tàu nạo vét đang hoạt động gần ${p}`, 'Person in the water': (p) => `Có người dưới nước gần ${p}`, 'Area closed': (p) => `Khu vực đóng gần ${p}`, 'Search area': (p) => `Khu vực tìm kiếm gần ${p}` },
 };
 
 export function translateInstruction(lang: Lang, instruction: string, facts: WordingFacts): string {
