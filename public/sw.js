@@ -1,5 +1,6 @@
-const SHELL = 'giveway-shell-v1';
-const TILES = 'giveway-tiles-v1';
+const SHELL = 'giveway-shell-v2';
+const TILES = 'giveway-tiles-v2';
+const PMTILES_MAGIC = 'PMTiles';
 const TILE_URL = '/tiles/harbor.pmtiles';
 
 self.addEventListener('install', (event) => {
@@ -15,16 +16,25 @@ self.addEventListener('activate', (event) => {
   })());
 });
 
+async function isTileFile(res) {
+  if (!res || !res.ok) return false;
+  if ((res.headers.get('content-type') || '').includes('text/html')) return false;
+  const head = new Uint8Array(await res.clone().arrayBuffer()).slice(0, PMTILES_MAGIC.length);
+  return String.fromCharCode(...head) === PMTILES_MAGIC;
+}
+
 async function cachedTiles() {
   const cache = await caches.open(TILES);
-  return cache.match(TILE_URL);
+  const hit = await cache.match(TILE_URL);
+  if (hit && !(await isTileFile(hit))) { await cache.delete(TILE_URL); return null; }
+  return hit;
 }
 
 async function fillTiles() {
   const cache = await caches.open(TILES);
-  if (await cache.match(TILE_URL)) return;
+  if (await cachedTiles()) return;
   const res = await fetch(TILE_URL);
-  if (res.ok) await cache.put(TILE_URL, res);
+  if (await isTileFile(res)) await cache.put(TILE_URL, res);
 }
 
 async function rangeFromCache(request) {
@@ -65,9 +75,9 @@ async function networkFirst(request) {
 async function cacheFirst(request) {
   const cache = await caches.open(SHELL);
   const hit = await cache.match(request);
-  if (hit) return hit;
+  if (hit && !(hit.headers.get('content-type') || '').includes('text/html')) return hit;
   const res = await fetch(request);
-  if (res.ok) cache.put(request, res.clone());
+  if (res.ok && !(res.headers.get('content-type') || '').includes('text/html')) cache.put(request, res.clone());
   return res;
 }
 

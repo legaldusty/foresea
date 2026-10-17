@@ -331,7 +331,7 @@ async function attachFrontend(): Promise<void> {
   }
   const dist = path.resolve(process.env.GIVEWAY_DIST || 'dist');
   app.use(express.static(dist, { index: false, maxAge: '1h', setHeaders: (res, file) => { if (file.endsWith('sw.js') || file.endsWith('.webmanifest')) res.setHeader('Cache-Control', 'no-cache'); } }));
-  app.get(/^\/(?!api|socket\.io).*/, (_req, res) => res.sendFile(path.join(dist, 'index.html')));
+  app.get(/^\/(?!api|socket\.io)(?:[^.]*)$/, (_req, res) => res.sendFile(path.join(dist, 'index.html')));
 }
 
 await attachFrontend();
