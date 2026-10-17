@@ -13,6 +13,8 @@ export function TopBar(props: { snap: CommandSnapshot; link: Link; onOrders: () 
   const ais = snap.sources.ais;
   const noaa = snap.sources.noaa;
   const lang = snap.sources.language;
+  const ages = snap.vessels.filter((v) => v.source !== 'simulated').map((v) => v.detail?.lastSeenSec ?? Infinity);
+  const newest = ages.length && Number.isFinite(Math.min(...ages)) ? Math.min(...ages) : null;
   return (
     <header className="cmd-top">
       <Lockup />
@@ -25,7 +27,7 @@ export function TopBar(props: { snap: CommandSnapshot; link: Link; onOrders: () 
       <span className="vdiv" />
       <div className="top-sources">
         {props.link !== 'online' ? <span className="src warn"><WifiSlash size={16} />Hub offline. Showing the last picture.</span> : null}
-        <span className="src" title={ais.detail}><Broadcast size={16} />{ais.mode === 'live' ? 'AIS live, ' : ais.mode === 'replay' ? 'AIS replay, ' : 'AIS offline'}{ais.mode !== 'offline' ? <><span className="t-mono-small">{ais.vessels}</span>&nbsp;vessels</> : null}</span>
+        <span className="src" title={`${ais.detail} The age is the newest position report from any ship; aisstream.io relays reports from shore receivers, usually within seconds.`}><Broadcast size={16} />{ais.mode === 'live' ? 'AIS live, ' : ais.mode === 'replay' ? 'AIS replay, ' : 'AIS offline'}{ais.mode !== 'offline' ? <><span className="t-mono-small">{ais.vessels}</span>&nbsp;vessels{newest !== null ? <>, newest&nbsp;<span className="t-mono-small">{newest < 90 ? `${Math.round(newest)} s` : `${Math.round(newest / 60)} min`}</span></> : null}</> : null}</span>
         <span className="src" title={noaa.detail}><Waves size={16} />{noaa.currentKn !== null ? <>NOAA current&nbsp;<span className="t-mono-small">{noaa.currentKn.toFixed(1)}</span>&nbsp;kn {compassAbbr(noaa.towardDeg)}</> : 'NOAA current: no data'}</span>
         <span className="src lang" title={lang.detail}><FileText size={16} />{lang.source === 'granite' ? 'Granite, on device' : 'Template wording'}</span>
       </div>
