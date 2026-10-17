@@ -7,11 +7,12 @@ import { Button, Simulated } from '../ui';
 import { Lockup } from '../command/TopBar';
 import { usePilotHub } from './usePilotHub';
 import { ViewsMenu } from '../ui/Views';
+import { Joystick } from './Joystick';
 import '../../styles/drive.css';
 
 type F = GeoJSON.Feature<GeoJSON.Geometry, Record<string, unknown>>;
 
-const MAP_PADDING = { top: 32, right: 96, bottom: 32, left: 32 };
+const MAP_PADDING = { top: 32, right: 96, bottom: 72, left: 32 };
 const fc = (features: F[]): GeoJSON.FeatureCollection => ({ type: 'FeatureCollection', features });
 const line = (coordinates: LonLat[], properties: Record<string, unknown>): F => ({ type: 'Feature', properties, geometry: { type: 'LineString', coordinates } });
 const point = (coordinates: LonLat, properties: Record<string, unknown>): F => ({ type: 'Feature', properties, geometry: { type: 'Point', coordinates } });
@@ -67,13 +68,14 @@ export function DriveView() {
       </header>
       <div className="drive-intro">
         <span className="t-title">Drive the drone</span>
-        <span className="t-body c-muted">You are the unknown drone. Pick where to go. The harbor desk only sees how you move and tries to call your target before you get there.</span>
+        <span className="t-body c-muted">You are the unknown drone. The harbor desk only sees how you move and tries to call your target before you get there.</span>
       </div>
       {!online && hub.link !== 'connecting' ? <Notice icon={<WifiSlash size={20} />} testId="drive-offline">The hub is offline. Reconnecting.</Notice> : null}
       {error ? <Notice icon={<Info size={20} />} testId="drive-error">{error}</Notice> : null}
       <div className="drive-map" data-driving={driving ? 'yes' : 'no'}>
         <ChartMap theme={theme} compact showLabels data={data} mode={driving ? 'drive' : 'select'} onPointer={driving ? hub.steer : undefined} fitTo={fit} padding={MAP_PADDING} stamp={snap?.clock.wallMs} motionDelayMs={600} />
         <span className="drive-attr">© OpenStreetMap contributors</span>
+        {driving && drone ? <Joystick from={drone.lonlat} onSteer={hub.steer} disabled={!online} /> : null}
       </div>
       <footer className="drive-foot">
         {live ? (
@@ -93,7 +95,7 @@ export function DriveView() {
                 <Button key={t.id} variant={near(drone.steerTo, t.lonlat) ? 'primary' : 'secondary'} size="l" onClick={() => headFor(t.lonlat)} disabled={!online} testId={`drive-to-${t.id}`}>{t.name}</Button>
               ))}
             </div>
-            <span className="drive-small"><HandPointing size={16} />Or tap anywhere on the chart to go there.</span>
+            <span className="drive-small"><HandPointing size={16} />Or use the joystick, or tap anywhere on the chart.</span>
             <Button variant="quiet" size="l" block icon={<ArrowLineUp size={20} />} onClick={() => void act('surface')} disabled={busy || !online} testId="drive-surface">Surface and end the run</Button>
           </>
         ) : (

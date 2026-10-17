@@ -34,3 +34,17 @@
 @media (min-width: 720px) {
   .drive-intro, .drive-foot { padding-left: max(var(--space-16), calc(50% - 320px)); padding-right: max(var(--space-16), calc(50% - 320px)); }
 }
+
+.drive-joy { position: absolute; right: var(--space-16); bottom: 30px; z-index: 4; display: flex; flex-direction: column; align-items: center; gap: 6px; pointer-events: none; }
+.joy { position: relative; width: 136px; height: 136px; border-radius: 50%; background: var(--raised); border: 1px solid var(--line-strong); box-shadow: var(--shadow-2); touch-action: none; cursor: grab; -webkit-user-select: none; user-select: none; -webkit-touch-callout: none; pointer-events: auto; }
+.joy:focus-visible { outline: 2px solid var(--focus); outline-offset: 3px; }
+.joy.held { cursor: grabbing; }
+.joy .arrow { position: absolute; color: var(--muted); }
+.joy .arrow.up { left: 60px; top: 8px; }
+.joy .arrow.down { left: 60px; bottom: 8px; }
+.joy .arrow.left { top: 60px; left: 8px; }
+.joy .arrow.right { top: 60px; right: 8px; }
+.joy .thumb { position: absolute; left: 40px; top: 40px; width: 56px; height: 56px; border-radius: 50%; background: var(--accent); border: 2px solid var(--on-accent); box-shadow: var(--shadow-2); transition: transform var(--dur-2) var(--ease-out); }
+.joy.held .thumb { transition: none; }
+.drive-joy .label { font: var(--type-label); color: var(--text); text-shadow: 0 1px 0 var(--bg), 0 -1px 0 var(--bg), 1px 0 0 var(--bg), -1px 0 0 var(--bg); }
+.drive-targets .btn-l { height: 44px; }

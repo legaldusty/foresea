@@ -350,6 +350,7 @@
     "tourStep": "96:127",
     "tourCaptain": "96:155",
     "viewsMenu": "110:114",
-    "drive": "110:166"
+    "drive": "110:166",
+    "driveJoystick": "112:140"
   }
 }
