@@ -1,4 +1,4 @@
-import { Binoculars, CaretRight, CheckCircle, Eye, MapPin, Siren, Translate, Warning, Wind } from '@phosphor-icons/react';
+import { Binoculars, CaretRight, CheckCircle, Compass, Eye, MapPin, Siren, Translate, Warning, Wind } from '@phosphor-icons/react';
 import type { CaptainConditions, CaptainNotice, CaptainSnapshot, CaptainTodayRow, Priority } from '../../shared/protocol';
 import { Button } from '../ui';
 import { ChoiceRow, Header, Num, Pin, pinForReason } from './parts';
@@ -11,7 +11,7 @@ function placeOf(row: CaptainTodayRow): string {
   return row.label === row.reason ? '' : row.label;
 }
 
-export function TodaySheet(props: { snap: CaptainSnapshot | null; lang: string; onReport: () => void; onLanguage: () => void; onConditions: () => void }) {
+export function TodaySheet(props: { snap: CaptainSnapshot | null; lang: string; onReport: () => void; onLanguage: () => void; onConditions: () => void; onTour: () => void }) {
   const rows = props.snap?.today ?? [];
   const onRoute = rows.some((r) => r.onRoute);
   const updated = props.snap?.clock.label ?? null;
@@ -47,6 +47,11 @@ export function TodaySheet(props: { snap: CaptainSnapshot | null; lang: string; 
         <Translate size={24} />
         <span className="label">Language</span>
         <span className="value">{languageName(props.lang)}</span>
+        <CaretRight size={20} />
+      </button>
+      <button type="button" className="cap-setting" onClick={props.onTour} data-testid="open-captain-tour">
+        <Compass size={24} />
+        <span className="label">How this works</span>
         <CaretRight size={20} />
       </button>
     </div>

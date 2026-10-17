@@ -342,6 +342,9 @@
     "captainConditions": "92:59",
     "captainSosControl": "95:64",
     "captainSosConfirm": "95:76",
-    "captainSosSent": "95:103"
+    "captainSosSent": "95:103",
+    "tourWelcome": "96:85",
+    "tourStep": "96:127",
+    "tourCaptain": "96:155"
   }
 }

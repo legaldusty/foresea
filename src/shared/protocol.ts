@@ -666,6 +666,7 @@ export interface CommandEvents {
   resizeZone: { zoneId: string; radiusM: number };
   markVhfCalled: { noticeId: string; vesselId: string };
   relayAdvisory: { advisoryId: string };
+  sosDrill: { vesselId: string };
 }
 
 export interface CaptainEvents {

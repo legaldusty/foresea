@@ -25,6 +25,9 @@ import { NoticeEditor, PublishedNotice } from './RightRail';
 import { DeskRail } from './Desk';
 import { JoinSheet, NightsSheet, OrdersSheet } from './Sheets';
 import { StepTrack } from '../ui';
+import { TourOverlay, TourWelcome, useTourState } from '../ui/Tour';
+import { COMMAND_TOUR_CHAPTERS, commandTour } from './tour';
+import { Lockup } from './TopBar';
 import '../../styles/command.css';
 
 const EMPTY_FC: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -123,6 +126,18 @@ export function CommandView() {
   const [themeChoice, setThemeChoice] = useState<'night' | 'day' | null>(null);
   const [presenter, setPresenter] = useState(false);
   const [why, setWhy] = useState(false);
+  const tour = useTourState('giveway.tour.command');
+  const snapRef = useRef(snap);
+  snapRef.current = snap;
+  const forecastsRef = useRef(hub.forecasts);
+  forecastsRef.current = hub.forecasts;
+  const wantsTour = useMemo(() => new URLSearchParams(location.search).get('tour') === '1', []);
+  const tourSteps = useMemo(() => commandTour({
+    snap: () => snapRef.current, forecasts: () => forecastsRef.current, send: hub.send, hosted: hub.hosted,
+    openSheet: (s) => setSheet(s), showDesk: (t) => { setDeskTab(t); setDeskCollapsed(false); },
+    closeOverlays: () => { setSheet(null); setInspect(null); setWhy(false); },
+  }), [hub.send, hub.hosted]);
+  const startTour = () => { tour.markSeen(); tour.setIndex(0); };
   const [editing, setEditing] = useState(false);
   const [divePoint, setDivePoint] = useState<[number, number] | null>(null);
   const [framed, setFramed] = useState<{ id: string; points: [number, number][] } | null>(null);
@@ -256,7 +271,7 @@ export function CommandView() {
 
   return (
     <div className={`cmd${incident ? ' incident' : ''}${railCollapsed ? ' rail-collapsed' : ''}`} data-theme={theme} style={{ ['--rail-w' as string]: railCollapsed ? '44px' : `${rail.size}px` }}>
-      <TopBar snap={snap} link={hub.link} onOrders={() => setSheet('orders')} onJoin={() => setSheet('join')} onModels={() => setSheet('models')} onMode={onMode} muted={muted} onMute={() => { setMuted(!muted); if (muted && 'Notification' in window && Notification.permission === 'default') void Notification.requestPermission(); }} onKeys={() => setSheet('keys')} />
+      <TopBar snap={snap} link={hub.link} onOrders={() => setSheet('orders')} onJoin={() => setSheet('join')} onModels={() => setSheet('models')} onMode={onMode} muted={muted} onMute={() => { setMuted(!muted); if (muted && 'Notification' in window && Notification.permission === 'default') void Notification.requestPermission(); }} onKeys={() => setSheet('keys')} onTour={startTour} />
       <div className="cmd-main">
         <Headline h={snap.headline} level={focus?.risk?.level ?? null} />
         {snap.steps ? <StepStrip steps={snap.steps} /> : null}
@@ -371,6 +386,12 @@ export function CommandView() {
       {sheet === 'models' ? <ModelsPanel models={snap.models} onClose={() => setSheet(null)} /> : null}
       {reportId ? <IncidentSheet contactId={reportId} onClose={() => setReportId(null)} /> : null}
       {sheet === 'keys' ? <ShortcutsSheet onClose={() => setSheet(null)} /> : null}
+      {tour.index !== null ? <TourOverlay steps={tourSteps} index={tour.index} onIndex={tour.setIndex} onClose={() => tour.setIndex(null)} /> : null}
+      {tour.index === null && !tour.seen && (hub.hosted || wantsTour) ? (
+        <TourWelcome brand={<Lockup />} title="See GIVE WAY in four minutes" chapters={COMMAND_TOUR_CHAPTERS}
+          body="The tour runs the real scenes for you and points at each part as it happens. Leave whenever you like and pick it up again from Tour in the top bar."
+          onStart={startTour} onSkip={tour.markSeen} />
+      ) : null}
     </div>
   );
 }

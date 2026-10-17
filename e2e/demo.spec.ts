@@ -27,6 +27,14 @@ async function screenPoint(page: Page, lonlat: [number, number]): Promise<{ x: n
   }, lonlat);
 }
 
+async function showOnChart(page: Page, lonlat: [number, number]): Promise<void> {
+  await page.evaluate(([lon, lat]) => {
+    const map = (window as unknown as { givewayChart: { jumpTo: (o: { center: [number, number] }) => void } }).givewayChart;
+    map.jumpTo({ center: [lon, lat] });
+  }, lonlat);
+  await page.waitForTimeout(300);
+}
+
 async function phone(browser: Browser, vessel: string): Promise<Page> {
   const page = await (await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true })).newPage();
   await page.goto(`${BASE}/captain?v=${vessel}`);
@@ -142,6 +150,7 @@ test('Tuesday: dive plan, a whale from a phone, on-time impact, glider search, d
 
   await test.step('2. A dive plan is filed from the desk', async () => {
     await desk.getByTestId('dive-place').click();
+    await showOnChart(desk, [-118.2765, 33.7395]);
     const spot = await screenPoint(desk, [-118.2765, 33.7395]);
     await desk.mouse.click(spot.x, spot.y);
     await desk.getByTestId('dive-file').click();

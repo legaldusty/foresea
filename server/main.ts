@@ -414,7 +414,7 @@ function flushEffects(h: HarborRoom): void {
   world.setSources({ language: language.status() });
 }
 
-const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled', 'reportSighting', 'confirmSighting', 'extendZone', 'endZone', 'fileDivePlan', 'foundRobot', 'resizeZone', 'relayAdvisory'];
+const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled', 'reportSighting', 'confirmSighting', 'extendZone', 'endZone', 'fileDivePlan', 'foundRobot', 'resizeZone', 'relayAdvisory', 'sosDrill'];
 const STEERING_EVENTS = new Set<keyof CommandEvents>(['drive', 'contactParams']);
 
 function bindCommand(socket: Socket, h: HarborRoom): void {

@@ -319,3 +319,4 @@ button.cap-wx:focus-visible, button.cap-bulletin:focus-visible { outline: 2px so
 .cap-sos-steps li { counter-increment: step; display: flex; gap: var(--space-12); font: var(--type-body); font-size: 15px; line-height: 21px; }
 .cap-sos-steps li::before { content: counter(step); flex: none; width: 12px; font: var(--type-data); color: var(--muted); }
 .cap-sos-foot { flex: none; display: flex; flex-direction: column; gap: var(--space-8); padding: var(--space-16) var(--space-16) calc(env(safe-area-inset-bottom, 0px) + var(--space-24)); border-top: 1px solid var(--line); }
+.cap-setting + .cap-setting { border-top: 0; }

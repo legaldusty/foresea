@@ -3433,6 +3433,13 @@ export class World {
       case 'fileDivePlan': this.fileDivePlan(p); return;
       case 'foundRobot': this.foundRobot((p as P.CommandEvents['foundRobot']).contactId); return;
       case 'relayAdvisory': this.relayAdvisory((p as P.CommandEvents['relayAdvisory']).advisoryId); return;
+      case 'sosDrill': {
+        const e = p as P.CommandEvents['sosDrill'];
+        if (!this.craft.some((k) => k.id === e.vesselId && k.phone)) return;
+        this.log('officer', 'Drill', `Person overboard drill from ${this.craft.find((k) => k.id === e.vesselId)?.name}. Simulated.`);
+        this.captainSos(e.vesselId, 'send');
+        return;
+      }
     }
   }
 

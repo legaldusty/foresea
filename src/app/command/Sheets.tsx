@@ -348,11 +348,11 @@ export function OrdersSheet(props: { snap: CommandSnapshot; send: Send; onClose:
 interface JoinPhone { vesselId: string; name: string; type: string; url: string; svg: string; joined: boolean }
 
 export function JoinSheet(props: { snap: CommandSnapshot; onClose: () => void }) {
-  const [data, setData] = useState<{ urls: string[]; phones: JoinPhone[]; drive?: { url: string; svg: string } } | null>(null);
+  const [data, setData] = useState<{ urls: string[]; phones: JoinPhone[]; drive?: { url: string; svg: string }; harbor?: string | null } | null>(null);
   useEffect(() => { void fetch(api('/api/join')).then((r) => r.json()).then(setData).catch(() => setData(null)); }, []);
   const joined = new Set(props.snap.captains.filter((c) => c.connected).map((c) => c.vesselId));
   return (
-    <Sheet title="Join phones" meta={<>Join the team hotspot, scan, tap Join. Or open <span className="t-mono-small">{data?.urls[0] ?? ''}</span>. Public board for a marina screen: <a className="t-mono-small" href={api('/board')} target="_blank" rel="noreferrer" data-testid="board-link">{(data?.urls[0] ?? '').replace(/\/captain.*$/, '')}{api('/board')}</a></>} onClose={props.onClose} testId="join-sheet" width={640}>
+    <Sheet title="Join phones" meta={<>{data?.harbor ? 'Scan with your phone camera, then tap Join.' : 'Join the team hotspot, scan, tap Join.'} Or open <span className="t-mono-small">{data?.urls[0] ?? ''}</span>. Public board for a marina screen: <a className="t-mono-small" href={api('/board')} target="_blank" rel="noreferrer" data-testid="board-link">{(data?.urls[0] ?? '').replace(/\/captain.*$/, '')}{api('/board')}</a></>} onClose={props.onClose} testId="join-sheet" width={640}>
       {!data ? <div className="t-body c-muted">Loading join codes</div> : (
         <div className="join-list">
           {data.drive ? (

@@ -9,6 +9,7 @@ export interface CommandHub {
   snapshot: CommandSnapshot | null;
   forecasts: ForecastView[];
   link: Link;
+  hosted: boolean;
   send: <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 }
 
@@ -16,10 +17,11 @@ export function useCommandHub(): CommandHub {
   const [snapshot, setSnapshot] = useState<CommandSnapshot | null>(null);
   const [forecasts, setForecasts] = useState<ForecastView[]>([]);
   const [link, setLink] = useState<Link>('connecting');
+  const [hosted, setHosted] = useState(false);
   const socketRef = useRef<Socket | null>(null);
   useEffect(() => {
     const socket = io({ auth: (cb) => cb({ role: 'command', harbor: harborCode() }), transports: ['websocket', 'polling'] });
-    socket.on('harbor', (h: { code: string | null }) => adoptHarbor(h.code));
+    socket.on('harbor', (h: { code: string | null; private: boolean }) => { adoptHarbor(h.code); setHosted(!!h.private); });
     socket.on('forecasts', (f: ForecastView[]) => setForecasts(f));
     socketRef.current = socket;
     socket.on('connect', () => setLink('online'));
@@ -33,7 +35,7 @@ export function useCommandHub(): CommandHub {
     if (!s || !s.connected) { resolve(); return; }
     s.timeout(3000).emit(name, payload, () => resolve());
   }), []);
-  return { snapshot, forecasts, link, send };
+  return { snapshot, forecasts, link, hosted, send };
 }
 
 const CAPTAIN_KEY = 'giveway.captain';
@@ -52,6 +54,7 @@ export interface CaptainHub {
   snapshot: CaptainSnapshot | null;
   receivedAt: number | null;
   link: Link;
+  hosted: boolean;
   vessel: { vesselId: string; name: string } | null;
   pushKey: string | null;
   join: (vesselId?: string) => Promise<boolean>;
@@ -66,6 +69,7 @@ export function useCaptainHub(requestedVessel: string | null): CaptainHub {
   const [snapshot, setSnapshot] = useState<CaptainSnapshot | null>(stored?.snapshot ?? null);
   const [receivedAt, setReceivedAt] = useState<number | null>(stored?.savedAt ?? null);
   const [link, setLink] = useState<Link>('connecting');
+  const [hosted, setHosted] = useState(false);
   const [vessel, setVessel] = useState<{ vesselId: string; name: string } | null>(stored && (!requestedVessel || requestedVessel === stored.vesselId) ? { vesselId: stored.vesselId, name: stored.name } : null);
   const [pushKey, setPushKey] = useState<string | null>(null);
   const socketRef = useRef<Socket | null>(null);
@@ -88,7 +92,7 @@ export function useCaptainHub(requestedVessel: string | null): CaptainHub {
 
   useEffect(() => {
     const socket = io({ auth: (cb) => cb({ role: 'captain', harbor: harborCode() }), transports: ['websocket', 'polling'], reconnectionDelayMax: 3000 });
-    socket.on('harbor', (h: { code: string | null }) => adoptHarbor(h.code));
+    socket.on('harbor', (h: { code: string | null; private: boolean }) => { adoptHarbor(h.code); setHosted(!!h.private); });
     socketRef.current = socket;
     socket.on('connect', () => {
       setLink('online');
@@ -129,5 +133,5 @@ export function useCaptainHub(requestedVessel: string | null): CaptainHub {
     if (!s || !s.connected) { resolve(false); return; }
     s.timeout(5000).emit('sos', { action, vesselId: vesselRef.current?.vesselId }, (err: unknown, r: { ok: boolean } | undefined) => resolve(!err && !!r?.ok));
   }), []);
-  return { snapshot, receivedAt, link, vessel, pushKey, join, ack, sendSubscription, reportSighting, sos };
+  return { snapshot, receivedAt, link, hosted, vessel, pushKey, join, ack, sendSubscription, reportSighting, sos };
 }

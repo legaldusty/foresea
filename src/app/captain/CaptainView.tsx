@@ -17,6 +17,8 @@ import { ReportFlow } from './report';
 import { BulletinStrip } from './conditions';
 import { ConditionsScreen } from './ConditionsScreen';
 import { SosBand, SosScreen } from './sos';
+import { captainTour } from './tour';
+import { TourOverlay, useTourState } from '../ui/Tour';
 import { boatBox, framePoints } from './frame';
 import { snapshotAt } from './timing';
 import { useLanguage } from './words';
@@ -82,6 +84,14 @@ export function CaptainView() {
   const [picking, setPicking] = useState(false);
   const [conditionsFrom, setConditionsFrom] = useState<Screen>('main');
   const [sosFromButton, setSosFromButton] = useState(false);
+  const tour = useTourState('giveway.tour.captain');
+  const tourSteps = useMemo(() => captainTour(), []);
+  const wantsTour = params.get('tour') === '1';
+  useEffect(() => {
+    if (!hub.vessel || tour.seen || tour.index !== null || !(hub.hosted || wantsTour)) return;
+    const t = window.setTimeout(() => { tour.markSeen(); tour.setIndex(0); }, 1200);
+    return () => window.clearTimeout(t);
+  }, [!!hub.vessel, hub.hosted, tour.seen]);
   const alerted = useRef(new Map<string, string>());
   const seen = useRef(new Set<string>());
   const snap = hub.snapshot;
@@ -175,7 +185,7 @@ export function CaptainView() {
   else if (standing && timing) sheet = <NoticeCard n={standing} {...timing} lang={lang} />;
   else if (calm && timing) sheet = <NoticeCard n={calm} {...timing} lang={lang} />;
   else if (clear && !active.length) sheet = <AllClearCard clear={clear} />;
-  else sheet = <TodaySheet snap={snap} lang={lang} onReport={() => setScreen('report')} onLanguage={() => setScreen('language')} onConditions={openConditions} />;
+  else sheet = <TodaySheet snap={snap} lang={lang} onReport={() => setScreen('report')} onLanguage={() => setScreen('language')} onConditions={openConditions} onTour={() => { setScreen('main'); tour.markSeen(); tour.setIndex(0); }} />;
 
   return (
     <div className="cap" data-testid="captain">
@@ -216,6 +226,7 @@ export function CaptainView() {
           </div>
         </div>
       ) : null}
+      {tour.index !== null && screen === 'main' && !urgent ? <TourOverlay compact steps={tourSteps} index={tour.index} onIndex={tour.setIndex} onClose={() => tour.setIndex(null)} testId="captain-tour" /> : null}
       {urgent && timing ? <Takeover n={urgent} {...timing} theme={theme} data={data} boat={vessel?.lonlat ?? null} newRoute={vessel?.newRoute ?? null} labels={youLabels} stamp={snap?.clock.wallMs} lang={lang} onGotIt={() => gotIt(urgent.id)} /> : null}
     </div>
   );
