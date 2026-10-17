@@ -47,7 +47,7 @@ export function CommandView() {
       <TopBar snap={snap} send={hub.send} onOrders={() => setSheet('orders')} onJoin={() => setSheet('join')} onNights={() => setSheet('nights')} />
       <DataLine snap={snap} link={hub.link} send={hub.send} theme={theme} onTheme={() => setThemeChoice(theme === 'night' ? 'day' : 'night')} />
       <div className="cmd-chart">
-        <ChartMap theme={theme} data={data}
+        <ChartMap theme={theme} data={data} stamp={snap.clock.wallMs}
           mode={tool === 'drive' ? 'drive' : tool === 'select' ? 'select' : 'drop'}
           onSelect={(kind, id) => { if (kind === 'contact') setSelected(id); }}
           onPointer={(lonlat) => { if (driven) void hub.send('drive', { contactId: driven.id, lonlat }); }}

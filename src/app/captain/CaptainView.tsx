@@ -286,7 +286,7 @@ export function CaptainView() {
         ) : null}
       </div>
       <div className="cap-map">
-        <ChartMap theme={theme} compact data={data} follow={vessel?.lonlat ?? null} recenter={recenter} showLabels />
+        <ChartMap theme={theme} compact data={data} stamp={snap?.clock.wallMs} motionDelayMs={600} follow={vessel?.lonlat ?? null} recenter={recenter} showLabels />
         {open ? <div className="cap-close"><Button variant="secondary" size="l" title="Close" icon={<X size={24} />} onClick={() => setOpenId(null)} /></div> : null}
         <div className="cap-mapbtns">
           <button className="cap-mapbtn" title="Center on my boat" aria-label="Center on my boat" onClick={() => setRecenter(recenter + 1)}><NavigationArrow size={20} /></button>

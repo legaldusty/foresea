@@ -43,9 +43,55 @@ export interface ChartMapProps {
   compact?: boolean;
   recenter?: number;
   labels?: { id: string; text: string; lonlat: LonLat }[];
+  stamp?: number;
+  motionDelayMs?: number;
 }
 
 const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you'];
+const MOTION_SOURCES: (keyof ChartData)[] = ['vessels', 'contacts', 'you'];
+const STATIC_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'arrows'];
+const FRAMES_KEPT = 4;
+const EXTRAPOLATE_MAX = 2;
+
+interface MotionFrame { at: number; data: ChartData }
+
+type PointFeature = GeoJSON.Feature<GeoJSON.Point, Record<string, unknown>>;
+
+function turn(a: number, b: number, f: number): number {
+  const d = ((((b - a) % 360) + 540) % 360) - 180;
+  return (a + d * f + 360) % 360;
+}
+
+function pointsById(fc: GeoJSON.FeatureCollection): Map<string, PointFeature> {
+  const out = new Map<string, PointFeature>();
+  for (const f of fc.features) {
+    const id = (f.properties as Record<string, unknown> | null)?.id;
+    if (f.geometry.type === 'Point' && id !== undefined) out.set(String(id), f as PointFeature);
+  }
+  return out;
+}
+
+function blend(older: GeoJSON.FeatureCollection, newer: GeoJSON.FeatureCollection, f: number): GeoJSON.FeatureCollection {
+  const before = pointsById(older);
+  const features = newer.features.map((feat) => {
+    const id = (feat.properties as Record<string, unknown> | null)?.id;
+    if (feat.geometry.type !== 'Point' || id === undefined) return feat;
+    const prev = before.get(String(id));
+    if (!prev) return feat;
+    const [ax, ay] = prev.geometry.coordinates;
+    const [bx, by] = (feat.geometry as GeoJSON.Point).coordinates;
+    const props = feat.properties as Record<string, unknown>;
+    const ha = prev.properties.heading;
+    const hb = props.heading;
+    const heading = typeof ha === 'number' && typeof hb === 'number' ? turn(ha, hb, f) : hb;
+    return { ...feat, properties: { ...props, heading }, geometry: { type: 'Point', coordinates: [ax + (bx - ax) * f, ay + (by - ay) * f] } } as GeoJSON.Feature;
+  });
+  return { type: 'FeatureCollection', features };
+}
+
+function clientNow(): number {
+  return performance.timeOrigin + performance.now();
+}
 
 function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification {
   const night = theme === 'night';
@@ -100,6 +146,10 @@ export function ChartMap(props: ChartMapProps) {
   const dynLabels = useRef(new Map<string, maplibregl.Marker>());
   const lastPointer = useRef(0);
   const steering = useRef(false);
+  const frames = useRef<MotionFrame[]>([]);
+  const clockOffset = useRef<number | null>(null);
+  const staticKeys = useRef(new Map<keyof ChartData, string>());
+  const motionStats = useRef<{ frames: number; lastMs: number; contact: number[] | null }>({ frames: 0, lastMs: 0, contact: null });
 
   useEffect(() => {
     ensureProtocol();
@@ -125,9 +175,46 @@ export function ChartMap(props: ChartMapProps) {
       if (!props.compact) map.fitBounds([[-118.292, 33.700], [-118.150, 33.768]], { padding: 24, duration: 0 });
       await loadChartImages(map, colors, el);
       readyRef.current = true;
-      pushData(map, propsRef.current.data);
+      staticKeys.current.clear();
+      pushStatic(map, propsRef.current.data, staticKeys.current);
+      pushMotion(map, propsRef.current.data);
       addLabels();
     });
+    let raf = 0;
+    const loop = () => {
+      raf = requestAnimationFrame(loop);
+      if (!readyRef.current) return;
+      const list = frames.current;
+      if (!list.length) return;
+      const delay = propsRef.current.motionDelayMs ?? 300;
+      const renderAt = clientNow() - delay;
+      let older = list[0];
+      let newer = list[list.length - 1];
+      for (let k = 0; k < list.length - 1; k++) {
+        if (list[k].at <= renderAt && list[k + 1].at >= renderAt) { older = list[k]; newer = list[k + 1]; break; }
+      }
+      if (renderAt >= list[list.length - 1].at && list.length > 1) { older = list[list.length - 2]; newer = list[list.length - 1]; }
+      const span = newer.at - older.at;
+      const f = span > 0 ? Math.max(0, Math.min(EXTRAPOLATE_MAX, (renderAt - older.at) / span)) : 1;
+      const t0 = performance.now();
+      for (const key of MOTION_SOURCES) {
+        const src = map.getSource(key) as GeoJSONSource | undefined;
+        const shown = older === newer ? newer.data[key] : blend(older.data[key], newer.data[key], f);
+        src?.setData(shown);
+        if (key === 'contacts') { const first = shown.features[0]; motionStats.current.contact = first && first.geometry.type === 'Point' ? first.geometry.coordinates : null; }
+        if (dynLabels.current.size && key !== 'you') {
+          for (const feat of shown.features) {
+            const id = (feat.properties as Record<string, unknown> | null)?.id;
+            const marker = id !== undefined ? dynLabels.current.get(String(id)) : undefined;
+            if (marker && feat.geometry.type === 'Point') marker.setLngLat(feat.geometry.coordinates as [number, number]);
+          }
+        }
+      }
+      motionStats.current.frames++;
+      motionStats.current.lastMs = performance.now() - t0;
+    };
+    raf = requestAnimationFrame(loop);
+    if (!props.compact) (window as unknown as { givewayMotion?: typeof motionStats.current }).givewayMotion = motionStats.current;
     map.on('styleimagemissing', () => undefined);
     map.on('click', (e) => {
       const p = propsRef.current;
@@ -164,12 +251,21 @@ export function ChartMap(props: ChartMapProps) {
     }
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
-    return () => { ro.disconnect(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [props.theme]);
 
   useEffect(() => {
+    const now = clientNow();
+    const stamp = props.stamp ?? now;
+    const offset = now - stamp;
+    clockOffset.current = clockOffset.current === null ? offset : Math.min(offset, clockOffset.current + 2);
+    const at = stamp + clockOffset.current;
+    const list = frames.current;
+    if (list.length && at <= list[list.length - 1].at) list[list.length - 1] = { at: list[list.length - 1].at, data: props.data };
+    else list.push({ at, data: props.data });
+    while (list.length > FRAMES_KEPT) list.shift();
     const map = mapRef.current;
-    if (map && readyRef.current) pushData(map, props.data);
+    if (map && readyRef.current) pushStatic(map, props.data, staticKeys.current);
   }, [props.data]);
 
   useEffect(() => {
@@ -186,7 +282,6 @@ export function ChartMap(props: ChartMapProps) {
         dynLabels.current.set(l.id, m);
       }
       (m.getElement() as HTMLElement).textContent = l.text;
-      m.setLngLat(l.lonlat);
     }
   }, [props.labels]);
 
@@ -220,8 +315,18 @@ export function ChartMap(props: ChartMapProps) {
   return <div className="chart-wrap" data-theme={props.theme}><div ref={holder} className="chart-map" /></div>;
 }
 
-function pushData(map: MLMap, data: ChartData): void {
-  for (const key of DATA_SOURCES) {
+function pushStatic(map: MLMap, data: ChartData, keys: Map<keyof ChartData, string>): void {
+  for (const key of STATIC_SOURCES) {
+    const text = JSON.stringify(data[key]);
+    if (keys.get(key) === text) continue;
+    keys.set(key, text);
+    const src = map.getSource(key) as GeoJSONSource | undefined;
+    src?.setData(data[key]);
+  }
+}
+
+function pushMotion(map: MLMap, data: ChartData): void {
+  for (const key of MOTION_SOURCES) {
     const src = map.getSource(key) as GeoJSONSource | undefined;
     src?.setData(data[key]);
   }

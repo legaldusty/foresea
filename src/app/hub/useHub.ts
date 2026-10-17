@@ -1,21 +1,24 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import type { CaptainSnapshot, CommandEvents, CommandSnapshot } from '../../shared/protocol';
+import type { CaptainSnapshot, CommandEvents, CommandSnapshot, ForecastView } from '../../shared/protocol';
 
 export type Link = 'connecting' | 'online' | 'offline';
 
 export interface CommandHub {
   snapshot: CommandSnapshot | null;
+  forecasts: ForecastView[];
   link: Link;
   send: <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 }
 
 export function useCommandHub(): CommandHub {
   const [snapshot, setSnapshot] = useState<CommandSnapshot | null>(null);
+  const [forecasts, setForecasts] = useState<ForecastView[]>([]);
   const [link, setLink] = useState<Link>('connecting');
   const socketRef = useRef<Socket | null>(null);
   useEffect(() => {
     const socket = io({ auth: { role: 'command' }, transports: ['websocket', 'polling'] });
+    socket.on('forecasts', (f: ForecastView[]) => setForecasts(f));
     socketRef.current = socket;
     socket.on('connect', () => setLink('online'));
     socket.on('disconnect', () => setLink('offline'));
@@ -28,7 +31,7 @@ export function useCommandHub(): CommandHub {
     if (!s || !s.connected) { resolve(); return; }
     s.timeout(3000).emit(name, payload, () => resolve());
   }), []);
-  return { snapshot, link, send };
+  return { snapshot, forecasts, link, send };
 }
 
 const CAPTAIN_KEY = 'giveway.captain';

@@ -257,7 +257,7 @@ export interface MarineLogEntry { id: string; atMin: number; lonlat: LonLat; kin
 
 export interface SignedOrders { signedBy: string | null; signedAtWall: string | null; orders: Record<string, number> }
 
-export interface ClockView { simMin: number; label: string; timeScale: number; paused: boolean; night: boolean }
+export interface ClockView { simMin: number; label: string; timeScale: number; paused: boolean; night: boolean; wallMs: number }
 
 export interface SourceStatus {
   ais: { mode: 'live' | 'replay' | 'offline'; detail: string; vessels: number };

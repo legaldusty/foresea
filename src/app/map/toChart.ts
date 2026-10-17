@@ -95,7 +95,7 @@ export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number):
   const v = s.vessel;
   if (v) {
     if (v.newRoute) you.push({ type: 'Feature', properties: { kind: 'new' }, geometry: { type: 'LineString', coordinates: v.newRoute } });
-    you.push({ type: 'Feature', properties: { heading: v.headingDeg }, geometry: { type: 'Point', coordinates: v.lonlat } });
+    you.push({ type: 'Feature', properties: { id: 'you', heading: v.headingDeg }, geometry: { type: 'Point', coordinates: v.lonlat } });
   }
   const routes: F[] = v?.route ? [{ type: 'Feature', properties: { kind: 'planned' }, geometry: { type: 'LineString', coordinates: v.route } }] : [];
   const vessels: F[] = s.traffic.map((t, i) => ({

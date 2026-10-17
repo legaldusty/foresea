@@ -38,7 +38,7 @@ const PUBLIC_URL = process.env.PUBLIC_URL || null;
 const settings = defaultSettings;
 const harbor = buildHarbor(gridJson as never, settings);
 const world = createWorld({ harbor, settings });
-const audit = openAuditLog();
+const audit = openAuditLog(process.env.GIVEWAY_AUDIT || undefined);
 const push = createPushService();
 const language = createLanguageModel(settings.language);
 const noaa = createNoaaClient();
@@ -72,7 +72,7 @@ const feed = createAisFeed({
     aisVessels = vs;
     world.setAis(vs.map((v): AisInputVessel => ({
       mmsi: v.mmsi, name: v.name, lat: v.lat, lon: v.lon, sogKn: v.sogKn ?? 0, cogDeg: v.cogDeg ?? v.headingDeg ?? 0,
-      headingDeg: v.headingDeg, typeLabel: v.typeLabel, lengthM: v.lengthM, aisClass: v.aisClass, source: v.source,
+      headingDeg: v.headingDeg, typeLabel: v.typeLabel, lengthM: v.lengthM, aisClass: v.aisClass, source: v.source, reportedAtMs: v.lastSeen,
     })));
   },
   onStatus: (s) => {
@@ -146,7 +146,17 @@ if (hasCerts) servers.push(https.createServer({ key: fs.readFileSync(path.join(c
 const io = new Server({ serveClient: false, cors: { origin: true }, pingInterval: 5000, pingTimeout: 8000 });
 for (const s of servers) io.attach(s);
 
+let forecastKey = '';
+function emitForecasts(force = false): void {
+  const views = world.forecastViews();
+  const key = views.map((v) => `${v.contactId}:${v.version}`).join('|');
+  if (!force && key === forecastKey) return;
+  forecastKey = key;
+  io.to('command').emit('forecasts', views);
+}
+
 function emitCommand(): void {
+  emitForecasts();
   io.to('command').emit('snapshot', world.commandSnapshot({ aisOnTime, joinUrls: urls() }));
 }
 
@@ -200,6 +210,7 @@ function bindCommand(socket: Socket): void {
       }
     });
   }
+  socket.emit('forecasts', world.forecastViews());
   socket.emit('snapshot', world.commandSnapshot({ aisOnTime, joinUrls: urls() }));
 }
 
@@ -266,15 +277,16 @@ function guarded(name: string, fn: () => void): () => void {
     }
   };
 }
+let tickCount = 0;
 setInterval(guarded('tick', () => {
   const now = Date.now();
   const dt = now - last;
   last = now;
   world.tick(dt, now);
   flushEffects();
+  emitCommand();
+  if (++tickCount % 2 === 0) emitCaptains();
 }), settings.sim.tickMs);
-setInterval(guarded('command update', emitCommand), 250);
-setInterval(guarded('phone update', emitCaptains), 400);
 setInterval(refreshOnTime, 5000);
 setInterval(() => void refreshNoaa(), 10 * 60_000);
 void refreshNoaa();
@@ -287,7 +299,7 @@ async function attachFrontend(): Promise<void> {
     app.use(vite.middlewares);
     return;
   }
-  const dist = path.resolve('dist');
+  const dist = path.resolve(process.env.GIVEWAY_DIST || 'dist');
   app.use(express.static(dist, { index: false, maxAge: '1h', setHeaders: (res, file) => { if (file.endsWith('sw.js') || file.endsWith('.webmanifest')) res.setHeader('Cache-Control', 'no-cache'); } }));
   app.get(/^\/(?!api|socket\.io).*/, (_req, res) => res.sendFile(path.join(dist, 'index.html')));
 }

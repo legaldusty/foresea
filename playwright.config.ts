@@ -8,7 +8,7 @@ export default defineConfig({
   reporter: [['list']],
   use: { baseURL: 'http://localhost:5199', trace: 'retain-on-failure' },
   webServer: {
-    command: 'npx vite build && PORT=5199 npx tsx server/main.ts --ais replay',
+    command: 'npx vite build --outDir dist-e2e --emptyOutDir && PORT=5199 GIVEWAY_DIST=dist-e2e GIVEWAY_AUDIT=data/cache/audit-e2e.sqlite npx tsx server/main.ts --ais replay',
     url: 'http://localhost:5199/api/health',
     reuseExistingServer: false,
     timeout: 180_000,

@@ -39,7 +39,14 @@ export interface AisInputVessel {
   lengthM: number | null;
   aisClass: 'A' | 'B';
   source: 'live' | 'replay' | string;
+  reportedAtMs?: number;
 }
+
+interface AisShown { lonlat: LonLat; reportedAtMs: number; correction: [number, number]; correctionAtMs: number }
+
+const AIS_MOVING_KN = 0.5;
+const AIS_REACH_MS = 180_000;
+const AIS_EASE_MS = 1000;
 
 interface ZoneRec {
   id: string;
@@ -192,6 +199,7 @@ export class World {
   private rand: () => number;
   private lastResponseMin = new Map<string, number>();
   forecasts = new Map<string, ForecastRec>();
+  private aisShown = new Map<number, AisShown>();
   private forecastSeq = 0;
   private areaSeq = 0;
 
@@ -286,6 +294,36 @@ export class World {
   }
 
   setSources(partial: Partial<P.SourceStatus>): void { this.sources = { ...this.sources, ...partial }; }
+
+  private aisReckoned(v: AisInputVessel, atMs: number): LonLat {
+    const here: LonLat = [v.lon, v.lat];
+    if (v.sogKn < AIS_MOVING_KN || v.reportedAtMs === undefined) return here;
+    const ms = Math.max(0, Math.min(AIS_REACH_MS, atMs - v.reportedAtMs));
+    return offsetPoint(here, v.sogKn * KNOT_MPS * (ms / 1000), v.cogDeg);
+  }
+
+  private updateAisShown(): void {
+    const now = this.wallMs;
+    const seen = new Set<number>();
+    for (const v of this.ais) {
+      seen.add(v.mmsi);
+      const target = this.aisReckoned(v, now);
+      const prev = this.aisShown.get(v.mmsi);
+      if (!prev) { this.aisShown.set(v.mmsi, { lonlat: target, reportedAtMs: v.reportedAtMs ?? 0, correction: [0, 0], correctionAtMs: now }); continue; }
+      if ((v.reportedAtMs ?? 0) !== prev.reportedAtMs) {
+        prev.correction = [prev.lonlat[0] - target[0], prev.lonlat[1] - target[1]];
+        prev.correctionAtMs = now;
+        prev.reportedAtMs = v.reportedAtMs ?? 0;
+      }
+      const left = Math.max(0, 1 - (now - prev.correctionAtMs) / AIS_EASE_MS);
+      prev.lonlat = [target[0] + prev.correction[0] * left, target[1] + prev.correction[1] * left];
+    }
+    for (const id of [...this.aisShown.keys()]) if (!seen.has(id)) this.aisShown.delete(id);
+  }
+
+  private aisLonLat(v: AisInputVessel): LonLat {
+    return this.aisShown.get(v.mmsi)?.lonlat ?? [v.lon, v.lat];
+  }
 
   cellAt(lonlat: LonLat): number {
     const [x, y] = this.h.grid.toCell(lonlat[0], lonlat[1]);
@@ -572,6 +610,7 @@ export class World {
 
   tick(dtRealMs: number, wallMs: number): void {
     this.wallMs = wallMs;
+    this.updateAisShown();
     if (this.paused) return;
     const dtSec = (dtRealMs / 1000) * this.timeScale;
     this.simMin += dtSec / 60;
@@ -1673,7 +1712,7 @@ export class World {
     }
     for (const v of this.ais) {
       vessels.push({
-        id: `ais-${v.mmsi}`, name: v.name || `MMSI ${v.mmsi}`, type: v.typeLabel, lonlat: [v.lon, v.lat], headingDeg: v.headingDeg ?? v.cogDeg, speedKn: v.sogKn,
+        id: `ais-${v.mmsi}`, name: v.name || `MMSI ${v.mmsi}`, type: v.typeLabel, lonlat: this.aisLonLat(v), headingDeg: v.headingDeg ?? v.cogDeg, speedKn: v.sogKn,
         source: v.source === 'live' ? 'ais-live' : 'ais-replay', lengthM: v.lengthM, route: null, newRoute: null, phone: null,
         inZone: v.cell >= 0 && zoneMasks.some((m) => m[v.cell] === 1),
       });
@@ -1719,7 +1758,7 @@ export class World {
   }
 
   clockView(): P.ClockView {
-    return { simMin: this.simMin, label: clockLabel(this.simMin), timeScale: this.timeScale, paused: this.paused, night: this.night };
+    return { simMin: this.simMin, label: clockLabel(this.simMin), timeScale: this.timeScale, paused: this.paused, night: this.night, wallMs: this.wallMs };
   }
 
   private proposedRoute(c: CraftSim): number[] | null {
@@ -1793,7 +1832,7 @@ export class World {
       notices,
       traffic: [
         ...this.craft.filter((k) => k.id !== vesselId).map((k) => ({ lonlat: craftLonLat(this.h, k), headingDeg: k.headingDeg, type: k.type })),
-        ...this.ais.map((v) => ({ lonlat: [v.lon, v.lat] as LonLat, headingDeg: v.headingDeg ?? v.cogDeg, type: v.typeLabel })),
+        ...this.ais.map((v) => ({ lonlat: this.aisLonLat(v), headingDeg: v.headingDeg ?? v.cogDeg, type: v.typeLabel })),
       ],
       allClear: this.allClearRecent.map(({ id, publicReason, atWall, atMin, approvedBy }) => ({ id, publicReason, atWall, atLabel: clockLabel(atMin), approvedBy })),
       lastAllClearLabel: this.lastAllClearMin !== null ? clockLabel(this.lastAllClearMin) : null,
