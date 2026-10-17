@@ -206,6 +206,12 @@ function bindCaptain(socket: Socket): void {
   socket.on('join', (payload: CaptainEvents['join'], ack?: (r: unknown) => void) => {
     const assigned = world.captainJoin(payload?.vesselId);
     if (!assigned) { ack?.({ ok: false, error: 'No vessel available' }); return; }
+    const previous = socket.data.vesselId as string | undefined;
+    if (previous && previous !== assigned.vesselId) {
+      socket.leave(`v:${previous}`);
+      const room = io.sockets.adapter.rooms.get(`v:${previous}`);
+      if (!room || room.size === 0) world.captainLeft(previous);
+    }
     socket.data.vesselId = assigned.vesselId;
     socket.join(`v:${assigned.vesselId}`);
     ack?.({ ok: true, ...assigned, pushKey: push.publicKey });
