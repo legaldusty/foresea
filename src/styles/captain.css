@@ -57,3 +57,6 @@
 .cap-join .setting .text .t-small { color: var(--muted); }
 .cap-join .spacer { flex: 1; min-height: var(--space-24); }
 .cap-join .foot { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-16) var(--space-24) 0; }
+.cap-picker { position: absolute; inset: 0; z-index: 11; background: var(--bg); display: flex; flex-direction: column; justify-content: flex-end; }
+.cap-picker .inner { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-24) var(--space-16) calc(env(safe-area-inset-bottom, 0px) + var(--space-16)); border-top: 1px solid var(--line); }
+.cap-strip .who { cursor: pointer; }

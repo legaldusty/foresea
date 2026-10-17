@@ -52,7 +52,10 @@ export function CommandView() {
           onSelect={(kind, id) => { if (kind === 'contact') setSelected(id); }}
           onPointer={(lonlat) => { if (driven) void hub.send('drive', { contactId: driven.id, lonlat }); }}
           onDrop={onDrop}
-          labels={snap.contacts.map((c) => ({ id: c.id, text: c.label, lonlat: c.lonlat }))} />
+          labels={[
+            ...snap.contacts.map((c) => ({ id: c.id, text: c.label, lonlat: c.lonlat })),
+            ...snap.vessels.filter((v) => v.phone?.joined).map((v) => ({ id: v.id, text: `${v.name}, phone`, lonlat: v.lonlat })),
+          ]} />
         <ChartTools tool={tool} setTool={setTool} send={hub.send} driven={driven} />
         {tool === 'drive' && driven ? <DriveControl c={driven} send={hub.send} onStop={() => setTool('select')} /> : null}
         <Legend />

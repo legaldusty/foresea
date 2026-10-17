@@ -122,10 +122,10 @@ function Detail(props: { n: CaptainNotice; onGotIt: () => void }) {
   );
 }
 
-function Strip(props: { name: string; speedKn: number | null; stale: boolean }) {
+function Strip(props: { name: string; speedKn: number | null; stale: boolean; onPick: () => void }) {
   return (
     <div className="cap-strip">
-      <div className="who"><b>{props.name}</b>{props.speedKn !== null ? <span className="t-mono-small">{props.speedKn.toFixed(1)} kn</span> : null}<span className="simulated">Simulated</span></div>
+      <div className="who" onClick={props.onPick} role="button" tabIndex={0} aria-label="Change boat"><b>{props.name}</b>{props.speedKn !== null ? <span className="t-mono-small">{props.speedKn.toFixed(1)} kn</span> : null}<span className="simulated">Simulated</span></div>
       {props.stale ? null : <span className="live"><Broadcast size={14} />Live</span>}
     </div>
   );
@@ -199,6 +199,7 @@ export function CaptainView() {
   const [openId, setOpenId] = useState<string | null>(null);
   const [themeChoice, setThemeChoice] = useState<'day' | 'night' | null>(params.get('theme') === 'night' ? 'night' : params.get('theme') === 'day' ? 'day' : null);
   const [recenter, setRecenter] = useState(0);
+  const [picking, setPicking] = useState(false);
   const alerted = useRef(new Map<string, string>());
   const seen = useRef(new Set<string>());
   const snap = hub.snapshot;
@@ -278,7 +279,7 @@ export function CaptainView() {
             </div>
           </div>
         ) : (
-          <Strip name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} stale={stale} />
+          <Strip name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} stale={stale} onPick={() => setPicking(true)} />
         )}
         {stale ? (
           <div className="cap-offline" data-testid="stale"><WifiSlash size={18} /><span>Updated {hub.receivedAt ? ago(hub.receivedAt, now) : 'a while ago'}. Zones keep moving along their predicted path.</span></div>
@@ -296,6 +297,23 @@ export function CaptainView() {
       <div className="cap-sheet" data-testid={open ? 'notice-detail' : 'captain-sheet'}>
         {open ? <Detail n={open} onGotIt={() => gotIt(open.id)} /> : <Sheet snap={snap} notices={notices} banner={banner} clear={clear} stale={stale} open={setOpenId} gotIt={gotIt} />}
       </div>
+      {picking ? (
+        <div className="cap-picker" data-testid="boat-picker">
+          <div className="inner">
+            <span className="t-title">Change boat</span>
+            <span className="t-small c-muted">Each phone captains one simulated boat.</span>
+            <div className="cap-list">
+              {Object.entries(names).map(([id, name]) => (
+                <button key={id} className="cap-item" onClick={() => { setPicking(false); void hub.join(id); }}>
+                  <span className="t-strong">{name}</span>
+                  <span className="t-data">{id === hub.vessel?.vesselId ? 'You' : ''}</span>
+                </button>
+              ))}
+            </div>
+            <Button variant="secondary" size="l" block onClick={() => setPicking(false)}>Cancel</Button>
+          </div>
+        </div>
+      ) : null}
       {urgent ? <Takeover n={urgent} theme={theme} you={vessel?.lonlat ?? null} data={data} onGotIt={() => gotIt(urgent.id)} /> : null}
     </div>
   );
