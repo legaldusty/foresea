@@ -76,6 +76,7 @@ export function pinForReason(reason: PublicReason): PinKind {
     case 'Whale nearby': return 'whale';
     case 'Divers in water': return 'divers';
     case 'Dredge working': return 'slow';
+    case 'Slow zone': return 'slow';
     default: return 'keepOut';
   }
 }

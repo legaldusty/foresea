@@ -71,7 +71,7 @@ export function formatBlank(b: OrderBlank, v: number): string {
   return b.format === 'percent' ? `${Math.round(v * 100)}%` : String(v);
 }
 
-export type OrderKind = 'security' | 'whale' | 'divers' | 'dredge' | 'closure' | 'search' | 'sighting' | 'flaggedShip' | 'any';
+export type OrderKind = 'security' | 'whale' | 'divers' | 'dredge' | 'closure' | 'search' | 'slow' | 'sighting' | 'flaggedShip' | 'any';
 export type OrderDo = 'autoPublish' | 'neverAuto' | 'radius' | 'slowKnots' | 'validMinutes' | 'alert' | 'callBackup';
 export type ShipFlag = 'watch' | 'anomalous';
 export type OrderSource = 'parser' | 'granite' | 'officer';
@@ -116,6 +116,7 @@ export const ORDER_KINDS: { value: OrderKind; label: string }[] = [
   { value: 'divers', label: 'divers' },
   { value: 'dredge', label: 'a dredge' },
   { value: 'closure', label: 'a closure' },
+  { value: 'slow', label: 'a slow zone' },
   { value: 'search', label: 'a lost robot search area' },
   { value: 'sighting', label: 'a reported sighting' },
   { value: 'flaggedShip', label: 'a flagged ship' },

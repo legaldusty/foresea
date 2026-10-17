@@ -21,6 +21,7 @@ const REASONS: { value: PublicReason; label: string }[] = [
   { value: 'Divers in water', label: 'Divers in water' },
   { value: 'Dredge working', label: 'Dredge working' },
   { value: 'Person in the water', label: 'Person in the water' },
+  { value: 'Slow zone', label: 'Slow zone' },
 ];
 
 const ACTION_ICON: Record<string, JSX.Element | null> = {

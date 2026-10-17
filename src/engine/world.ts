@@ -1592,6 +1592,7 @@ export class World {
       case 'Divers in water': return 'divers';
       case 'Person in the water': return 'person';
       case 'Area closed': return 'closure';
+      case 'Slow zone': return 'slow';
       case 'Search area': return 'search';
       case 'Security zone': return 'security';
       default: return 'dredge';
@@ -1947,6 +1948,11 @@ export class World {
       this.marineLog.push({ id: this.id('m'), atMin: this.simMin, lonlat: this.lonlatOf(cell), kind: 'Whale sighting', detail: `Reported by the officer near ${this.placeNear(cell)}` });
       this.attachUndoToLast(() => this.removeZone(zoneId));
       return draftId;
+    }
+    if (e.kind === 'slow') {
+      const id = this.upsertRoutineZone(zoneId, 'slow', 'Slow zone', cell, e.radiusM ?? o.routineZoneMeters, null, 'SLOW', 'Slow zone', { label: `Slow zone near ${this.placeNear(cell).replace(/^the /, '')}`, slowKnots: o.speedAdvisoryKnots });
+      this.attachUndoToLast(() => this.removeZone(zoneId));
+      return id;
     }
     if (e.kind === 'closure') {
       const id = this.upsertRoutineZone(zoneId, 'keepOut', 'Area closed', cell, e.radiusM ?? o.routineZoneMeters, null, 'KEEP CLEAR', 'Closure', { label: `Closure near ${this.placeNear(cell).replace(/^the /, '')}` });

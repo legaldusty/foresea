@@ -192,3 +192,11 @@ describe('matching an order', () => {
     expect(orderApplies(order, { ...base, kinds: ['whale'] }, 600, defaultSettings)).toBe(false);
   });
 });
+
+describe('slow zones in typed orders', () => {
+  it('reads an order about plain slow zones', () => {
+    const r = parseOrder('Publish slow zones automatically', defaultSettings);
+    expect(r.order?.when.kind).toBe('slow');
+    expect(r.understood).toContain('slow zone');
+  });
+});

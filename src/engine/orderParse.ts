@@ -30,6 +30,7 @@ const LEVEL = '(low|minor|medium|moderate|serious|high|critical)';
 const KIND_PATTERNS: [OrderKind, RegExp][] = [
   ['flaggedShip', /\b(?:(?:flagged|flags?|anomalous|anomaly|suspicious|unusual|strange|odd)\s+(?:a\s+|the\s+)?(?:ships?|vessels?|boats?)|(?:ships?|vessels?)\s+(?:to watch|on the watch list|that (?:goes|go|went) dark|(?:goes|go|going|went) dark|(?:stops?|stopped) reporting|(?:turns?|turned) off (?:its |their )?ais)|traffic model|ais (?:gaps?|silence)|dark (?:ships?|vessels?)|ships? to watch)\b/],
   ['search', /\b(?:search areas?|lost (?:research )?(?:robots?|gliders?|vehicles?|auvs?|drones?)|missing (?:robots?|gliders?)|(?:robots?|gliders?) (?:is |are |goes |go |gets |get )?(?:lost|missing|silent)|search)\b/],
+  ['slow', /\b(?:slow(?:[- ]down)? zones?|slow areas?|speed zones?|no[- ]wake zones?)\b/],
   ['whale', /\b(?:whales?|marine (?:animals?|mammals?|life)|animals?|humpbacks?)\b/],
   ['divers', /\b(?:divers?|dive plans?|dives?|diving)\b/],
   ['dredge', /\b(?:dredges?|dredging|work zones?|construction)\b/],
@@ -282,6 +283,7 @@ function subjectPhrase(when: OrderWhen): string {
     case 'divers': return 'divers are in the water';
     case 'dredge': return 'a dredge is working';
     case 'closure': return 'an area is closed';
+    case 'slow': return 'a slow zone is drafted';
     case 'search': return 'a lost robot needs a search area';
     case 'sighting': return 'a sighting is reported';
     case 'flaggedShip': return when.shipFlag === 'anomalous' ? 'the traffic model flags a ship as anomalous' : 'the traffic model flags a ship to watch';
@@ -298,6 +300,7 @@ function noticeNoun(kind: OrderKind): string {
     case 'dredge': return 'the dredge zone';
     case 'search': return 'the search area';
     case 'closure': return 'the closure';
+    case 'slow': return 'the slow zone';
     default: return 'the notice';
   }
 }
@@ -577,6 +580,7 @@ export function noticeOrderKinds(kind: NoticeKind, fromSighting: boolean): Order
     case 'divers': return ['divers'];
     case 'dredge': return ['dredge'];
     case 'closure': return ['closure'];
+    case 'slow': return ['slow'];
     case 'search': return ['search'];
     default: return [];
   }

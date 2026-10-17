@@ -31,8 +31,9 @@ function tryTunnel(): Promise<{ url: string | null; log: string }> {
     const timer = setTimeout(() => finish(null), TUNNEL_WAIT_MS);
     const scan = (buf: Buffer) => {
       log += buf.toString();
-      const m = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/.exec(log);
+      const m = /https:\/\/(?!api\.)[a-z0-9]+(?:-[a-z0-9]+)+\.trycloudflare\.com/.exec(log);
       if (m) finish(m[0]);
+      else if (/failed to request quick Tunnel|failed to unmarshal quick Tunnel|status code 4\d\d|status code 5\d\d/i.test(log)) finish(null);
     };
     child.stdout?.on('data', scan);
     child.stderr?.on('data', scan);
@@ -47,7 +48,8 @@ async function startTunnel(): Promise<string | null> {
     const { url, log } = await tryTunnel();
     if (url) { console.log(`Tunnel up: ${url}`); return url; }
     const errors = log.split('\n').filter((l) => / ERR | WRN |error|failed/i.test(l)).slice(-4);
-    console.log(`No tunnel URL within ${TUNNEL_WAIT_MS / 1000} s.${errors.length ? `\n${errors.join('\n')}` : ''}`);
+    console.log(`No tunnel URL from cloudflared.${errors.length ? `\n${errors.join('\n')}` : ''}`);
+    if (attempt < TUNNEL_TRIES) await new Promise((ok) => setTimeout(ok, 4000));
   }
   console.log('Tunnel failed. Phones must use the LAN address below and be on the same network as this laptop.');
   return null;

@@ -7,7 +7,7 @@ import { Button, Field, Segmented, SelectBox, Simulated } from '../ui';
 import { usePersisted } from './resize';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
-export type ZoneKind = 'whale' | 'divers' | 'dredge' | 'closure';
+export type ZoneKind = 'whale' | 'divers' | 'dredge' | 'closure' | 'slow';
 export type Tool = 'select' | 'drive' | ZoneKind | `sighting:${Species}` | 'dive';
 
 const INCIDENTS = [
@@ -19,6 +19,7 @@ const INCIDENTS = [
 ];
 
 const ZONES: { kind: ZoneKind; label: string; detail: string; icon: JSX.Element }[] = [
+  { kind: 'slow', label: 'Slow zone', detail: 'Boats slow down here. No reason needed', icon: <Gauge size={16} /> },
   { kind: 'whale', label: 'Whale', detail: 'Slow zone around a sighting', icon: <Fish size={16} /> },
   { kind: 'divers', label: 'Divers', detail: 'Keep clear of divers in the water', icon: <PersonSimpleSwim size={16} /> },
   { kind: 'dredge', label: 'Dredge', detail: 'Keep clear of a work zone', icon: <Crane size={16} /> },

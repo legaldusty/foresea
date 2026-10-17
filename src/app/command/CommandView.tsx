@@ -101,6 +101,17 @@ export function CommandView() {
   const toggleRail = (k: RailSection) => setRailHiddenList(railHidden.has(k) ? railHiddenList.filter((x) => x !== k) : [...railHiddenList, k]);
   const railAlerts = useRailAlerts(snap, railCollapsed);
   const selectedRef = useRef<HTMLDivElement>(null);
+  const dropPending = useRef(false);
+  const knownDrafts = useRef<Set<string>>(new Set());
+  const zoneFocusRef = useRef<((zoneId: string) => void) | null>(null);
+  useEffect(() => {
+    if (!snap) return;
+    if (dropPending.current) {
+      const fresh = snap.drafts.find((d) => !knownDrafts.current.has(d.id) && !d.contactId);
+      if (fresh) { dropPending.current = false; zoneFocusRef.current?.(fresh.zoneId); }
+    }
+    knownDrafts.current = new Set(snap.drafts.map((d) => d.id));
+  }, [snap?.drafts]);
   const deskCollapsedRef = useRef(deskCollapsed);
   deskCollapsedRef.current = deskCollapsed;
   const [hiddenList, setHiddenList] = usePersisted<LayerKey[]>('giveway.layers.hidden', []);
@@ -208,6 +219,7 @@ export function CommandView() {
     setHighlight({ lonlat: z.center, radiusM: z.area ? null : z.radiusM });
     selectInRail({ kind: 'zone', id: z.id });
   };
+  zoneFocusRef.current = zoneFocus;
   const openAlert = (a: RailAlert) => {
     setRailCollapsed(false);
     railAlerts.dismiss(a.key);
@@ -236,7 +248,7 @@ export function CommandView() {
   };
 
   const onDrop = (lonlat: [number, number]) => {
-    if (tool === 'whale' || tool === 'divers' || tool === 'dredge' || tool === 'closure') void hub.send('dropZone', { kind: tool, lonlat });
+    if (tool === 'whale' || tool === 'divers' || tool === 'dredge' || tool === 'closure' || tool === 'slow') { dropPending.current = true; void hub.send('dropZone', { kind: tool, lonlat }); }
     if (tool.startsWith('sighting:')) void hub.send('reportSighting', { species: tool.slice('sighting:'.length) as never, lonlat });
     if (tool === 'dive') setDivePoint(lonlat);
     setTool('select');

@@ -570,3 +570,17 @@ describe('after-action report', () => {
     expect(w.commandSnapshot().incidents.some((i) => i.contactId === id)).toBe(true);
   });
 });
+
+describe('slow zone with no reason', () => {
+  it('drops a plain slow zone that tells boats to slow to the advisory speed', () => {
+    const w = freshWorld('tuesday');
+    const draftId = w.dropZone({ kind: 'slow', lonlat: [-118.2495, 33.7235] })!;
+    const d = w.drafts.get(draftId)!;
+    expect(d.publicReason).toBe('Slow zone');
+    expect(d.kind).toBe('slow');
+    expect(d.instructionText).toMatch(/SLOW TO \d+ KNOTS/);
+    expect(d.label).toMatch(/^Slow zone near /);
+    const noticeId = w.publish(draftId)!;
+    expect(w.notices.get(noticeId)!.status).toBe('active');
+  });
+});
