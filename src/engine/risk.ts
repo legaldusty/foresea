@@ -101,7 +101,7 @@ export interface RiskPick {
   splitWith: string | null;
 }
 
-export type RiskRule = 'splitOdds' | 'urgentBump' | 'urgentNeedsSeverity' | 'criticalNeedsCloseIn' | 'highFloor' | 'noFlicker';
+export type RiskRule = 'splitOdds' | 'urgentBump' | 'urgentNeedsSeverity' | 'criticalNeedsCloseIn' | 'highFloor' | 'noFlicker' | 'friendlyStaysAtLog';
 
 export interface RuleFiring {
   rule: RiskRule;
@@ -189,6 +189,7 @@ const RULE_LABELS: Record<RiskRule, string> = {
   criticalNeedsCloseIn: 'Critical means call now: held at High until it is close to its target',
   highFloor: 'No reset by fake-out: stays at least Serious after a High',
   noFlicker: 'No flicker: holding the level until it stays lower for a while',
+  friendlyStaysAtLog: 'Confirmed friendly: stays at Log',
 };
 
 const FINAL_RULE_NUMBER: Partial<Record<RiskRule, number>> = {
@@ -228,7 +229,7 @@ export function scoreRisk(input: RiskInput, state: RiskState = initialRiskState(
   const rawLevel = levelOf(best.R, settings);
   let level = rawLevel;
   let urgent = false;
-  if (timeIsShort(input, r)) {
+  if (timeIsShort(input, r) && !input.friendly) {
     if (!finalRules || best.S >= r.urgentMinSeverity) urgent = true;
     else rules.push(fired('urgentNeedsSeverity'));
   }
@@ -244,6 +245,11 @@ export function scoreRisk(input: RiskInput, state: RiskState = initialRiskState(
   if (finalRules && state.peak >= levelIndex(r.highFloorAfterLevel) && !input.friendly && level < floor) {
     level = floor;
     rules.push(fired('highFloor'));
+  }
+
+  if (input.friendly && level > LOW) {
+    level = LOW;
+    rules.push(fired('friendlyStaysAtLog'));
   }
 
   const settled = settleShownLevel(level, input.t, state, r.dropAfterMinutes);

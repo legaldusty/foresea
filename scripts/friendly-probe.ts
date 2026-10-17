@@ -1,0 +1,12 @@
+import gridJson from '../src/data/harbor_grid.json';
+import { defaultSettings } from '../src/engine/settings';
+import { buildHarbor } from '../src/engine/harbor';
+import { createWorld } from '../src/engine/world';
+const h = buildHarbor(gridJson as never, defaultSettings);
+const w = createWorld({ harbor: h, settings: defaultSettings });
+w.resetHarbor('tuesday');
+const c = w.spawn({ preset: 'friendly' })!;
+for (let i = 0; i < 300; i++) w.tick(250, Date.now());
+const r = c.lastRisk!;
+console.log('H', c.hostility?.H, 'K', c.K, 'R', r.R, r.levelName, 'raw', r.rawLevelName, 'best', JSON.stringify(r.best), 'rules', r.rules.map((x) => x.label));
+console.log(r.perTarget.map((p) => `${p.id} p=${p.odds.toFixed(2)} L${p.L} S${p.S} R${p.R}`).join(' | '));
