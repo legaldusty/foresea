@@ -12,6 +12,7 @@ Pitch line for the forecast: "It's a hurricane forecast for underwater drones."
 4. Open **Join phones**. Phone A (the judge's phone) scans **Harbor Launch 7**. Phone B (a teammate) scans **Water Taxi**. Both tap **Join** and turn on alerts.
 5. Press **P** (or the small presenter button bottom left of the chart). The Presenter panel holds every demo-only control: scene, time speed, add contact, drive, sensor lost, Run 1,000 nights. Set time to **20x**. Press **P** again to hide it.
 6. Check the top bar: AIS live or AIS replay with a vessel count, the NOAA current, and the wording source. If AIS says replay, say so out loud: it is our real Friday night recording.
+7. Command opens in **Live**: the real Pacific clock, real ships from AIS, NOAA, and the traffic model scoring every ship every 5 seconds (flagged ships get a ring and a row under **Ships to watch**). Start the pitch here for ten seconds: click a real ship to show its AIS detail and model score, then open **Models**. Then switch to **Simulation** for the scenes. `npm run demo -- --sim` starts in Simulation if the venue has no internet.
 
 ## Tuesday (30 seconds)
 
@@ -24,7 +25,10 @@ Presenter, **Tuesday**. The headline reads like "Tuesday 09:12. 3 zones active, 
 
 1. Presenter, **Night**. Then **Incident A** (or **Drone to drive** and let the judge drag toward the Fuel Pier). Hide the presenter.
 2. Watch the forecast. At first the yellow covers two branches and the red is short: "Not sure where it is going yet. Watching." Within about 20 seconds the red locks onto the Fuel Pier and the time marks appear. Say: "It learns where it is going from how it moves."
-3. The headline says the drone is heading to the Fuel Pier, when it arrives, and how many boats cross its path. The card reads **Publish this notice** with one row per boat: the action, the minutes it costs, and when it crosses. Total is a few boat-minutes, no gate closed. Click **Publish** while the red is narrow (7 to 11 minutes after detection on the clock).
+3. The headline says the drone is heading to the Fuel Pier, when it arrives, and how many boats cross its path. The card reads **Publish this notice** with one row per boat: the action, the minutes it costs, and when it crosses. Total is a few boat-minutes, no gate closed.
+   - While the risk is Serious, the card shows **Publishing on your behalf in 20 s** under the signed Standing Orders. Say: "Routine risk publishes itself, and I can stop it." Click **Stop** so you publish it yourself. High and Critical always wait for the officer.
+   - Click **Full dossier** under the contact: the sensor readout (depth, speed, size, heat, sound), why it is classed this way, the hostility evidence, the risk math step by step, the forecast and the timeline. Close it.
+   - Click **Publish** while the red is narrow (7 to 11 minutes after detection on the clock).
 4. **Phones.** Phone A (Harbor Launch 7, head on) gets the P1 takeover: one instruction like ALTER COURSE NORTHWEST 150 m, a countdown to when it is safe, and the forecast on its map. The judge taps **Got it**; Command shows Acknowledged. Phone B (Water Taxi) gets nothing or a calm heads-up. Say: "Targeted, not a flood."
 5. **Ignored.** Pilot Boat 2 never answers. After 4 minutes on the clock the card says **Pilot Boat 2 not responding** with the VHF script. Read it out loud. Click **Called on VHF**.
 6. **All clear** in the published notice. Every phone shows ALL CLEAR.

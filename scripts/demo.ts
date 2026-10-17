@@ -44,6 +44,7 @@ async function main(): Promise<void> {
   const env = { ...process.env, PORT: String(PORT), ...(publicUrl ? { PUBLIC_URL: publicUrl } : {}) };
   const hubArgs = ['tsx', 'server/main.ts'];
   if (has('replay')) hubArgs.push('--ais', 'replay');
+  if (has('sim')) hubArgs.push('--sim');
   const hub = spawn('npx', hubArgs, { stdio: 'inherit', env });
   children.push(hub);
   if (!(await waitForHub())) { console.error('The hub did not start.'); process.exit(1); }
