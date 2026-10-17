@@ -97,3 +97,8 @@
 @media (max-width: 1400px) {
   .top-sources .src.wx { display: none; }
 }
+
+.today-row.pickable { cursor: pointer; }
+.today-row.pickable:hover { background: var(--raised); }
+.today-row.picked { background: var(--raised); box-shadow: inset 3px 0 0 var(--tide); }
+.today-row .acts > span { display: inline-flex; }

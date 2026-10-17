@@ -11,7 +11,7 @@ type DeskTab = 'today' | 'ontime' | 'conditions' | 'sightings' | 'report' | 'log
 
 const HOURS = Array.from({ length: 33 }, (_, i) => 6 + i * 0.5).map((h) => ({ value: h, label: `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}` }));
 
-function Today(props: { snap: CommandSnapshot; send: Send; divePoint: [number, number] | null; onPickDive: () => void }) {
+function Today(props: { snap: CommandSnapshot; send: Send; divePoint: [number, number] | null; onPickDive: () => void; onZone: (noticeId: string) => void; selectedNotice: string | null }) {
   const [by, setBy] = useState('Harbor Divers LLC');
   const [start, setStart] = useState(13);
   const [end, setEnd] = useState(14);
@@ -21,7 +21,8 @@ function Today(props: { snap: CommandSnapshot; send: Send; divePoint: [number, n
       <TodayAdvisories snap={props.snap} send={props.send} />
       <div className="today-row head"><span>Zone</span><span>Times</span><span className="num">Boats</span><span className="num">Ack</span><span /></div>
       {rows.map((r) => (
-        <div className={`today-row${r.status === 'scheduled' ? ' scheduled' : ''}`} key={r.id} data-testid={`today-${r.id}`}>
+        <div className={`today-row${r.status === 'scheduled' ? ' scheduled' : ''}${r.noticeId ? ' pickable' : ''}${r.noticeId && r.noticeId === props.selectedNotice ? ' picked' : ''}`} key={r.id} data-testid={`today-${r.id}`}
+          onClick={r.noticeId ? () => props.onZone(r.noticeId as string) : undefined} title={r.noticeId ? 'Show this zone on the chart and in the right panel' : undefined}>
           <span className="zone"><span className="t-strong">{r.label}</span><span className="t-small c-muted">{r.status === 'scheduled' ? `Scheduled. ${r.filedBy ?? ''}` : r.filedBy ?? ''}{r.simulated ? '. Simulated' : ''}</span></span>
           <span className="mono">{r.timesLabel}</span>
           <span className="num mono">{r.status === 'active' ? r.boatsAffected : ''}</span>
@@ -29,8 +30,8 @@ function Today(props: { snap: CommandSnapshot; send: Send; divePoint: [number, n
           <span className="acts">
             {r.noticeId ? (
               <>
-                <Button variant="quiet" onClick={() => void props.send('extendZone', { noticeId: r.noticeId as string, minutes: 30 })} testId={`extend-${r.id}`}>Extend</Button>
-                <Button variant="quiet" onClick={() => void props.send('endZone', { noticeId: r.noticeId as string })} testId={`end-${r.id}`}>End</Button>
+                <span onClick={(e) => e.stopPropagation()}><Button variant="quiet" onClick={() => void props.send('extendZone', { noticeId: r.noticeId as string, minutes: 30 })} testId={`extend-${r.id}`}>Extend</Button></span>
+                <span onClick={(e) => e.stopPropagation()}><Button variant="quiet" onClick={() => void props.send('endZone', { noticeId: r.noticeId as string })} testId={`end-${r.id}`}>End</Button></span>
               </>
             ) : null}
           </span>
@@ -142,6 +143,7 @@ function Log(props: { snap: CommandSnapshot; send: Send; onPlace: (w: AuditWhere
 export function DeskRail(props: {
   snap: CommandSnapshot; send: Send; divePoint: [number, number] | null; onPickDive: () => void;
   tab: string; onTab: (t: string) => void; collapsed: boolean; onCollapse: () => void; onPlace: (w: AuditWhere) => void;
+  onZone: (noticeId: string) => void; selectedNotice: string | null;
 }) {
   const tab = props.tab as DeskTab;
   const setTab = props.onTab;
@@ -164,7 +166,7 @@ export function DeskRail(props: {
         </button>
       </div>
       {props.collapsed ? null : <>
-      {tab === 'today' ? <Today snap={props.snap} send={props.send} divePoint={props.divePoint} onPickDive={props.onPickDive} /> : null}
+      {tab === 'today' ? <Today snap={props.snap} send={props.send} divePoint={props.divePoint} onPickDive={props.onPickDive} onZone={props.onZone} selectedNotice={props.selectedNotice} /> : null}
       {tab === 'ontime' ? <OnTime snap={props.snap} /> : null}
       {tab === 'conditions' ? <ConditionsPane snap={props.snap} send={props.send} /> : null}
       {tab === 'sightings' ? <Sightings snap={props.snap} /> : null}

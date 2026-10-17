@@ -94,7 +94,7 @@ export function VesselInspector(props: { v: VesselView; onClose: () => void; onC
       <header className="insp-head">
         <div className="insp-title">
           <h2 data-testid="inspector-name">{v.name}</h2>
-          <p className="insp-meta" data-testid="inspector-source"><span>{v.type}</span>{sourceWords(v.source)}</p>
+          <p className="insp-meta" data-testid="inspector-source"><span>{v.type.charAt(0).toUpperCase() + v.type.slice(1)}</span>{sourceWords(v.source)}</p>
         </div>
         <div className="insp-actions">
           <Button variant="quiet" icon={<Crosshair size={16} />} onClick={props.onCenter} title="Center on chart" testId="inspector-center" />

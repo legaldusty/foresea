@@ -135,6 +135,9 @@ test('Tuesday: dive plan, a whale from a phone, on-time impact, glider search, d
     await expect(today).toContainText('Dredge, Main Channel');
     await expect(today).toContainText('Blue whale, approach lanes');
     await desk.screenshot({ path: `${SHOTS}/7-tuesday-today.png` });
+    await today.locator('.today-row.pickable').filter({ hasText: 'Blue whale' }).click();
+    await expect(desk.getByTestId('rail-selected')).toContainText('Blue whale', { timeout: 10_000 });
+    await expect(desk.locator('.cmd-chart .insp')).toHaveCount(0);
   });
 
   await test.step('2. A dive plan is filed from the desk', async () => {
@@ -166,7 +169,12 @@ test('Tuesday: dive plan, a whale from a phone, on-time impact, glider search, d
   });
 
   await test.step('5. The lost glider: drift search area, published, then found', async () => {
+    await desk.getByTestId('rail-collapse').click();
+    await expect(desk.getByTestId('rail-strip')).toBeVisible();
     await presenter(desk, async (d) => { await d.getByTestId('spawn-glider').click(); });
+    await expect(desk.getByTestId('rail-alert')).toContainText('Lost, not hostile', { timeout: 20_000 });
+    await desk.screenshot({ path: `${SHOTS}/10a-collapsed-alert.png` });
+    await desk.getByTestId('rail-alert-open').click();
     await expect(desk.getByTestId('card-title')).toContainText('Lost, not hostile', { timeout: 20_000 });
     await desk.getByTestId('card-publishZone').click();
     await desk.getByTestId('desk-today').click();

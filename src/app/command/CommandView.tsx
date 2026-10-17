@@ -9,6 +9,7 @@ import type { AuditWhere } from '../../shared/protocol';
 import { ZoneInspector } from './ZoneInspector';
 import { IncidentSheet } from './Incident';
 import { ShortcutsSheet } from './Shortcuts';
+import { RailAlertBar, RailBar, RailStrip, useRailAlerts, type RailAlert, type RailSection } from './Rail';
 import { wakeAudio, useCardChime } from './alerts';
 import { describeHit } from './describe';
 import { commandChart } from '../map/toChart';
@@ -94,6 +95,12 @@ export function CommandView() {
   const [deskCollapsed, setDeskCollapsed] = usePersisted<boolean>('giveway.desk.collapsed', false);
   const [deskTab, setDeskTab] = useState<string>('today');
   const [reportId, setReportId] = useState<string | null>(null);
+  const [railCollapsed, setRailCollapsed] = usePersisted<boolean>('giveway.rail.collapsed', false);
+  const [railHiddenList, setRailHiddenList] = usePersisted<RailSection[]>('giveway.rail.hidden', []);
+  const railHidden = useMemo(() => new Set(railHiddenList), [railHiddenList.join(',')]);
+  const toggleRail = (k: RailSection) => setRailHiddenList(railHidden.has(k) ? railHiddenList.filter((x) => x !== k) : [...railHiddenList, k]);
+  const railAlerts = useRailAlerts(snap, railCollapsed);
+  const selectedRef = useRef<HTMLDivElement>(null);
   const deskCollapsedRef = useRef(deskCollapsed);
   deskCollapsedRef.current = deskCollapsed;
   const [hiddenList, setHiddenList] = usePersisted<LayerKey[]>('giveway.layers.hidden', []);
@@ -186,6 +193,30 @@ export function CommandView() {
   const inspectedVessel = inspect?.kind === 'vessel' ? snap.vessels.find((v) => v.id === inspect.id) ?? null : null;
   const dossierContact = inspect?.kind === 'contact' ? snap.contacts.find((c) => c.id === inspect.id) ?? null : null;
   const inspectedZone = inspect?.kind === 'zone' ? inspect.id : null;
+  const showRail = (k: RailSection) => !railHidden.has(k);
+  const selectInRail = (sel: { kind: 'vessel' | 'zone'; id: string }) => {
+    setInspect(sel);
+    setRailCollapsed(false);
+    if (railHidden.has('selected')) toggleRail('selected');
+    window.setTimeout(() => selectedRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 60);
+  };
+  const zoneFocus = (zoneId: string) => {
+    const z = snap.zones.find((x) => x.id === zoneId);
+    if (!z) return;
+    const pts = z.rings.flat(2);
+    if (pts.length > 2) setRecenter({ id: `${Date.now()}`, points: pts.filter((_, i) => i % 4 === 0) });
+    setHighlight({ lonlat: z.center, radiusM: z.area ? null : z.radiusM });
+    selectInRail({ kind: 'zone', id: z.id });
+  };
+  const openAlert = (a: RailAlert) => {
+    setRailCollapsed(false);
+    railAlerts.dismiss(a.key);
+    if (a.kind === 'ship') selectInRail({ kind: 'vessel', id: a.id });
+    if (a.kind === 'incident') setSelected(a.id);
+    if (a.kind === 'notice') { const n = snap.notices.find((x) => x.id === a.id); if (n) zoneFocus(n.zoneId); }
+    if (a.kind === 'card') window.setTimeout(() => railRef.current?.scrollTo({ top: 0, behavior: 'smooth' }), 60);
+  };
+  const selectedNotice = inspectedZone ? snap.notices.find((n) => n.zoneId === inspectedZone && n.status === 'active')?.id ?? null : null;
   const describe = (hit: ChartHit) => describeHit(snap, hit);
   const onPlace = (where: AuditWhere) => {
     setHighlight({ lonlat: where.lonlat, radiusM: where.radiusM });
@@ -193,9 +224,9 @@ export function CommandView() {
     const pts = z ? z.rings.flat(2) : [];
     if (pts.length > 2) setRecenter({ id: `${Date.now()}`, points: pts.filter((_, i) => i % 4 === 0) });
     else centerOn([where.lonlat]);
-    if (z) setInspect({ kind: 'zone', id: z.id });
+    if (z) selectInRail({ kind: 'zone', id: z.id });
     else if (where.contactId && snap.contacts.some((c) => c.id === where.contactId)) setInspect({ kind: 'contact', id: where.contactId });
-    else if (where.vesselId && snap.vessels.some((v) => v.id === where.vesselId)) setInspect({ kind: 'vessel', id: where.vesselId });
+    else if (where.vesselId && snap.vessels.some((v) => v.id === where.vesselId)) selectInRail({ kind: 'vessel', id: where.vesselId });
   };
   const centerOn = (points: [number, number][]) => setRecenter({ id: `${Date.now()}`, points: points.length === 1 ? [[points[0][0] - 0.006, points[0][1] - 0.004], [points[0][0] + 0.006, points[0][1] + 0.004]] : points });
   const onMode = (mode: 'live' | 'sim') => {
@@ -212,12 +243,13 @@ export function CommandView() {
   };
 
   return (
-    <div className={`cmd${incident ? ' incident' : ''}`} data-theme={theme} style={{ ['--rail-w' as string]: `${rail.size}px` }}>
+    <div className={`cmd${incident ? ' incident' : ''}${railCollapsed ? ' rail-collapsed' : ''}`} data-theme={theme} style={{ ['--rail-w' as string]: railCollapsed ? '44px' : `${rail.size}px` }}>
       <TopBar snap={snap} link={hub.link} onOrders={() => setSheet('orders')} onJoin={() => setSheet('join')} onModels={() => setSheet('models')} onMode={onMode} muted={muted} onMute={() => { setMuted(!muted); if (muted && 'Notification' in window && Notification.permission === 'default') void Notification.requestPermission(); }} onKeys={() => setSheet('keys')} />
       <div className="cmd-main">
         <Headline h={snap.headline} level={focus?.risk?.level ?? null} />
         {snap.steps ? <StepStrip steps={snap.steps} /> : null}
         <div className="cmd-chart">
+        {railCollapsed ? <RailAlertBar alerts={railAlerts.alerts} onOpen={openAlert} onDismiss={railAlerts.dismiss} /> : null}
           <ChartMap theme={theme} data={data} stamp={snap.clock.wallMs} callouts={callouts} fitTo={recenter?.points ?? framed?.points ?? null} padding={{ top: 80, right: 120, bottom: 80, left: 120 }}
             mode={tool === 'drive' ? 'drive' : tool === 'select' ? 'select' : 'drop'}
             showLabels={!hidden.has('labels')}
@@ -228,7 +260,7 @@ export function CommandView() {
             onSelect={(kind, id) => {
               setHighlight(null);
               if (kind === 'sighting') { setDeskTab('sightings'); setDeskCollapsed(false); const x = snap.sightings.find((s) => s.id === id); if (x) setHighlight({ lonlat: x.lonlat, radiusM: 150 }); return; }
-              if (kind === 'contact') { setSelected(id); setInspect({ kind: 'contact', id }); setWhy(false); } else setInspect({ kind, id });
+              if (kind === 'contact') { setSelected(id); setInspect({ kind: 'contact', id }); setWhy(false); } else if (kind === 'zone') zoneFocus(id); else selectInRail({ kind, id });
             }}
             onPointer={(lonlat) => { if (driven) void hub.send('drive', { contactId: driven.id, lonlat }); }}
             onDrop={onDrop}
@@ -240,22 +272,21 @@ export function CommandView() {
           <ChartCorner onPresenter={() => setPresenter(!presenter)} presenterOpen={presenter} hidden={hidden} onLayer={toggleLayer} />
           {tool === 'drive' && driven ? <DriveControl c={driven} send={hub.send} onStop={() => setTool('select')} /> : null}
           {dossierContact ? <ContactDossier c={dossierContact} onClose={() => setInspect(null)} onCenter={() => centerOn([dossierContact.lonlat])} /> : null}
-          {inspectedZone && tool !== 'drive' ? <ZoneInspector snap={snap} zoneId={inspectedZone} send={hub.send} onClose={() => { setInspect(null); setHighlight(null); }}
-            onCenter={() => { const z = snap.zones.find((x) => x.id === inspectedZone); if (z) setRecenter({ id: `${Date.now()}`, points: z.rings.flat(2).filter((_, i) => i % 4 === 0) }); }}
-            onDossier={(id) => setInspect({ kind: 'contact', id })} /> : null}
-          {inspectedVessel && tool !== 'drive' ? <VesselInspector v={inspectedVessel} onClose={() => setInspect(null)} onCenter={() => centerOn([inspectedVessel.lonlat])} /> : null}
           <span className="chart-attr">Map data: OpenStreetMap contributors</span>
         </div>
         <div className={`cmd-desk${deskCollapsed ? ' collapsed' : ''}`} style={{ ['--desk-h' as string]: `${desk.size}px` }} data-testid="desk">
           {deskCollapsed ? null : <div className="grip y" onPointerDown={desk.onPointerDown} onDoubleClick={desk.reset} title="Drag to resize. Double-click to reset." data-testid="desk-grip" />}
           <DeskRail snap={snap} send={hub.send} divePoint={divePoint} onPickDive={() => setTool('dive')}
-            tab={deskTab} onTab={(t) => { setDeskTab(t); setDeskCollapsed(false); }} collapsed={deskCollapsed} onCollapse={() => setDeskCollapsed(!deskCollapsed)} onPlace={onPlace} />
+            tab={deskTab} onTab={(t) => { setDeskTab(t); setDeskCollapsed(false); }} collapsed={deskCollapsed} onCollapse={() => setDeskCollapsed(!deskCollapsed)} onPlace={onPlace}
+            onZone={(noticeId) => { const n = snap.notices.find((x) => x.id === noticeId); if (n) zoneFocus(n.zoneId); }} selectedNotice={selectedNotice} />
         </div>
         {why && !dossierContact ? <WhyDrawer snap={snap} c={focus} plan={(draft ?? focusNotice)?.plan ?? null} onClose={() => setWhy(false)} /> : null}
       </div>
       <div className="cmd-rail-wrap">
+      {railCollapsed ? <RailStrip onExpand={() => setRailCollapsed(false)} waiting={railAlerts.alerts.length} /> : <>
       <div className="grip x" onPointerDown={rail.onPointerDown} onDoubleClick={rail.reset} title="Drag to resize. Double-click to reset." data-testid="rail-grip" />
       <aside className="cmd-rail" data-testid="right-rail" ref={railRef}>
+        <RailBar hidden={railHidden} onToggle={toggleRail} onCollapse={() => setRailCollapsed(true)} />
         {watched.length > 1 ? (
           <div className="rail-tabs" role="tablist">
             {watched.map((c) => (
@@ -267,22 +298,31 @@ export function CommandView() {
         ) : null}
         <DecisionSlot snap={snap} send={hub.send} onWhy={() => setWhy(!why)} editing={editing} onEdit={() => setEditing(!editing)}
           editor={draft ? <NoticeEditor key={draft.id} d={draft} send={hub.send} simMin={snap.clock.simMin} /> : null} />
-        {focusNotice ? <DeliveryBlock snap={snap} /> : null}
-        {focus && focus.classification.kind !== 'friendly' ? <HeadingBlock c={focus} /> : null}
-        {focus && focus.classification.kind !== 'friendly' ? <ContactBlock c={focus} onDossier={() => { setWhy(false); setInspect({ kind: 'contact', id: focus.id }); }} onReport={() => setReportId(focus.id)} /> : null}
-        {(incident ? active.filter((n) => n.kind === 'security') : []).map((n) => <PublishedNotice key={n.id} n={n} snap={snap} send={hub.send} />)}
-        {!incident ? (
+        {showRail('selected') && (inspectedZone || inspectedVessel) ? (
+          <div className="rail-selected" ref={selectedRef} data-testid="rail-selected">
+            {inspectedZone ? <ZoneInspector snap={snap} zoneId={inspectedZone} send={hub.send} onClose={() => { setInspect(null); setHighlight(null); }}
+              onCenter={() => zoneFocus(inspectedZone)}
+              onDossier={(id) => setInspect({ kind: 'contact', id })} /> : null}
+            {inspectedVessel ? <VesselInspector v={inspectedVessel} onClose={() => setInspect(null)} onCenter={() => centerOn([inspectedVessel.lonlat])} /> : null}
+          </div>
+        ) : null}
+        {showRail('boats') && focusNotice ? <DeliveryBlock snap={snap} /> : null}
+        {showRail('contact') && focus && focus.classification.kind !== 'friendly' ? <HeadingBlock c={focus} /> : null}
+        {showRail('contact') && focus && focus.classification.kind !== 'friendly' ? <ContactBlock c={focus} onDossier={() => { setWhy(false); setInspect({ kind: 'contact', id: focus.id }); }} onReport={() => setReportId(focus.id)} /> : null}
+        {showRail('notices') ? (incident ? active.filter((n) => n.kind === 'security') : []).map((n) => <PublishedNotice key={n.id} n={n} snap={snap} send={hub.send} />) : null}
+        {showRail('today') && !incident ? (
           <section className="rail-block" data-testid="today-summary">
             <div className="block-title"><span className="t-heading">Today so far</span>{snap.report.simulatedShare > 0 ? <span className="t-small c-muted">Simulated schedule</span> : null}</div>
             {snap.report.lines.map((l, i) => <p key={i} className="t-body">{l}</p>)}
             {active.length ? <button className="link t-small" data-testid="all-clear" onClick={() => void hub.send('allClear', {})}>All clear for every zone</button> : null}
           </section>
         ) : null}
-        {flagged.length ? (
+        {showRail('today') && !incident && active.length ? <div className="rail-calm"><CheckCircle size={16} />{active.some((n) => n.approvedBy.startsWith('Standing Orders')) ? 'Every notice was approved by the officer or published under the officer\'s Standing Orders.' : 'Every notice was approved by the officer.'}</div> : null}
+        {showRail('watch') && flagged.length ? (
           <section className="rail-block" data-testid="ships-to-watch">
             <div className="block-title"><span className="t-heading">Ships to watch</span><span className="t-small c-muted">Traffic model, real AIS</span></div>
             {flagged.map((v) => (
-              <button key={v.id} className={`watch-row ${v.intel?.level}`} onClick={() => setInspect({ kind: 'vessel', id: v.id })} data-testid={`watch-${v.id}`}>
+              <button key={v.id} className={`watch-row ${v.intel?.level}`} onClick={() => selectInRail({ kind: 'vessel', id: v.id })} data-testid={`watch-${v.id}`}>
                 <span className="name">{v.name}</span>
                 <span className="mono">{Math.round((v.intel?.score ?? 0) * 100)}</span>
                 <span className="why">{v.intel?.reasons[0] ?? ''}</span>
@@ -290,7 +330,7 @@ export function CommandView() {
             ))}
           </section>
         ) : null}
-        {snap.incidents.length ? (
+        {showRail('incidents') && snap.incidents.length ? (
           <section className="rail-block incident-list" data-testid="incident-list">
             <div className="block-title"><span className="t-heading">Incidents</span><span className="t-small c-muted">After-action reports</span></div>
             {snap.incidents.slice(-5).reverse().map((i) => (
@@ -301,14 +341,14 @@ export function CommandView() {
             ))}
           </section>
         ) : null}
-        {!focus && !snap.card && !active.length ? (
+        {!focus && !snap.card && !active.length && !inspectedZone && !inspectedVessel ? (
           <div className="rail-empty">
             <span className="t-heading c-text">Nothing unknown in the harbor</span>
             <span>{snap.vessels.filter((v) => v.source === 'simulated').length} simulated boats on their routes and {snap.vessels.filter((v) => v.source !== 'simulated').length} real ships from AIS.</span>
           </div>
         ) : null}
-        {!incident && active.length ? <div className="rail-calm"><CheckCircle size={16} />{active.some((n) => n.approvedBy.startsWith('Standing Orders')) ? 'Every notice was approved by the officer or published under the officer\'s Standing Orders.' : 'Every notice was approved by the officer.'}</div> : null}
       </aside>
+      </>}
       </div>
       <Presenter open={presenter} onClose={() => setPresenter(false)} send={hub.send} timeScale={snap.clock.timeScale} paused={snap.clock.paused}
         focus={focus} driven={driven} tool={tool} setTool={setTool} theme={theme} onTheme={() => setThemeChoice(theme === 'night' ? 'day' : 'night')}
