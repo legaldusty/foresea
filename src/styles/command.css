@@ -184,3 +184,26 @@
   .toolbar button .btn-label, .tools .toolbar button span { display: none; }
   .legend { display: none; }
 }
+
+.odds-history { position: relative; width: 100%; }
+.odds-history svg { display: block; overflow: visible; }
+.odds-history .grid { stroke: var(--line); stroke-width: 1; }
+.odds-history .axis { fill: var(--muted); font: var(--type-mono-small); font-size: 11px; }
+.odds-history .call { stroke: var(--muted); stroke-width: 1; }
+.odds-history .cross { stroke: var(--muted); stroke-width: 1; }
+.odds-history .ln { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+.odds-history .ln.top { stroke: var(--text); }
+.odds-history .ln.second { stroke: var(--muted); stroke-dasharray: 6 3; }
+.odds-history .ln.lost { stroke: var(--muted); stroke-dasharray: 2 3; opacity: 0.8; }
+.odds-history .end { stroke: var(--panel); stroke-width: 2; }
+.odds-history .end.top { fill: var(--text); }
+.odds-history .end.second, .odds-history .end.lost { fill: var(--muted); }
+.odds-history .lbl { font: var(--type-small); font-size: 12px; fill: var(--text); }
+.odds-history .lbl.second, .odds-history .lbl.lost { fill: var(--muted); }
+.odds-tip { position: absolute; top: 0; width: 168px; background: var(--raised); border: 1px solid var(--line); padding: var(--space-8); display: flex; flex-direction: column; gap: 2px; font: var(--type-small); pointer-events: none; }
+.odds-tip .row { display: flex; justify-content: space-between; gap: var(--space-8); }
+.odds-legend { display: flex; gap: var(--space-16); font: var(--type-small); color: var(--muted); margin-top: var(--space-4); }
+.odds-legend span { display: inline-flex; align-items: center; gap: 6px; }
+.odds-legend .sw { width: 16px; height: 0; display: inline-block; border-top: 2px solid var(--text); }
+.odds-legend .sw.second { border-top: 2px dashed var(--muted); }
+.odds-legend .sw.lost { border-top: 2px dotted var(--muted); }

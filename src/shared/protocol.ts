@@ -66,6 +66,8 @@ export interface ContactView {
   track: LonLat[];
   zoneId: string | null;
   why: string;
+  history: { t: number; p: number[] }[];
+  historyIds: string[];
 }
 
 export interface VesselView {

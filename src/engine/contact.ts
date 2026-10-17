@@ -65,6 +65,7 @@ export interface ContactSim {
   pings: number;
   lastEvalMin: number;
   steps: number;
+  history: { t: number; p: number[] }[];
 }
 
 export interface EvalContext {
@@ -111,7 +112,18 @@ export function createContact(h: Harbor, settings: Settings, spec: ContactSpec, 
     pings: 0,
     lastEvalMin: -Infinity,
     steps: 0,
+    history: [],
   };
+}
+
+const HISTORY_MAX = 180;
+
+export function recordOdds(c: ContactSim, t: number): void {
+  const n = c.tell.fields.length;
+  const p = Array.from(c.tell.post.subarray(0, n), (v) => Math.round(v * 1000) / 1000);
+  p.push(Math.round((1 - p.reduce((a, b) => a + b, 0)) * 1000) / 1000);
+  c.history.push({ t: Math.round(t * 100) / 100, p });
+  if (c.history.length > HISTORY_MAX) c.history = c.history.filter((_, i) => i % 2 === 0 || i === c.history.length - 1);
 }
 
 function stepToward(h: Harbor, D: Float32Array, cell: number, rand: () => number, sloppy: number, noise: number): number {

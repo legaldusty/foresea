@@ -5,7 +5,7 @@ import { topGoal, LOST, DRIFT, type CurrentVector } from './tell';
 import { HIGH, CRITICAL, SERIOUS, levelName, rungName } from './risk';
 import { INCIDENTS } from './scenarios';
 import {
-  createContact, moveContact, evaluateContact, contactLonLat, predictedPaths, oddsRows, setPointer, factors, etaToGoal,
+  createContact, moveContact, evaluateContact, contactLonLat, predictedPaths, oddsRows, setPointer, factors, etaToGoal, recordOdds,
   type ContactSim, type ContactSpec,
 } from './contact';
 import {
@@ -315,6 +315,7 @@ export class World {
   }
 
   private evaluate(c: ContactSim): void {
+    if (c.history.length === 0 || c.history[c.history.length - 1].t < this.simMin) recordOdds(c, this.simMin);
     evaluateContact(this.h, this.settings, c, {
       t: this.simMin, night: this.night, current: this.current, currentSpeedMps: this.currentSpeedMps,
       cruiseDocked: this.cruiseDocked, coordinatedCount: this.coordinatedCount(c),
@@ -1238,6 +1239,8 @@ export class World {
       track: c.track.filter((_, i) => i % 2 === 0).map((cell) => this.lonlatOf(cell)),
       zoneId: this.zones.has(`z-${c.id}`) ? `z-${c.id}` : null,
       why: this.contactWhy(c),
+      history: c.history,
+      historyIds: [...this.h.targets.map((t) => t.id), 'lost'],
     };
   }
 

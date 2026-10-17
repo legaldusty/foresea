@@ -1,0 +1,12 @@
+import { chromium } from '@playwright/test';
+const browser = await chromium.launch();
+const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+await page.goto('http://localhost:5170/');
+await page.waitForTimeout(3000);
+const el = page.locator('.odds-history');
+await el.scrollIntoViewIfNeeded();
+const box = await el.boundingBox();
+await page.mouse.move(box.x + box.width * 0.4, box.y + 40);
+await page.waitForTimeout(300);
+await page.screenshot({ path: process.argv[2], clip: { x: 1056, y: 80, width: 384, height: 820 } });
+await browser.close();

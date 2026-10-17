@@ -3,6 +3,7 @@ import { ArrowCounterClockwise, CheckCircle, HandPalm, PaperPlaneTilt, Radio, Tr
 import type { Card, CommandEvents, CommandSnapshot, ContactView, Level, Notice, NoticeDraft, PublicReason, Recipients } from '../../shared/protocol';
 import { Button, DecisionCard, Field, NumberBox, OddsRows, RiskBand, Segmented, SelectBox, Simulated, Slider, TextBox, TitleBlock } from '../ui';
 import { clockOf, minutes } from '../format';
+import { OddsHistory } from './OddsHistory';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 
@@ -123,6 +124,7 @@ export function OddsSection(props: { c: ContactView }) {
     <section className="section">
       <TitleBlock size="heading" title="Where it is heading" meta={meta} />
       <OddsRows rows={c.odds} />
+      <OddsHistory c={c} />
     </section>
   );
 }
