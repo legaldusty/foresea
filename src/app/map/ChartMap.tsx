@@ -37,7 +37,7 @@ export interface ChartCallout { id: string; boat: string; when: string; action: 
 function calloutElement(): HTMLDivElement {
   const root = document.createElement('div');
   root.className = 'chart-callout';
-  root.innerHTML = '<svg class="leader" width="40" height="40" viewBox="0 0 40 40"><line x1="0" y1="40" x2="40" y2="0" /></svg><div class="box"><span class="boat"></span><span class="when"></span><span class="action"></span></div>';
+  root.innerHTML = '<svg class="leader" width="40" height="40" viewBox="0 0 40 40"><line x1="0" y1="40" x2="40" y2="0" /></svg><div class="callout-box"><span class="boat"></span><span class="when"></span><span class="action"></span></div>';
   root.dataset.side = 'ne';
   return root;
 }
@@ -167,15 +167,15 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'vessels', type: 'symbol', source: 'vessels', layout: {
         'icon-image': ['coalesce', ['image', ['concat', 'v-', ['get', 'type']]], ['image', 'v-other']],
         'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 11, ['*', 0.55, ['get', 'scale'], ['case', ['get', 'bg'], 0.75, 1]], 13, ['*', 0.8, ['get', 'scale'], ['case', ['get', 'bg'], 0.75, 1]], 15, ['*', 1.25, ['get', 'scale'], ['case', ['get', 'bg'], 0.75, 1]]],
-        'symbol-sort-key': ['case', ['get', 'bg'], 0, 1],
-      }, paint: { 'icon-opacity': ['case', ['get', 'bg'], 0.4, ['get', 'stale'], 0.5, 1] } },
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 11, ['*', 0.55, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]], 13, ['*', 0.8, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]], 15, ['*', 1.25, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]]],
+        'symbol-sort-key': ['case', ['==', ['get', 'bg'], true], 0, 1],
+      }, paint: { 'icon-opacity': ['case', ['==', ['get', 'bg'], true], 0.4, ['==', ['get', 'stale'], true], 0.5, 1] } },
       { id: 'vessels-alert', type: 'symbol', source: 'vessels', filter: ['get', 'inZone'], layout: { 'icon-image': 'ring-alert', 'icon-allow-overlap': true, 'icon-size': 0.6 } },
-      { id: 'contacts-ring', type: 'symbol', source: 'contacts', filter: ['get', 'selected'], layout: { 'icon-image': 'symbol-ring', 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': 1 } },
+      { id: 'contacts-ring', type: 'symbol', source: 'contacts', filter: ['==', ['get', 'selected'], true], layout: { 'icon-image': 'symbol-ring', 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': 1 } },
       { id: 'contacts', type: 'symbol', source: 'contacts', layout: {
         'icon-image': ['coalesce', ['image', ['get', 'symbol']], ['image', ['concat', 'diamond-', ['get', 'state']]]],
         'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map',
-        'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['case', ['has', 'symbol'], 1, ['get', 'selected'], 0.75, 0.6],
+        'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['case', ['has', 'symbol'], 1, ['==', ['get', 'selected'], true], 0.75, 0.6],
       } },
       { id: 'you-route', type: 'line', source: 'you', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.tide, 'line-width': 4 } },
       { id: 'you', type: 'symbol', source: 'you', filter: ['==', ['geometry-type'], 'Point'], layout: { 'icon-image': 'you', 'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-size': 0.6 } },
@@ -267,7 +267,17 @@ export function ChartMap(props: ChartMapProps) {
             if (id === undefined || feat.geometry.type !== 'Point') continue;
             const at = feat.geometry.coordinates as [number, number];
             dynLabels.current.get(String(id))?.setLngLat(at);
-            calloutMarkers.current.get(String(id))?.setLngLat(at);
+            const callout = calloutMarkers.current.get(String(id));
+            if (callout) {
+              callout.setLngLat(at);
+              const el = callout.getElement();
+              const want = el.dataset.want ?? el.dataset.side ?? 'ne';
+              const px = map.project(at);
+              const width = map.getContainer().clientWidth;
+              const vertical = want.charAt(0);
+              const side = px.x > width - 340 ? `${vertical}w` : px.x < 340 ? `${vertical}e` : want;
+              if (el.dataset.side !== side) el.dataset.side = side;
+            }
           }
         }
       }
@@ -358,6 +368,7 @@ export function ChartMap(props: ChartMapProps) {
         calloutMarkers.current.set(c.id, m);
       }
       const el = m.getElement();
+      el.dataset.want = c.side ?? 'ne';
       el.dataset.side = c.side ?? 'ne';
       (el.querySelector('.boat') as HTMLElement).textContent = c.boat;
       (el.querySelector('.when') as HTMLElement).textContent = c.when;

@@ -255,16 +255,16 @@
 .chart-key .sw.route { height: 0; border-top: 3px solid var(--tide); }
 .chart-attr { position: absolute; right: 0; bottom: 0; background: var(--panel); border-top: 1px solid var(--line); border-left: 1px solid var(--line); padding: 2px var(--space-8); font: var(--type-small); color: var(--muted); z-index: 2; }
 
-.chart-callout { position: relative; width: 0; height: 0; pointer-events: none; }
+.chart-callout { position: relative; width: 0; height: 0; pointer-events: none; z-index: 3; }
 .chart-callout .leader { position: absolute; left: 0; bottom: 0; overflow: visible; }
 .chart-callout .leader line { stroke: var(--text); stroke-width: 1; }
 .chart-callout[data-side="se"] .leader { bottom: auto; top: 0; transform: scaleY(-1); }
 .chart-callout[data-side="nw"] .leader { left: auto; right: 0; transform: scaleX(-1); }
 .chart-callout[data-side="sw"] .leader { left: auto; right: 0; bottom: auto; top: 0; transform: scale(-1, -1); }
-.chart-callout[data-side="se"] .box { bottom: auto; top: 40px; }
-.chart-callout[data-side="nw"] .box { left: auto; right: 40px; }
-.chart-callout[data-side="sw"] .box { left: auto; right: 40px; bottom: auto; top: 40px; }
-.chart-callout .box { position: absolute; left: 40px; bottom: 40px; display: flex; flex-direction: column; gap: 1px; padding: 7px 12px 8px 10px; background: var(--bg); border: 1px solid var(--line); border-left: 3px solid var(--risk-high); border-radius: var(--radius-2); white-space: nowrap; }
+.chart-callout[data-side="se"] .callout-box { bottom: auto; top: 40px; }
+.chart-callout[data-side="nw"] .callout-box { left: auto; right: 40px; }
+.chart-callout[data-side="sw"] .callout-box { left: auto; right: 40px; bottom: auto; top: 40px; }
+.chart-callout .callout-box { position: absolute; left: 40px; bottom: 40px; display: flex; flex-direction: column; gap: 1px; padding: 7px 12px 8px 10px; background: var(--bg); border: 1px solid var(--line); border-left: 3px solid var(--risk-high); border-radius: var(--radius-2); white-space: nowrap; }
 .chart-callout .boat { font: var(--type-body-strong); color: var(--text); }
 .chart-callout .when { font: var(--type-small); color: var(--muted); }
 .chart-callout .action { font: 600 16px/22px var(--font-sans); letter-spacing: 0.03em; color: var(--text); }
@@ -299,6 +299,7 @@
 .boat-table .brow.P3 { box-shadow: inset 3px 0 0 var(--risk-medium); }
 .boat-table .brow.head { padding: 4px 0; font: var(--type-small); color: var(--muted); align-items: center; }
 .boat-table .brow.total { border-bottom: 0; border-top: 1px solid var(--line); font: var(--type-body-strong); margin-top: -1px; }
+.boat-table .brow.total > :nth-child(2) { grid-column: 2 / 5; }
 .boat-table .brow.stuck { color: var(--risk-high); }
 .boat-table .num { text-align: right; }
 .boat-table .boat { font: var(--type-body-strong); display: inline-flex; align-items: baseline; gap: 6px; }

@@ -3,6 +3,7 @@ import { CheckCircle, Warning } from '@phosphor-icons/react';
 import type { CommandSnapshot, ContactView, DeliveryRow, DeliveryState } from '../../shared/protocol';
 import { DELIVERY_STATES } from '../../shared/protocol';
 import { useCommandHub } from '../hub/useHub';
+import { defaultSettings } from '../../engine/settings';
 import { ChartMap, type CalloutSide, type ChartCallout } from '../map/ChartMap';
 import { commandChart } from '../map/toChart';
 import { TopBar } from './TopBar';
@@ -62,6 +63,7 @@ export function CommandView() {
   const [editing, setEditing] = useState(false);
   const [deskOpen, setDeskOpen] = useState(false);
   const [divePoint, setDivePoint] = useState<[number, number] | null>(null);
+  const [framed, setFramed] = useState<{ id: string; points: [number, number][] } | null>(null);
   const theme: 'night' | 'day' = themeChoice ?? (snap && !snap.clock.night ? 'day' : 'night');
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
@@ -80,6 +82,17 @@ export function CommandView() {
   useEffect(() => { if (cardId) { railRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setEditing(false); } }, [cardId]);
 
   const data = useMemo(() => commandChart(snap, selected, hub.forecasts), [snap, selected, hub.forecasts]);
+  const focusId = snap?.headline.contactId ?? null;
+  const focusContact = focusId ? snap?.contacts.find((x) => x.id === focusId) ?? null : null;
+  const targetId = focusContact?.forecast?.topId ?? null;
+  const frameKey = focusId && targetId ? `${focusId}:${targetId}` : null;
+  useEffect(() => {
+    if (!snap || !frameKey || !focusContact || framed?.id === frameKey) return;
+    const target = defaultSettings.harbor.targets.find((t) => t.id === targetId);
+    const f = hub.forecasts.find((x) => x.contactId === focusId);
+    if (!target) return;
+    setFramed({ id: frameKey, points: [focusContact.lonlat, [target.lon, target.lat], ...(f?.ticks.map((t) => t.lonlat) ?? [])] });
+  }, [frameKey, hub.forecasts.length, framed?.id]);
   if (!snap) return <div className="rail-empty">Connecting to the hub</div>;
 
   const watched = snap.contacts.filter((c) => c.classification.kind !== 'friendly');
@@ -92,7 +105,7 @@ export function CommandView() {
 
   const SIDES: CalloutSide[] = ['ne', 'sw', 'se', 'nw'];
   const callouts: ChartCallout[] = snap.vessels
-    .filter((v) => v.affected && !v.id.startsWith('ais-') && v.affected.priority !== 'P4')
+    .filter((v) => incident && v.affected && !v.id.startsWith('ais-') && v.affected.priority !== 'P4')
     .sort((a, b) => a.lonlat[0] - b.lonlat[0])
     .map((v, i) => ({
       id: v.id, boat: v.name, lonlat: v.lonlat, side: SIDES[i % SIDES.length],
@@ -114,7 +127,7 @@ export function CommandView() {
         <Headline h={snap.headline} level={focus?.risk?.level ?? null} />
         {snap.steps ? <StepStrip steps={snap.steps} /> : null}
         <div className="cmd-chart">
-          <ChartMap theme={theme} data={data} stamp={snap.clock.wallMs} callouts={callouts}
+          <ChartMap theme={theme} data={data} stamp={snap.clock.wallMs} callouts={callouts} fitTo={framed?.points ?? null} padding={{ top: 80, right: 120, bottom: 80, left: 120 }}
             mode={tool === 'drive' ? 'drive' : tool === 'select' ? 'select' : 'drop'}
             onSelect={(kind, id) => { if (kind === 'contact') setSelected(id); }}
             onPointer={(lonlat) => { if (driven) void hub.send('drive', { contactId: driven.id, lonlat }); }}
@@ -145,15 +158,22 @@ export function CommandView() {
           editor={draft ? <NoticeEditor key={draft.id} d={draft} send={hub.send} simMin={snap.clock.simMin} /> : null} />
         {focusNotice ? <DeliveryBlock snap={snap} /> : null}
         {focus && focus.classification.kind !== 'friendly' ? <HeadingBlock c={focus} /> : null}
-        {focus ? <ContactBlock c={focus} /> : null}
-        {active.map((n) => <PublishedNotice key={n.id} n={n} snap={snap} send={hub.send} />)}
+        {focus && focus.classification.kind !== 'friendly' ? <ContactBlock c={focus} /> : null}
+        {(incident ? active.filter((n) => n.kind === 'security') : []).map((n) => <PublishedNotice key={n.id} n={n} snap={snap} send={hub.send} />)}
+        {!incident ? (
+          <section className="rail-block" data-testid="today-summary">
+            <div className="block-title"><span className="t-heading">Today so far</span>{snap.report.simulatedShare > 0 ? <span className="t-small c-muted">Simulated schedule</span> : null}</div>
+            {snap.report.lines.map((l, i) => <p key={i} className="t-body">{l}</p>)}
+            {active.length ? <button className="link t-small" data-testid="all-clear" onClick={() => void hub.send('allClear', {})}>All clear for every zone</button> : null}
+          </section>
+        ) : null}
         {!focus && !snap.card && !active.length ? (
           <div className="rail-empty">
             <span className="t-heading c-text">Nothing unknown in the harbor</span>
             <span>{snap.vessels.filter((v) => v.source === 'simulated').length} simulated boats on their routes and {snap.vessels.filter((v) => v.source !== 'simulated').length} real ships from AIS.</span>
           </div>
         ) : null}
-        {!incident && active.length ? <div className="rail-calm"><CheckCircle size={16} />{active.length} zone{active.length === 1 ? '' : 's'} active. Every notice was approved by the officer.</div> : null}
+        {!incident && active.length ? <div className="rail-calm"><CheckCircle size={16} />Every notice was approved by the officer.</div> : null}
       </aside>
       <Presenter open={presenter} onClose={() => setPresenter(false)} send={hub.send} timeScale={snap.clock.timeScale} paused={snap.clock.paused}
         focus={focus} driven={driven} tool={tool} setTool={setTool} theme={theme} onTheme={() => setThemeChoice(theme === 'night' ? 'day' : 'night')}

@@ -897,7 +897,7 @@ export class World {
   private focusContact(): ContactSim | null {
     let best: ContactSim | null = null;
     for (const c of this.contacts.values()) {
-      if (!c.classification.threatScored || c.spec.reply === 'friendly') continue;
+      if (!c.classification.threatScored || c.spec.reply === 'friendly' || c.classification.kind === 'debris') continue;
       if (!best || (c.lastRisk?.R ?? 0) > (best.lastRisk?.R ?? 0)) best = c;
     }
     return best;

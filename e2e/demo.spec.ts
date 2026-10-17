@@ -73,7 +73,7 @@ test('night: the forecast learns, the judge phone gets P1, Pilot Boat 2 escalate
   await test.step('3. The judge phone gets the P1 takeover with an action and a countdown; Got it', async () => {
     await expect(judge.getByTestId('takeover')).toBeVisible({ timeout: 60_000 });
     await expect(judge.getByTestId('takeover-instruction')).toHaveText(/^(HOLD POSITION|SLOW TO \d+ KNOTS|STEP ASIDE [A-Z]+ \d+ m|ALTER COURSE [A-Z]+ \d+ m)$/);
-    await expect(judge.getByTestId('countdown')).toBeVisible();
+    await expect(judge.getByTestId('countdown').first()).toBeVisible();
     await judge.screenshot({ path: `${SHOTS}/3-judge-phone-p1.png` });
     await judge.getByTestId('got-it').first().click();
     await expect(desk.getByTestId('delivery-launch1')).toContainText(/Acknowledged|Complying/, { timeout: 15_000 });

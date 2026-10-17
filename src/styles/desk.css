@@ -4,7 +4,7 @@
 .desk-empty { padding: var(--space-16); font: var(--type-body); color: var(--muted); margin: 0; }
 .desk-pane .num { text-align: right; }
 
-.today-row { display: grid; grid-template-columns: minmax(200px, 1fr) 112px 48px 56px 140px; gap: var(--space-12); align-items: center; padding: var(--space-8) var(--space-16); border-bottom: 1px solid var(--line); font: var(--type-body); }
+.today-row { display: grid; grid-template-columns: minmax(200px, 1fr) 136px 48px 56px 140px; gap: var(--space-12); align-items: center; padding: var(--space-8) var(--space-16); border-bottom: 1px solid var(--line); font: var(--type-body); }
 .today-row.head { font: var(--type-small); color: var(--muted); padding-top: 6px; padding-bottom: 6px; }
 .today-row.scheduled { color: var(--muted); }
 .today-row .zone { display: flex; flex-direction: column; min-width: 0; }

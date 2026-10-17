@@ -14,9 +14,12 @@ const ACTION_ICON: Record<string, ReactNode> = {
   send: <ShieldWarning size={16} />, called: <Radio size={16} />, approve: <HandPalm size={16} />,
 };
 
+const COMPASS: Record<string, string> = { NORTHEAST: 'NE', NORTHWEST: 'NW', SOUTHEAST: 'SE', SOUTHWEST: 'SW', NORTH: 'N', SOUTH: 'S', EAST: 'E', WEST: 'W' };
+
 export function sentence(text: string): string {
   if (text === 'NO ACTION NEEDED YET' || text === 'KEEP CLEAR AND STAND BY') return 'Heads-up only';
-  const lower = text.toLowerCase().replace(/(\d+) m\b/g, '$1 m');
+  const short = text.replace(/\b(NORTHEAST|NORTHWEST|SOUTHEAST|SOUTHWEST|NORTH|SOUTH|EAST|WEST)\b/g, (w) => `@${COMPASS[w]}`);
+  const lower = short.toLowerCase().replace(/@([a-z]+)/g, (_, c: string) => c.toUpperCase());
   return lower.charAt(0).toUpperCase() + lower.slice(1);
 }
 
@@ -67,7 +70,7 @@ export function DecisionSlot(props: {
   const headsUp = draft ? draft.plan.boats.filter((b) => !b.vesselId.startsWith('ais-') && b.action === 'headsUp').length : 0;
   const title = isDraft && draft.kind === 'security'
     ? stuck.length ? `No gentle option for ${stuck.join(' and ')}. Hand it off or edit the notice.`
-      : `Publish this notice. ${moving} boat${moving === 1 ? '' : 's'} give${moving === 1 ? 's' : ''} way${headsUp ? `, ${headsUp} get a heads-up` : ''} and nothing closes.`
+      : `Publish this notice. ${moving} boat${moving === 1 ? '' : 's'} give${moving === 1 ? 's' : ''} way${headsUp ? `, ${headsUp} get${headsUp === 1 ? 's' : ''} a heads-up` : ''} and nothing closes.`
     : c.title;
   return (
     <div className="decision" data-testid="decision-card">
