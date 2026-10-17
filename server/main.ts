@@ -25,6 +25,7 @@ import { sightingsCsv, sightingsGeoJson } from '../src/engine/tuesday';
 import { onTimeBoard } from './ais/ontime';
 import { createTrafficIntel } from './ais/intel';
 import { createNoaaClient } from './noaa/client';
+import { createConditionsClient } from './conditions/client';
 import type { AisVessel } from '../src/shared/ais-types';
 import type { AisSettings } from './ais/settings';
 
@@ -223,7 +224,7 @@ function flushEffects(): void {
   world.setSources({ language: language.status() });
 }
 
-const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled', 'reportSighting', 'confirmSighting', 'extendZone', 'endZone', 'fileDivePlan', 'foundRobot', 'resizeZone'];
+const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled', 'reportSighting', 'confirmSighting', 'extendZone', 'endZone', 'fileDivePlan', 'foundRobot', 'resizeZone', 'relayAdvisory'];
 const STEERING_EVENTS = new Set<keyof CommandEvents>(['drive', 'contactParams']);
 
 function bindCommand(socket: Socket): void {
@@ -339,6 +340,19 @@ setInterval(guarded('traffic', () => {
 }), 5000);
 setInterval(() => void refreshNoaa(), 10 * 60_000);
 void refreshNoaa();
+const conditions = createConditionsClient();
+world.setConditions(conditions.view());
+async function refreshConditions(): Promise<void> {
+  try {
+    await conditions.refreshDue();
+    world.setConditions(conditions.view());
+  } catch (err) {
+    world.log('system', 'Conditions error', (err as Error).message);
+  }
+}
+setInterval(() => void refreshConditions(), settings.conditions.checkSeconds * 1000);
+void refreshConditions();
+app.get('/api/conditions.json', (_req, res) => res.json({ conditions: world.conditionsView(), status: conditions.status() }));
 setTimeout(refreshOnTime, 2500);
 
 async function attachFrontend(): Promise<void> {

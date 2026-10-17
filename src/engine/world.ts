@@ -27,6 +27,10 @@ import { clockLabel, isNight, minutesLabel, signedMinutes } from './eta';
 import { metersBetween, mpsToKnots, offsetPoint, bearingDeg, compassPoint, type LonLat } from './geo';
 import type * as P from '../shared/protocol';
 import { workLine, pointAlong, stepAlong, seedSightings, type WorkLine } from './tuesday';
+import {
+  emptyConditions, conditionsAt, captainConditions, captainBulletins, activeAdvisories, bulletinActive, bulletinFor, advisoryCard, advisorySentence, advisoryReportLine,
+  type BulletinRec,
+} from './conditions';
 
 export interface AisInputVessel {
   mmsi: number;
@@ -262,6 +266,8 @@ export class World {
   private gliderSilenced = false;
   private forecastSeq = 0;
   private areaSeq = 0;
+  conditions: P.ConditionsView = emptyConditions();
+  bulletins: BulletinRec[] = [];
 
   constructor(o: WorldOptions) {
     this.h = o.harbor;
@@ -362,6 +368,72 @@ export class World {
   }
 
   setSources(partial: Partial<P.SourceStatus>): void { this.sources = { ...this.sources, ...partial }; }
+
+  setConditions(view: P.ConditionsView): void {
+    this.conditions = view;
+    this.syncAdvisories();
+  }
+
+  conditionsView(): P.ConditionsView {
+    return conditionsAt(this.conditions, { nowMs: this.wallMs, timeZone: this.settings.ais.displayTimeZone, lonlat: this.settings.map.center as [number, number], bulletins: this.bulletins });
+  }
+
+  relayAdvisory(advisoryId: string, actor = 'officer'): void {
+    const a = activeAdvisories(this.conditions, this.wallMs).find((x) => x.id === advisoryId);
+    if (!a || this.bulletins.some((b) => b.advisoryId === advisoryId)) return;
+    const b = bulletinFor(a, this.officer, this.wallMs);
+    this.bulletins.push(b);
+    this.removeCards((k) => k.key === `advisory:${advisoryId}`);
+    this.dismissed.add(`advisory:${advisoryId}`);
+    const tz = this.settings.ais.displayTimeZone;
+    const sentence = advisorySentence(a, this.wallMs, tz);
+    let pushed = 0;
+    for (const c of this.craft) {
+      if (!c.phone || !this.captains.get(c.id)?.connected) continue;
+      this.effects.pushes.push({ vesselId: c.id, priority: 'P3', tag: b.id, url: '/captain', title: sentence.replace(/\.$/, ''), body: b.detail });
+      pushed++;
+    }
+    this.log(actor, 'Advisory relayed', `${sentence} Relayed to every captain by ${this.officer}. ${pushed ? `Quiet P3 push to ${pushed} joined phone${pushed === 1 ? '' : 's'}.` : 'No phone joined yet; captains see it when they open the app.'}`);
+  }
+
+  private syncAdvisories(): void {
+    const active = activeAdvisories(this.conditions, this.wallMs);
+    const listKnown = this.conditions.advisories !== null;
+    for (const b of [...this.bulletins]) {
+      const a = active.find((x) => x.id === b.advisoryId);
+      if (a) b.until = a.ends;
+      if (bulletinActive(b, this.wallMs) && (a || !listKnown)) continue;
+      this.bulletins = this.bulletins.filter((x) => x.id !== b.id);
+      this.log('machine', 'Bulletin ended', `${b.title} is no longer in effect (NWS). Removed from captain phones.`);
+    }
+    if (listKnown) this.removeCards((k) => k.key.startsWith('advisory:') && !active.some((a) => k.key === `advisory:${a.id}`));
+    if (!this.advisoriesOnDesk()) return;
+    const tz = this.settings.ais.displayTimeZone;
+    for (const a of active) {
+      if (this.bulletins.some((b) => b.advisoryId === a.id)) continue;
+      const words = advisoryCard(a, this.wallMs, tz);
+      this.raiseCard(`advisory:${a.id}`, {
+        kind: 'info', ...words, actions: [{ id: 'relay', label: 'Relay', primary: true }, { id: 'dismiss', label: 'Dismiss' }],
+        contactId: null, noticeId: null, draftId: null, script: null,
+      });
+    }
+  }
+
+  private advisoriesOnDesk(): boolean {
+    return this.mode === 'live' || this.settings.conditions.advisoryCardsInSimulation;
+  }
+
+  private advisoryReportLines(): string[] {
+    if (!this.advisoriesOnDesk()) return [];
+    const tz = this.settings.ais.displayTimeZone;
+    return activeAdvisories(this.conditions, this.wallMs).map((a) => advisoryReportLine(a, this.bulletins.find((b) => b.advisoryId === a.id), this.wallMs, tz));
+  }
+
+  private advisoryHeadline(): string {
+    if (!this.advisoriesOnDesk()) return '';
+    const tz = this.settings.ais.displayTimeZone;
+    return activeAdvisories(this.conditions, this.wallMs).map((a) => ` ${advisorySentence(a, this.wallMs, tz)}`).join('');
+  }
 
   private aisReckoned(v: AisInputVessel, atMs: number): LonLat {
     const here: LonLat = [v.lon, v.lat];
@@ -927,6 +999,7 @@ export class World {
         `${notified} boats notified; ${acked} of ${relevant} that had to act acknowledged.`,
         `${(Math.round(delay * 10) / 10).toFixed(1)} minutes of delay caused in total.`,
         whaleShips ? `${honored} of ${whaleShips} large ships in the whale zone at or under ${this.settings.tuesday.whale.slowKnots} kn right now (AIS).` : 'No large ships in a whale zone right now.',
+        ...this.advisoryReportLines(),
       ],
     };
   }
@@ -1109,7 +1182,7 @@ export class World {
     const day = this.night ? 'Night watch' : 'Tuesday';
     const zones = active.length ? `${active.length} zone${active.length === 1 ? '' : 's'} active, ${notified.size} boat${notified.size === 1 ? '' : 's'} notified` : 'Harbor quiet, no zones';
     const onTime = behind ? `${behind} boat${behind === 1 ? '' : 's'} running late` : 'all ships on time';
-    return { text: `${day} ${clockLabel(this.simMin)}. ${zones}, ${onTime}.`, tone: 'calm', contactId: null };
+    return { text: `${day} ${clockLabel(this.simMin)}. ${zones}, ${onTime}.${this.advisoryHeadline()}`, tone: 'calm', contactId: null };
   }
 
   steps(): P.StepView[] | null {
@@ -1151,6 +1224,7 @@ export class World {
   tick(dtRealMs: number, wallMs: number): void {
     this.wallMs = wallMs;
     this.updateAisShown();
+    this.syncAdvisories();
     if (this.paused) return;
     const dtSec = (dtRealMs / 1000) * this.timeScale;
     this.simMin += dtSec / 60;
@@ -2132,6 +2206,10 @@ export class World {
         if (card.contactId) this.foundRobot(card.contactId);
         this.removeCards((k) => k.id === cardId);
         return;
+      case 'relay':
+        this.relayAdvisory(card.key.slice('advisory:'.length));
+        done();
+        return;
       case 'called': {
         const [, noticeId, vesselId] = card.key.split(':');
         this.markVhfCalled(noticeId, vesselId);
@@ -2563,6 +2641,7 @@ export class World {
       steps: this.steps(),
       mode: this.mode,
       models: this.modelCards(),
+      conditions: this.conditionsView(),
     };
   }
 
@@ -2678,6 +2757,8 @@ export class World {
       lastAllClearLabel: this.lastAllClearMin !== null ? clockLabel(this.lastAllClearMin) : null,
       clock: this.clockView(),
       serverWall: this.wall(),
+      conditions: captainConditions(this.conditionsView()),
+      bulletins: captainBulletins(this.bulletins, this.wallMs, this.settings.ais.displayTimeZone),
     };
   }
 
@@ -2708,6 +2789,7 @@ export class World {
       case 'endZone': this.clearNotice((p as P.CommandEvents['endZone']).noticeId, 'officer'); return;
       case 'fileDivePlan': this.fileDivePlan(p); return;
       case 'foundRobot': this.foundRobot((p as P.CommandEvents['foundRobot']).contactId); return;
+      case 'relayAdvisory': this.relayAdvisory((p as P.CommandEvents['relayAdvisory']).advisoryId); return;
     }
   }
 

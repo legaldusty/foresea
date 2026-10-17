@@ -408,6 +408,68 @@ export interface StepView { key: StepKey; label: string; fact: string | null; re
 
 export interface Headline { text: string; tone: 'calm' | 'watch' | 'act' | 'alert'; contactId: string | null }
 
+export interface Sourced<T> { value: T; source: string; observedAt: string; ageMin: number }
+
+export type ConditionsField =
+  | 'waterLevel' | 'tideTrend' | 'nextHigh' | 'nextLow' | 'wind' | 'gust' | 'windFrom'
+  | 'waveHeight' | 'wavePeriod' | 'waveFrom' | 'waterTemp' | 'airTemp' | 'pressure' | 'advisories' | 'forecast';
+
+export type TideTrend = 'rising' | 'falling' | 'steady';
+
+export interface TideTurnView { kind: 'high' | 'low'; at: string; label: string; meters: number }
+
+export interface AdvisoryView {
+  id: string;
+  event: string;
+  headline: string;
+  summary: string;
+  severity: string;
+  onset: string | null;
+  ends: string | null;
+  endsLabel: string | null;
+  areaDesc: string;
+  instruction: string | null;
+  sender: string;
+  sentAt: string;
+  relayedBy: string | null;
+  relayedAtLabel: string | null;
+}
+
+export interface MarineForecastView { zone: string; zoneName: string; issuedAt: string | null; periods: { name: string; text: string }[] }
+
+export interface ConditionsSourceView { id: string; label: string; ok: boolean; detail: string; observedAt: string | null; ageMin: number | null }
+
+export interface ConditionsView {
+  datum: string;
+  waterLevelM: Sourced<number> | null;
+  tideTrend: Sourced<TideTrend> | null;
+  nextHigh: Sourced<TideTurnView> | null;
+  nextLow: Sourced<TideTurnView> | null;
+  windMps: Sourced<number> | null;
+  gustMps: Sourced<number> | null;
+  windFromDeg: Sourced<number> | null;
+  waveHeightM: Sourced<number> | null;
+  wavePeriodS: Sourced<number> | null;
+  waveFromDeg: Sourced<number> | null;
+  waterTempC: Sourced<number> | null;
+  airTempC: Sourced<number> | null;
+  pressureHpa: Sourced<number> | null;
+  sunrise: Sourced<{ at: string; label: string }> | null;
+  sunset: Sourced<{ at: string; label: string }> | null;
+  advisories: Sourced<AdvisoryView[]> | null;
+  forecast: Sourced<MarineForecastView> | null;
+  missing: Partial<Record<ConditionsField, string>>;
+  sources: ConditionsSourceView[];
+}
+
+export interface CaptainConditions {
+  wind: { speedMps: number; gustMps: number | null; fromDeg: number | null; source: string; ageMin: number } | null;
+  waves: { heightM: number; periodS: number | null; source: string; ageMin: number } | null;
+  nextTide: { kind: 'high' | 'low'; label: string; meters: number; source: string } | null;
+}
+
+export interface CaptainBulletin { id: string; title: string; detail: string; until: string | null; untilLabel: string | null; source: 'NWS'; relayedBy: string; relayedAtLabel: string }
+
 export interface CommandSnapshot {
   clock: ClockView;
   contacts: ContactView[];
@@ -434,6 +496,7 @@ export interface CommandSnapshot {
   steps: StepView[] | null;
   mode: OperatingMode;
   models: ModelCard[];
+  conditions: ConditionsView;
 }
 
 export interface CaptainNotice {
@@ -474,6 +537,8 @@ export interface CaptainSnapshot {
   lastAllClearLabel: string | null;
   clock: ClockView;
   serverWall: string;
+  conditions: CaptainConditions;
+  bulletins: CaptainBulletin[];
 }
 
 export interface CommandEvents {
@@ -501,6 +566,7 @@ export interface CommandEvents {
   reset: { mode: 'tuesday' | 'night' | 'empty' | 'live' };
   resizeZone: { zoneId: string; radiusM: number };
   markVhfCalled: { noticeId: string; vesselId: string };
+  relayAdvisory: { advisoryId: string };
 }
 
 export interface CaptainEvents {
