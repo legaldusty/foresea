@@ -1085,6 +1085,15 @@ export class World {
     setPointer(this.h, c, this.cellAt(lonlat));
   }
 
+  contactParams(e: P.CommandEvents['contactParams']): void {
+    const c = this.contacts.get(e.contactId);
+    if (!c) return;
+    if (e.sizeM !== undefined) c.spec.sizeM = Math.max(0.2, Math.min(12, e.sizeM));
+    if (e.speedMps !== undefined) c.spec.speedMps = Math.max(0.1, Math.min(6, e.speedMps));
+    this.evaluate(c);
+    this.log('officer', 'Contact readings changed', `${c.spec.label}: ${c.spec.sizeM.toFixed(1)} m, ${c.spec.speedMps.toFixed(1)} m/s. Simulated sensor.`);
+  }
+
   sensorLoss(contactId: string, silent: boolean): void {
     const c = this.contacts.get(contactId);
     if (!c) return;
@@ -1388,6 +1397,7 @@ export class World {
       case 'drive': { const e = p as P.CommandEvents['drive']; this.drive(e.contactId, e.lonlat); return; }
       case 'spawn': this.spawn(p); return;
       case 'removeContact': this.removeContact((p as P.CommandEvents['removeContact']).contactId); return;
+      case 'contactParams': this.contactParams(p); return;
       case 'sensorLoss': { const e = p as P.CommandEvents['sensorLoss']; this.sensorLoss(e.contactId, e.silent); return; }
       case 'editDraft': this.editDraft(p); return;
       case 'publish': this.publish((p as P.CommandEvents['publish']).draftId); return;

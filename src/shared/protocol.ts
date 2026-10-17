@@ -289,6 +289,7 @@ export interface CommandEvents {
   drive: { contactId: string; lonlat: LonLat };
   spawn: { preset: 'driven' | 'bot' | 'pair' | 'scenario' | 'glider' | 'whale' | 'diver'; scenarioKey?: string; at?: LonLat };
   removeContact: { contactId: string };
+  contactParams: { contactId: string; sizeM?: number; speedMps?: number };
   sensorLoss: { contactId: string; silent: boolean };
   editDraft: { draftId: string; edits: Partial<Pick<NoticeDraft, 'instruction' | 'radiusM' | 'recipients' | 'named' | 'publicReason' | 'validForMin' | 'slowKnots'>> };
   publish: { draftId: string };

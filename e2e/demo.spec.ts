@@ -67,7 +67,9 @@ test('the six-step demo runs end to end', async ({ browser }) => {
     await desk.getByTestId('spawn-driven').click();
     const pt = await screenPoint(desk, [-118.2190, 33.7520]);
     await desk.mouse.move(pt.x, pt.y);
+    await desk.mouse.down();
     await desk.mouse.move(pt.x + 2, pt.y + 2);
+    await desk.mouse.up();
     await expect(desk.getByTestId('tell-top')).toContainText('Fuel Pier', { timeout: 60_000 });
     await expect(desk.getByTestId('publish')).toBeVisible({ timeout: 60_000 });
     await expect(desk.getByTestId('risk-score').first()).toBeVisible();

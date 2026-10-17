@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { CaretDown, Crane, Cursor, Fish, Joystick, PersonSimpleSwim, Plus, Stop, WifiSlash } from '@phosphor-icons/react';
+import { CaretDown, Crane, Cursor, Fish, Joystick, PersonSimpleSwim, Plus, Stop } from '@phosphor-icons/react';
 import type { CommandEvents, ContactView } from '../../shared/protocol';
-import { Button } from '../ui';
+import { Button, Field, SelectBox, Simulated } from '../ui';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 export type Tool = 'select' | 'drive' | 'whale' | 'divers' | 'dredge';
@@ -51,16 +51,26 @@ export function ChartTools(props: { tool: Tool; setTool: (t: Tool) => void; send
   );
 }
 
+const SIZES = [0.4, 1.0, 1.5, 1.9, 2.5, 4.0, 5.0, 7.0];
+const SPEEDS = [0.5, 1.0, 1.6, 2.0, 2.5, 3.5];
+
 export function DriveControl(props: { c: ContactView; send: Send; onStop: () => void }) {
   const c = props.c;
+  const sizes = [...new Set([...SIZES, Number(c.sizeM.toFixed(1))])].sort((a, b) => a - b);
+  const speeds = [...new Set([...SPEEDS, Number(c.speedMps.toFixed(1))])].sort((a, b) => a - b);
   return (
     <div className="drive" data-testid="drive-control">
-      <div className="what">
-        <span className="t-strong">Driving {c.label}</span>
-        <span className="hint">Move the mouse over the water. It steers there at {c.speedMps.toFixed(1)} m/s. {c.sizeM.toFixed(1)} m, hot motor.</span>
+      <div className="drive-title"><span className="t-heading">Driving {c.label}</span><Simulated /></div>
+      <div className="drive-fields">
+        <Field label="Size"><SelectBox value={Number(c.sizeM.toFixed(1))} options={sizes.map((v) => ({ value: v, label: `${v.toFixed(1)} m` }))} onChange={(v) => void props.send('contactParams', { contactId: c.id, sizeM: v })} /></Field>
+        <Field label="Speed"><SelectBox value={Number(c.speedMps.toFixed(1))} options={speeds.map((v) => ({ value: v, label: `${v.toFixed(1)} m/s` }))} onChange={(v) => void props.send('contactParams', { contactId: c.id, speedMps: v })} /></Field>
       </div>
-      <Button variant="secondary" icon={<WifiSlash size={16} />} onClick={() => void props.send('sensorLoss', { contactId: c.id, silent: !c.silent })}>{c.silent ? 'Sensor back' : 'Sensor lost'}</Button>
-      <Button variant="secondary" icon={<Stop size={16} />} onClick={props.onStop}>Stop</Button>
+      <div className="drive-toggle">
+        <div className="title-block"><span className="t-strong">Sensor lost</span><span className="t-small c-muted">The contact stops reporting to sensors</span></div>
+        <button className="switch" role="switch" aria-checked={c.silent} aria-label="Sensor lost" onClick={() => void props.send('sensorLoss', { contactId: c.id, silent: !c.silent })} />
+      </div>
+      <span className="t-small c-muted">Drag on the chart to steer.</span>
+      <Button variant="secondary" block icon={<Stop size={16} />} onClick={props.onStop}>Stop</Button>
     </div>
   );
 }

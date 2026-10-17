@@ -57,7 +57,3 @@
 .cap-join .setting .text .t-small { color: var(--muted); }
 .cap-join .spacer { flex: 1; min-height: var(--space-24); }
 .cap-join .foot { display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-16) var(--space-24) 0; }
-.switch { width: 36px; height: 20px; border-radius: var(--radius-2); background: var(--line); position: relative; border: 0; padding: 0; cursor: pointer; flex: none; }
-.switch::after { content: ""; position: absolute; left: 2px; top: 2px; width: 16px; height: 16px; border-radius: 1px; background: var(--muted); transition: left 120ms ease; }
-.switch[aria-checked="true"] { background: var(--tide); }
-.switch[aria-checked="true"]::after { left: 18px; background: var(--on-tide); }

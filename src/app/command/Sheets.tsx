@@ -1,26 +1,31 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Gauge, PencilSimple, SealCheck, X } from '@phosphor-icons/react';
+import { ArrowCounterClockwise, CaretDown, CheckCircle, Clock, FileText, SealCheck, ShieldCheck, UserCircle, X } from '@phosphor-icons/react';
 import type { CommandEvents, CommandSnapshot } from '../../shared/protocol';
 import { ORDER_CARDS, formatBlank } from '../../shared/orders';
-import { Button, Simulated, TextBox, TitleBlock } from '../ui';
+import { Button, Simulated, TextBox } from '../ui';
 import type { NightsProgress, NightsResult } from '../workers/nights.worker';
 import { wallTime } from '../format';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 
-function Sheet(props: { title: string; meta?: ReactNode; onClose: () => void; children: ReactNode; testId?: string }) {
+function Sheet(props: { title: ReactNode; meta?: ReactNode; onClose: () => void; children: ReactNode; testId?: string; width?: number }) {
   return (
     <div className="sheet-back" onClick={props.onClose}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} data-testid={props.testId}>
+      <div className="sheet" style={props.width ? { width: `min(${props.width}px, calc(100vw - 48px))` } : undefined} onClick={(e) => e.stopPropagation()} data-testid={props.testId}>
         <div className="sheet-head">
-          <TitleBlock title={props.title} meta={props.meta} />
-          <Button variant="quiet" title="Close" icon={<X size={16} />} onClick={props.onClose} />
+          <div className="title-block">
+            <span className="t-display">{props.title}</span>
+            {props.meta ? <span className="t-small c-muted">{props.meta}</span> : null}
+          </div>
+          <Button variant="quiet" icon={<X size={16} />} onClick={props.onClose}>Close</Button>
         </div>
         <div className="sheet-body">{props.children}</div>
       </div>
     </div>
   );
 }
+
+const AXIS_STEP = 20;
 
 export function NightsSheet(props: { onClose: () => void }) {
   const [progress, setProgress] = useState<NightsProgress | null>(null);
@@ -41,39 +46,62 @@ export function NightsSheet(props: { onClose: () => void }) {
   const g = result?.gates.all;
   const c = result?.closeIn.all;
   const styles = result ? (['direct', 'sloppy', 'decoy'] as const).map((k) => ({ k, s: result.gates[k] })) : [];
-  const maxMin = styles.length ? Math.max(...styles.map((x) => Math.max(x.s.tellWarnMin, x.s.baseWarnMin))) : 1;
+  const top = styles.length ? Math.ceil(Math.max(...styles.map((x) => Math.max(x.s.tellWarnMin, x.s.baseWarnMin))) / AXIS_STEP) * AXIS_STEP : 80;
+  const ticks = Array.from({ length: top / AXIS_STEP + 1 }, (_, i) => i * AXIS_STEP);
+  const meta = result
+    ? <><span className="t-mono-small">{(result.nights * 2).toLocaleString()}</span> simulated nights in <span className="t-mono-small">{(result.ms / 1000).toFixed(1)}</span> s, in this browser. TELL against the nearest-dock guess.</>
+    : 'Running in a Web Worker in this browser.';
   return (
-    <Sheet title="Run 1,000 nights" meta={<>Every night a simulated intruder picks a target and a style. TELL races a nearest-dock guess. <Simulated /></>} onClose={props.onClose} testId="nights-sheet">
+    <Sheet title={<span className="sheet-title">Run 1,000 nights <Simulated /></span>} meta={meta} onClose={props.onClose} testId="nights-sheet" width={848}>
       {!result ? (
         <div className="t-body c-muted">{progress ? `Running ${progress.phase === 'gates' ? 'gate detections' : 'close-in detections'}: ${Math.round(progress.fraction * 100)}%` : 'Starting the worker'}</div>
       ) : (
         <>
-          <div className="big-numbers" data-testid="nights-result">
-            <div><span className="t-small">TELL warning, gate detection</span><span className="t-data-xl">{g!.tellWarnMin.toFixed(1)}</span><span className="t-small">minutes</span></div>
-            <div><span className="t-small">Nearest-dock guess</span><span className="t-data-xl c-muted">{g!.baseWarnMin.toFixed(1)}</span><span className="t-small">minutes</span></div>
-            <div><span className="t-small">More warning</span><span className="t-data-xl">{result.acceptance.warningRatio.toFixed(2)}x</span><span className="t-small">bar is 1.4x</span></div>
-            <div><span className="t-small">Right target by arrival</span><span className="t-data-xl">{Math.round(g!.tellCalledRight * 100)}%</span><span className="t-small">{g!.wrongCallsPerNight.toFixed(2)} early wrong calls per night</span></div>
+          <div className="stat-grid" data-testid="nights-result">
+            <div><span className="t-small c-muted">TELL warning</span><span className="stat"><span className="t-data-xl">{g!.tellWarnMin.toFixed(1)}</span><span className="unit">min</span></span></div>
+            <div><span className="t-small c-muted">Nearest-dock guess</span><span className="stat"><span className="t-data-xl c-muted">{g!.baseWarnMin.toFixed(1)}</span><span className="unit">min</span></span></div>
+            <div><span className="t-small c-muted">Warning gained</span><span className="stat"><span className="t-data-xl">{result.acceptance.warningRatio.toFixed(2)}x</span><span className="unit">bar 1.4x</span></span></div>
           </div>
-          <div className="style-bars">
-            <span className="t-heading">By intruder style</span>
-            {styles.map(({ k, s }) => (
-              <div className="style-bar" key={k}>
-                <span className="t-body">{k === 'direct' ? 'Direct' : k === 'sloppy' ? 'Sloppy' : 'Decoy'}</span>
-                <span className="bars"><i style={{ width: `${(s.tellWarnMin / maxMin) * 100}%` }} /><i className="base" style={{ width: `${(s.baseWarnMin / maxMin) * 100}%` }} /></span>
-                <span className="t-data">{s.tellWarnMin.toFixed(0)} vs {s.baseWarnMin.toFixed(0)} min</span>
+          <div className="stat-row">
+            <div><span className="t-small c-muted">Right target by arrival</span><span className="t-data">{Math.round(g!.tellCalledRight * 100)}%</span></div>
+            <div><span className="t-small c-muted">Wrong calls per night</span><span className="t-data">{g!.wrongCallsPerNight.toFixed(2)}</span></div>
+            <div><span className="t-small c-muted">Close-in starts</span><span className="t-data">{c!.tellWarnMin.toFixed(1)} vs {c!.baseWarnMin.toFixed(1)} min</span></div>
+          </div>
+          <div className="chart">
+            <div className="chart-head">
+              <span className="t-heading">Warning by intruder style, minutes</span>
+              <span className="chart-legend"><span><i className="sw tell" />TELL</span><span><i className="sw base" />Nearest-dock guess</span></span>
+            </div>
+            <div className="chart-body">
+              {styles.map(({ k, s }) => (
+                <div className="chart-row" key={k}>
+                  <span className="t-body">{k === 'direct' ? 'Direct' : k === 'sloppy' ? 'Sloppy' : 'Decoy'}</span>
+                  <span className="bars">
+                    <span className="bar"><i className="tell" style={{ width: `${(s.tellWarnMin / top) * 100}%` }} /><span className="t-mono-small">{s.tellWarnMin.toFixed(1)}</span></span>
+                    <span className="bar"><i className="base" style={{ width: `${(s.baseWarnMin / top) * 100}%` }} /><span className="t-mono-small">{s.baseWarnMin.toFixed(1)}</span></span>
+                  </span>
+                </div>
+              ))}
+              <div className="chart-axis">
+                <span />
+                <span className="ticks">{ticks.map((t) => <span key={t} style={{ left: `${(t / top) * 100}%` }} className="t-mono-small">{t}</span>)}</span>
               </div>
-            ))}
-            <span className="t-small c-muted">Top bar TELL, lower bar the nearest-dock guess. Decoys fool it once, then it corrects.</span>
+            </div>
+            <span className="t-small c-muted">Means: TELL <span className="t-mono-small">{g!.tellWarnMin.toFixed(1)}</span> min, nearest-dock guess <span className="t-mono-small">{g!.baseWarnMin.toFixed(1)}</span> min. Detection at the harbor gates; drone at 1 m/s, so minutes scale with speed. Decoys fool it once, then it corrects.</span>
           </div>
-          <div className="t-body">Close-in detection, 1 to 3 km from the target: TELL {c!.tellWarnMin.toFixed(1)} min against {c!.baseWarnMin.toFixed(1)} min. That is the honest gap: when it is seen late, the nearest dock is often already right.</div>
-          <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
-            <Button variant="primary" icon={<Gauge size={16} />} onClick={() => run(Math.floor(Math.random() * 100000))}>Run again with a new seed</Button>
-            <span className="t-small c-muted">{(result.nights * 2).toLocaleString()} simulated nights in {(result.ms / 1000).toFixed(1)} s, in this browser. Seed {result.seed}. Drone speed 1 m/s; minutes scale with speed.</span>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Button variant="primary" icon={<ArrowCounterClockwise size={16} />} onClick={() => run(Math.floor(Math.random() * 100000))}>Run again</Button>
+            <Button variant="secondary" onClick={props.onClose}>Close</Button>
           </div>
         </>
       )}
     </Sheet>
   );
+}
+
+function Sentence(props: { text: string }) {
+  const parts = props.text.split(/\b(IF|AND|THEN)\b/);
+  return <>{parts.map((p, i) => (p === 'IF' || p === 'AND' || p === 'THEN' ? <b key={i}>{p}</b> : <span key={i}>{p}</span>))}</>;
 }
 
 export function OrdersSheet(props: { snap: CommandSnapshot; send: Send; onClose: () => void }) {
@@ -90,37 +118,45 @@ export function OrdersSheet(props: { snap: CommandSnapshot; send: Send; onClose:
       setSuggestion(j.rule ?? 'The model is not available. Write the card by hand.');
     } catch { setSuggestion('The model is not available. Write the card by hand.'); }
   };
+  const meta = signed
+    ? `Signed by ${signed} at ${wallTime(props.snap.orders.signedAtWall)}. The machine acts only inside these orders.`
+    : 'Fill in the blanks, then sign. The machine acts only inside these orders.';
   return (
-    <Sheet title="Standing Orders" meta={signed ? `Signed by ${signed} at ${wallTime(props.snap.orders.signedAtWall)}. At 3 AM only signed orders run.` : 'Signed at 6 PM while it is calm, so at 3 AM there is only one tap to make.'} onClose={props.onClose} testId="orders-sheet">
-      <div className="order-list">
+    <Sheet title="Standing Orders" meta={meta} onClose={props.onClose} testId="orders-sheet" width={1040}>
+      <div className="orders">
         {ORDER_CARDS.map((card) => (
           <div className={`order${card.fixed ? ' fixed' : ''}`} key={card.id}>
-            <span className="t-strong">{card.title}</span>
+            <span className="order-title">{card.fixed ? <ShieldCheck size={20} /> : null}{card.fixed ? `${card.title} (fixed)` : card.title}</span>
             <div className="sentence">
               {card.parts.map((part, i) => typeof part === 'string'
-                ? <span key={i}>{part} </span>
+                ? <Sentence key={i} text={`${part} `} />
                 : (
-                  <span key={i}>
-                    <select value={values[part.key]} onChange={(e) => setValues({ ...values, [part.key]: Number(e.target.value) })}>
-                      {[...new Set([...part.options, values[part.key]])].sort((a, b) => a - b).map((o) => <option key={o} value={o}>{formatBlank(part, o)}</option>)}
-                    </select>
-                    {part.unit ? `${part.unit} ` : ''}
+                  <span key={i} className="blank">
+                    <span className="box">
+                      <select value={values[part.key]} onChange={(e) => setValues({ ...values, [part.key]: Number(e.target.value) })}>
+                        {[...new Set([...part.options, values[part.key]])].sort((a, b) => a - b).map((o) => <option key={o} value={o}>{formatBlank(part, o)}</option>)}
+                      </select>
+                      <CaretDown size={14} className="caret" />
+                    </span>
+                    {part.unit ? <Sentence text={` ${part.unit} `} /> : ' '}
                   </span>
                 ))}
             </div>
           </div>
         ))}
       </div>
-      <div className="order">
-        <span className="t-strong">Write an order in your own words</span>
-        <div style={{ display: 'flex', gap: 8 }}>
-          <div style={{ flex: 1 }}><TextBox value={plain} onChange={setPlain} placeholder="If a dredge is working, keep boats 300 m away and slow them to 5 knots" /></div>
-          <Button variant="secondary" icon={<PencilSimple size={16} />} onClick={() => void draft()} disabled={!plain.trim()}>Draft card</Button>
+      <div className="order-free">
+        <span className="t-small c-muted">Write an order in your own words</span>
+        <div style={{ display: 'flex', gap: 12 }}>
+          <div style={{ flex: 1 }}><TextBox value={plain} onChange={setPlain} placeholder="Type one order in plain English" /></div>
+          <Button variant="secondary" icon={<FileText size={16} />} onClick={() => void draft()} disabled={!plain.trim()}>Draft card</Button>
         </div>
-        {suggestion ? <span className="t-body">{suggestion} <span className="t-small c-muted">Drafted by Granite. It only becomes an order when you sign it.</span></span> : null}
+        {suggestion ? <span className="t-body">{suggestion} <span className="t-small c-muted">Drafted by Granite. It becomes an order only when you sign.</span></span> : null}
       </div>
-      <div className="order" style={{ flexDirection: 'row', alignItems: 'flex-end', gap: 12 }}>
-        <div style={{ width: 240 }}><span className="t-small c-muted">Sign as</span><TextBox value={officer} onChange={setOfficer} /></div>
+      <div className="order-sign">
+        <span className="icon-text"><UserCircle size={20} /><span className="t-strong">Sign as</span></span>
+        <div style={{ width: 240 }}><TextBox value={officer} onChange={setOfficer} /></div>
+        <span style={{ flex: 1 }} />
         <Button variant="primary" icon={<SealCheck size={16} />} testId="sign-orders" onClick={() => { void props.send('officer', { name: officer }); void props.send('signOrders', { officer, orders: values }); props.onClose(); }}>Sign</Button>
       </div>
     </Sheet>
@@ -134,16 +170,17 @@ export function JoinSheet(props: { snap: CommandSnapshot; onClose: () => void })
   useEffect(() => { void fetch('/api/join').then((r) => r.json()).then(setData).catch(() => setData(null)); }, []);
   const joined = new Set(props.snap.captains.filter((c) => c.connected).map((c) => c.vesselId));
   return (
-    <Sheet title="Join phones" meta="Join the team hotspot, scan, tap Join. Each phone captains one simulated boat." onClose={props.onClose} testId="join-sheet">
+    <Sheet title="Join phones" meta={<>Join the team hotspot, scan, tap Join. Or open <span className="t-mono-small">{data?.urls[0] ?? ''}</span></>} onClose={props.onClose} testId="join-sheet" width={640}>
       {!data ? <div className="t-body c-muted">Loading join codes</div> : (
         <div className="join-list">
           {data.phones.map((p) => (
             <div className="join-row" key={p.vesselId}>
               <div className="qr" dangerouslySetInnerHTML={{ __html: p.svg }} />
-              <div style={{ display: 'flex', flexDirection: 'column', gap: 6 }}>
-                <span className="t-heading">{p.name}</span>
-                <span className="t-body">{joined.has(p.vesselId) ? 'Joined' : 'Waiting for a phone'}</span>
-                <span className="url">{p.url}</span>
+              <div className="title-block">
+                <span className="t-title">{p.name}</span>
+                {joined.has(p.vesselId)
+                  ? <span className="icon-text t-body"><CheckCircle size={16} />Joined</span>
+                  : <span className="icon-text t-body c-muted"><Clock size={16} />Waiting</span>}
               </div>
             </div>
           ))}

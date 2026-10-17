@@ -99,6 +99,7 @@ export function ChartMap(props: ChartMapProps) {
   const labelsRef = useRef<maplibregl.Marker[]>([]);
   const dynLabels = useRef(new Map<string, maplibregl.Marker>());
   const lastPointer = useRef(0);
+  const steering = useRef(false);
 
   useEffect(() => {
     ensureProtocol();
@@ -136,14 +137,20 @@ export function ChartMap(props: ChartMapProps) {
       const hit = hits[0];
       if (hit) p.onSelect?.(hit.layer.id === 'contacts' ? 'contact' : 'vessel', String(hit.properties?.id));
     });
-    map.on('mousemove', (e) => {
+    const steer = (lng: number, lat: number, force = false) => {
       const p = propsRef.current;
       if (p.mode !== 'drive') return;
       const now = performance.now();
-      if (now - lastPointer.current < 80) return;
+      if (!force && now - lastPointer.current < 80) return;
       lastPointer.current = now;
-      p.onPointer?.([e.lngLat.lng, e.lngLat.lat]);
-    });
+      p.onPointer?.([lng, lat]);
+    };
+    map.on('mousedown', (e) => { if (propsRef.current.mode === 'drive') { steering.current = true; steer(e.lngLat.lng, e.lngLat.lat, true); } });
+    map.on('mousemove', (e) => { if (steering.current) steer(e.lngLat.lng, e.lngLat.lat); });
+    map.on('mouseup', () => { steering.current = false; });
+    map.on('touchstart', (e) => { if (propsRef.current.mode === 'drive') { steering.current = true; steer(e.lngLat.lng, e.lngLat.lat, true); } });
+    map.on('touchmove', (e) => { if (steering.current) steer(e.lngLat.lng, e.lngLat.lat); });
+    map.on('touchend', () => { steering.current = false; });
     function addLabels() {
       for (const m of labelsRef.current) m.remove();
       labelsRef.current = [];
@@ -187,6 +194,7 @@ export function ChartMap(props: ChartMapProps) {
     const map = mapRef.current;
     if (!map) return;
     map.getCanvas().style.cursor = props.mode === 'drive' || props.mode === 'drop' ? 'crosshair' : '';
+    if (props.mode === 'drive') { map.dragPan.disable(); map.touchZoomRotate.disable(); } else if (props.interactive !== false) { map.dragPan.enable(); map.touchZoomRotate.enable(); map.touchZoomRotate.disableRotation(); }
   }, [props.mode]);
 
   useEffect(() => {
