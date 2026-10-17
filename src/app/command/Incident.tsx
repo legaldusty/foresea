@@ -3,6 +3,7 @@ import { DownloadSimple, Printer, X } from '@phosphor-icons/react';
 import type { IncidentReport } from '../../shared/protocol';
 import { Button, Simulated } from '../ui';
 import { withMono } from './Headline';
+import { api } from '../hub/harbor';
 
 function Row(props: { label: string; children: ReactNode }) {
   return (
@@ -37,7 +38,7 @@ export function IncidentSheet(props: { contactId: string; onClose: () => void })
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
-    const load = () => fetch(`/api/incident/${encodeURIComponent(props.contactId)}`).then(async (res) => {
+    const load = () => fetch(api(`/api/incident/${encodeURIComponent(props.contactId)}`)).then(async (res) => {
       if (!res.ok) throw new Error((await res.json()).error ?? 'Not found');
       return res.json() as Promise<IncidentReport>;
     }).then((j) => { if (live) { setR(j); setError(null); } }).catch((e: Error) => { if (live) setError(e.message); });

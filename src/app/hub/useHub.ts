@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
 import type { CaptainEvents, CaptainSnapshot, CommandEvents, CommandSnapshot, ForecastView } from '../../shared/protocol';
+import { adoptHarbor, harborCode } from './harbor';
 
 export type Link = 'connecting' | 'online' | 'offline';
 
@@ -17,7 +18,8 @@ export function useCommandHub(): CommandHub {
   const [link, setLink] = useState<Link>('connecting');
   const socketRef = useRef<Socket | null>(null);
   useEffect(() => {
-    const socket = io({ auth: { role: 'command' }, transports: ['websocket', 'polling'] });
+    const socket = io({ auth: (cb) => cb({ role: 'command', harbor: harborCode() }), transports: ['websocket', 'polling'] });
+    socket.on('harbor', (h: { code: string | null }) => adoptHarbor(h.code));
     socket.on('forecasts', (f: ForecastView[]) => setForecasts(f));
     socketRef.current = socket;
     socket.on('connect', () => setLink('online'));
@@ -85,7 +87,8 @@ export function useCaptainHub(requestedVessel: string | null): CaptainHub {
   }), []);
 
   useEffect(() => {
-    const socket = io({ auth: { role: 'captain' }, transports: ['websocket', 'polling'], reconnectionDelayMax: 3000 });
+    const socket = io({ auth: (cb) => cb({ role: 'captain', harbor: harborCode() }), transports: ['websocket', 'polling'], reconnectionDelayMax: 3000 });
+    socket.on('harbor', (h: { code: string | null }) => adoptHarbor(h.code));
     socketRef.current = socket;
     socket.on('connect', () => {
       setLink('online');

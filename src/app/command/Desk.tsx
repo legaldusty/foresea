@@ -5,6 +5,7 @@ import { Button, Field, SelectBox, TextBox } from '../ui';
 import { clockOf, signed } from '../format';
 import { ConditionsPane, TodayAdvisories, conditionsTabLabel } from './Conditions';
 import '../../styles/desk.css';
+import { api } from '../hub/harbor';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 type DeskTab = 'today' | 'ontime' | 'conditions' | 'sightings' | 'report' | 'log';
@@ -88,8 +89,8 @@ function Sightings(props: { snap: CommandSnapshot }) {
     <div className="desk-pane" data-testid="sightings">
       <div className="pane-actions">
         <span className="t-small c-muted"><span className="mono">{rows.length}</span> sightings over 7 days. Older ones are simulated history.</span>
-        <a className="dl" href="/api/sightings.csv" download data-testid="export-sightings-csv"><DownloadSimple size={16} />CSV</a>
-        <a className="dl" href="/api/sightings.geojson" download data-testid="export-sightings-geojson"><DownloadSimple size={16} />GeoJSON</a>
+        <a className="dl" href={api('/api/sightings.csv')} download data-testid="export-sightings-csv"><DownloadSimple size={16} />CSV</a>
+        <a className="dl" href={api('/api/sightings.geojson')} download data-testid="export-sightings-geojson"><DownloadSimple size={16} />GeoJSON</a>
       </div>
       {rows.map((x) => (
         <div className="sg-row" key={x.id}>
@@ -109,7 +110,7 @@ function Report(props: { snap: CommandSnapshot }) {
     <div className="desk-pane" data-testid="daily-report">
       <div className="pane-actions">
         <span className="t-heading">{r.dayLabel}</span>
-        <a className="dl" href="/api/report.csv" download data-testid="export-report"><DownloadSimple size={16} />Export CSV</a>
+        <a className="dl" href={api('/api/report.csv')} download data-testid="export-report"><DownloadSimple size={16} />Export CSV</a>
       </div>
       <div className="report-nums">
         <div><span className="mono big">{r.zonesIssued}</span><span className="t-small c-muted">zones issued</span></div>

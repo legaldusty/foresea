@@ -6,6 +6,7 @@ import { ChartMap, EMPTY, type ChartData } from '../map/ChartMap';
 import { silhouetteFor } from '../map/chartImages';
 import { Lockup } from '../command/TopBar';
 import '../../styles/board.css';
+import { api } from '../hub/harbor';
 
 const POLL_MS = 5000;
 
@@ -27,7 +28,7 @@ export function BoardView() {
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => {
     let live = true;
-    const load = () => fetch('/api/board.json').then((r) => r.json() as Promise<PublicBoard>).then((b) => { if (live) { setBoard(b); setOffline(false); } }).catch(() => { if (live) setOffline(true); });
+    const load = () => fetch(api('/api/board.json')).then((r) => r.json() as Promise<PublicBoard>).then((b) => { if (live) { setBoard(b); setOffline(false); } }).catch(() => { if (live) setOffline(true); });
     void load();
     const t = setInterval(load, POLL_MS);
     return () => { live = false; clearInterval(t); };

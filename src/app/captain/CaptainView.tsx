@@ -4,6 +4,7 @@ import '@fontsource/ibm-plex-sans/700.css';
 import '@fontsource/ibm-plex-mono/600.css';
 import type { CaptainSnapshot } from '../../shared/protocol';
 import { useCaptainHub } from '../hub/useHub';
+import { api } from '../hub/harbor';
 import { ChartMap, type ChartData } from '../map/ChartMap';
 import { captainChart, YOU_TAG_ID } from '../map/toChart';
 import { Button } from '../ui';
@@ -90,7 +91,7 @@ export function CaptainView() {
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => {
     void registerWorker();
-    void fetch('/api/join').then((r) => r.json()).then((j) => setNames(Object.fromEntries(j.phones.map((p: { vesselId: string; name: string }) => [p.vesselId, p.name])))).catch(() => undefined);
+    void fetch(api('/api/join')).then((r) => r.json()).then((j) => setNames(Object.fromEntries(j.phones.map((p: { vesselId: string; name: string }) => [p.vesselId, p.name])))).catch(() => undefined);
   }, []);
 
   const notices = snap?.notices ?? [];
