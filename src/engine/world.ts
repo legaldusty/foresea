@@ -268,6 +268,13 @@ export class World {
         const start = this.h.spawns[Math.floor(this.rand() * this.h.spawns.length)].cell;
         return this.spawnContact({ mode: 'bot', startCell: at ?? start, sizeM: 1 + this.rand() * 3, speedMps: 1.2 + this.rand() * 1.5, heat: 'hot', reply: 'none', plan: [{ goal: goal.id, sloppy: 0.4 }] });
       }
+      case 'pair': {
+        if (!this.night) this.simMin = Math.floor(this.simMin / 1440) * 1440 + 2 * 60;
+        const a = this.spawnContact({ mode: 'bot', startCell: this.h.spawns[0].cell, sizeM: 1.2, speedMps: 1.6, heat: 'hot', reply: 'none', plan: [{ goal: 'fuel', sloppy: 0.2 }] });
+        this.spawnContact({ mode: 'bot', startCell: this.h.spawns[1].cell, sizeM: 1.2, speedMps: 1.6, heat: 'hot', reply: 'none', plan: [{ goal: 'islands', sloppy: 0.2 }] });
+        this.log('officer', 'Scenario playback', 'Two small unknowns from both gates at night. Simulated.');
+        return a;
+      }
       case 'scenario': {
         const inc = INCIDENTS.find((i) => i.key === e.scenarioKey);
         if (!inc) return null;

@@ -281,7 +281,7 @@ export interface CaptainSnapshot {
 
 export interface CommandEvents {
   drive: { contactId: string; lonlat: LonLat };
-  spawn: { preset: 'driven' | 'bot' | 'scenario' | 'glider' | 'whale' | 'diver'; scenarioKey?: string; at?: LonLat };
+  spawn: { preset: 'driven' | 'bot' | 'pair' | 'scenario' | 'glider' | 'whale' | 'diver'; scenarioKey?: string; at?: LonLat };
   removeContact: { contactId: string };
   sensorLoss: { contactId: string; silent: boolean };
   editDraft: { draftId: string; edits: Partial<Pick<NoticeDraft, 'instruction' | 'radiusM' | 'recipients' | 'named' | 'publicReason' | 'validForMin' | 'slowKnots'>> };

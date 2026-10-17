@@ -37,6 +37,7 @@ export function ChartTools(props: { tool: Tool; setTool: (t: Tool) => void; send
             <div className="menu-head">Simulated sensor contacts</div>
             <button onClick={() => { spawn({ preset: 'driven' }); props.setTool('drive'); }} data-testid="spawn-driven"><span>Unknown contact to drive</span><span className="t-small">Appears outside Angels Gate. Move the mouse to steer.</span></button>
             <button onClick={() => spawn({ preset: 'bot' })}><span>Bot intruder</span><span className="t-small">Picks a target and a style on its own</span></button>
+            <button onClick={() => spawn({ preset: 'pair' })} data-testid="spawn-pair"><span>Coordinated pair</span><span className="t-small">Two small unknowns from both gates, for the Fuel Pier and the Oil Islands</span></button>
             {INCIDENTS.map((i) => (
               <button key={i.key} onClick={() => spawn({ preset: 'scenario', scenarioKey: i.key })} data-testid={`incident-${i.key}`}><span>Incident {i.key}: {i.name}</span><span className="t-small">{i.detail}</span></button>
             ))}

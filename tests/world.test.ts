@@ -95,6 +95,19 @@ describe('night demo path', () => {
   });
 });
 
+describe('several contacts', () => {
+  it('two coordinated unknowns each get their own TELL and raise a hand-off card', () => {
+    const w = freshWorld('night');
+    w.spawn({ preset: 'pair' });
+    expect(w.contacts.size).toBe(2);
+    const [a, b] = [...w.contacts.values()];
+    expect(a.tell).not.toBe(b.tell);
+    runUntil(w, () => w.cards.some((k) => k.key === 'handoff:coordinated'), 6000);
+    expect(w.cards.some((k) => k.key === 'handoff:coordinated')).toBe(true);
+    expect(w.audit.some((e) => e.action === 'Card raised' && e.detail.startsWith('Coordinated'))).toBe(true);
+  });
+});
+
 describe('Tuesday operations', () => {
   it('a whale zone is drafted as a routine slow zone and never above P2', () => {
     const w = freshWorld('tuesday');
