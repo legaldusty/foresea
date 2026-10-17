@@ -100,6 +100,12 @@ test('night: the forecast learns, the judge phone gets P1, Pilot Boat 2 escalate
     await desk.getByTestId('all-clear').first().click();
     await expect(judge.getByTestId('all-clear-banner')).toBeVisible({ timeout: 15_000 });
     await judge.screenshot({ path: `${SHOTS}/5-all-clear-phone.png` });
+    await expect(desk.getByTestId('incident-list')).toBeVisible({ timeout: 15_000 });
+    await desk.getByTestId('incident-list').locator('button').first().click();
+    await expect(desk.getByTestId('incident-report')).toContainText('Published', { timeout: 10_000 });
+    await expect(desk.getByTestId('incident-lead')).toBeVisible();
+    await desk.screenshot({ path: `${SHOTS}/5-after-action-report.png` });
+    await desk.getByTestId('incident-close').click();
   });
 
   await test.step('6. Run 1,000 nights shows the bar, calibration and coverage', async () => {
@@ -170,11 +176,29 @@ test('Tuesday: dive plan, a whale from a phone, on-time impact, glider search, d
     await expect(desk.getByTestId('today')).not.toContainText('Search area', { timeout: 10_000 });
   });
 
+  await test.step('6a. The log shows where things happened and the public board lists every notice', async () => {
+    await desk.getByTestId('desk-log').click();
+    await desk.locator('[data-testid^="log-place-"]').filter({ hasText: 'Whale slow zone active' }).first().click();
+    await expect(desk.getByTestId('zone-inspector')).toContainText('Blue whale', { timeout: 10_000 });
+    await desk.screenshot({ path: `${SHOTS}/12-log-to-zone.png` });
+    await desk.getByTestId('zone-close').click();
+    const board = await (await browser.newContext({ viewport: { width: 1440, height: 900 } })).newPage();
+    await board.goto(`${BASE}/board`);
+    await expect(board.getByTestId('board-notice').first()).toBeVisible({ timeout: 15_000 });
+    await expect(board.getByTestId('board')).not.toContainText('drone');
+    await board.screenshot({ path: `${SHOTS}/13-public-board.png` });
+    await board.context().close();
+  });
+
   await test.step('6. A zone is dragged wider and the models explain themselves', async () => {
     await desk.getByTestId('desk-today').click();
-    const handle = desk.locator('.zone-handle').first();
-    const box = await handle.boundingBox();
-    if (!box) throw new Error('no zone handle');
+    const handles = desk.locator('.zone-handle');
+    let box: { x: number; y: number; width: number; height: number } | null = null;
+    for (let i = 0; i < await handles.count(); i++) {
+      const b = await handles.nth(i).boundingBox();
+      if (b && b.x > 40 && b.y > 200 && b.x < 900 && b.y < 480) { box = b; break; }
+    }
+    if (!box) throw new Error('no zone handle on screen');
     await desk.mouse.move(box.x + 6, box.y + box.height / 2);
     await desk.mouse.down();
     await desk.mouse.move(box.x + 46, box.y + box.height / 2, { steps: 6 });
@@ -182,7 +206,7 @@ test('Tuesday: dive plan, a whale from a phone, on-time impact, glider search, d
     await expect.poll(() => snap?.audit.some((a) => a.action === 'Zone resized' || a.detail.startsWith('Keep-clear radius set')) ?? false, { timeout: 10_000 }).toBe(true);
     await desk.getByTestId('open-models').click();
     await expect(desk.getByTestId('models-panel')).toContainText('TELL');
-    await desk.screenshot({ path: `${SHOTS}/12-models.png` });
+    await desk.screenshot({ path: `${SHOTS}/14-models.png` });
     await desk.getByTestId('models-close').click();
   });
 

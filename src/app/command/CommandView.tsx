@@ -290,7 +290,7 @@ export function CommandView() {
             ))}
           </section>
         ) : null}
-        {!incident && snap.incidents.length ? (
+        {snap.incidents.length ? (
           <section className="rail-block incident-list" data-testid="incident-list">
             <div className="block-title"><span className="t-heading">Incidents</span><span className="t-small c-muted">After-action reports</span></div>
             {snap.incidents.slice(-5).reverse().map((i) => (
