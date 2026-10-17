@@ -171,23 +171,19 @@ export function CaptainView() {
 
   return (
     <div className="cap" data-testid="captain">
-      {screen === 'main' ? (
-        <>
-          <div className="cap-top">
-            {banner && timing ? <Banner n={banner} {...timing} lang={lang} onGotIt={() => gotIt(banner.id)} /> : (
-              <TopBar name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} offline={stale} onPick={() => setPicking(true)} onNotices={() => setScreen('notices')} />
-            )}
-            {stale ? <OfflineLine receivedAt={hub.receivedAt} now={now} /> : null}
-          </div>
-          <div className="cap-map">
-            <ChartMap key={theme} theme={theme} compact showLabels data={data} stamp={snap?.clock.wallMs} motionDelayMs={600} fitTo={fit} padding={MAP_PADDING} labels={youLabels} />
-            {showLegend ? <div className="cap-legend-float"><Legend stacked /></div> : null}
-            <MapControls theme={theme} onCenter={center} onTheme={toggleTheme} />
-            <span className="cap-attr">© OpenStreetMap contributors</span>
-          </div>
-          {sheet ? <div className="cap-sheet" data-testid="captain-sheet">{sheet}</div> : null}
-        </>
-      ) : null}
+      <div className="cap-top">
+        {banner && timing ? <Banner n={banner} {...timing} lang={lang} onGotIt={() => gotIt(banner.id)} /> : (
+          <TopBar name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} offline={stale} onPick={() => setPicking(true)} onNotices={() => setScreen('notices')} />
+        )}
+        {stale ? <OfflineLine receivedAt={hub.receivedAt} now={now} /> : null}
+      </div>
+      <div className="cap-map">
+        <ChartMap key={theme} theme={theme} compact showLabels data={data} stamp={snap?.clock.wallMs} motionDelayMs={600} fitTo={fit} padding={MAP_PADDING} labels={youLabels} />
+        {showLegend ? <div className="cap-legend-float"><Legend stacked /></div> : null}
+        <MapControls theme={theme} onCenter={center} onTheme={toggleTheme} />
+        <span className="cap-attr">© OpenStreetMap contributors</span>
+      </div>
+      {sheet ? <div className="cap-sheet" data-testid="captain-sheet">{sheet}</div> : null}
       {screen === 'notices' ? <NoticesScreen notices={notices} cleared={snap?.allClear ?? []} lang={lang} onBack={() => setScreen('main')} onOpen={(id) => { setFocusId(id); setScreen('main'); }} /> : null}
       {screen === 'language' ? <LanguageScreen lang={lang} onChoose={setLang} onBack={() => setScreen('main')} /> : null}
       {screen === 'report' ? <ReportFlow snap={snap} theme={theme} onTheme={toggleTheme} stamp={snap?.clock.wallMs} onSend={hub.reportSighting} onClose={() => setScreen('main')} /> : null}

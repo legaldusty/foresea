@@ -119,7 +119,7 @@ async function ownBoat(map: MLMap, colors: ChartColors, el: Element): Promise<vo
   const dx = size / 2 - OWN_BOAT_FRAME.hullCenterX * k;
   const dy = size / 2 - OWN_BOAT_FRAME.hullCenterY * k;
   ctx.drawImage(img, dx, dy, OWN_BOAT_FRAME.width * k, OWN_BOAT_FRAME.height * k);
-  add(map, 'you', c);
+  try { add(map, 'you', c); } catch { return; }
 }
 
 function ring(map: MLMap, id: string, color: string): void {

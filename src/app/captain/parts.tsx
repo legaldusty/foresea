@@ -17,8 +17,7 @@ export function TopBar(props: { name: string; speedKn: number | null; offline: b
         <button type="button" className="who" onClick={props.onPick} aria-label="Change boat">{props.name}</button>
         {props.speedKn !== null ? <span className="speed">{props.speedKn.toFixed(1)} kn</span> : null}
         <span className="simulated">Simulated</span>
-        <span className="grow" />
-        <span className="link" data-testid="link-state">{props.offline ? <CellSignalSlash size={16} /> : <Broadcast size={16} />}{props.offline ? 'Offline' : 'Live'}</span>
+        <span className="cap-linkstate" data-testid="link-state">{props.offline ? <CellSignalSlash size={16} /> : <Broadcast size={16} />}{props.offline ? 'Offline' : 'Live'}</span>
         <button type="button" className="icon-btn" onClick={props.onNotices} aria-label="Notices" title="Notices" data-testid="open-notices"><Bell size={24} /></button>
       </div>
     </div>
@@ -89,7 +88,7 @@ export function Pin(props: { kind: PinKind }) {
   if (props.kind === 'divers') {
     return (
       <svg className="cap-flag" width="28" height="28" viewBox="0 0 28 28" aria-hidden="true">
-        <path className="field" d="M27 4H1V24H27V4Z" />
+        <path className="flag-field" d="M27 4H1V24H27V4Z" />
         <path className="stripe" d="M1 4H6.5L27 19V24H21.5L1 9V4Z" />
         <path className="edge" d="M2 5H26V23H2V5Z" />
       </svg>

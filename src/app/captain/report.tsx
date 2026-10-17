@@ -138,9 +138,9 @@ export function ReportFlow(props: {
           </div>
           <div className="cap-details">
             <div className="row"><span className="k">What</span><span className="v">{speciesLabel(sent.species)}</span></div>
-            <div className="row"><span className="k">Where</span><span className="v"><Num text={sent.where} /><span className="coords">{formatLatLon(sent.lonlat)}</span></span></div>
+            <div className="row"><span className="k">Where</span><span className="v"><span><Num text={sent.where} /></span><span className="coords">{formatLatLon(sent.lonlat)}</span></span></div>
             {sent.note ? <div className="row"><span className="k">Note</span><span className="v">{sent.note}</span></div> : null}
-            <div className="row"><span className="k">Sent</span><span className="v num">{sent.at}</span></div>
+            <div className="row"><span className="k">Sent</span><span className="v"><span className="num">{sent.at}</span></span></div>
           </div>
           <p className="t-body c-muted">{animal ? 'The watch officer may share it as a Whale nearby notice for boats near that spot.' : 'The watch officer may share it as a notice for boats near that spot.'}</p>
         </div>
@@ -154,11 +154,11 @@ export function ReportFlow(props: {
     <div className="cap-screen" data-testid="report">
       <Header title="Report a sighting" onBack={props.onClose} close testId="report-close" />
       <div className="scroll">
-        <p className="section">What did you see?</p>
+        <p className="cap-section">What did you see?</p>
         <div role="radiogroup" aria-label="What did you see?">
           {SPECIES.map((s) => <ChoiceRow key={s.value} label={s.label} selected={species === s.value} onSelect={() => setSpecies(s.value)} testId={s.testId} />)}
         </div>
-        <p className="section">Where</p>
+        <p className="cap-section">Where</p>
         <div role="radiogroup" aria-label="Where">
           <ChoiceRow
             label="At my position"

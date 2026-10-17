@@ -224,8 +224,13 @@ export function ChartMap(props: ChartMapProps) {
     if (!props.compact) (window as unknown as { givewayChart?: MLMap }).givewayChart = map;
     map.on('load', async () => {
       if (!props.compact) map.fitBounds([[-118.292, 33.700], [-118.150, 33.768]], { padding: 24, duration: 0 });
-      await loadChartImages(map, colors, el);
-      await loadSymbolImages(map, colors, el);
+      try {
+        await loadChartImages(map, colors, el);
+        await loadSymbolImages(map, colors, el);
+      } catch {
+        return;
+      }
+      if (mapRef.current !== map) return;
       readyRef.current = true;
       staticKeys.current.clear();
       forecastKey.current = '';

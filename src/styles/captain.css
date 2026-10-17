@@ -16,11 +16,11 @@
 
 .cap-top { flex: none; position: relative; z-index: 4; }
 .cap-bar { background: var(--bg); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
-.cap-bar .row { display: flex; align-items: center; gap: var(--space-12); height: 44px; padding: 0 var(--space-4) 0 var(--space-16); }
+.cap-bar .row { display: flex; align-items: center; gap: 10px; height: 44px; padding: 0 var(--space-4) 0 var(--space-16); }
 .cap-bar .who { height: 44px; min-width: 0; padding: 0; border: 0; background: transparent; font: var(--type-body-strong); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; cursor: pointer; }
-.cap-bar .speed { font: var(--type-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
-.cap-bar .grow { flex: 1; }
-.cap-bar .link { display: inline-flex; align-items: center; gap: 6px; font: var(--type-small); color: var(--muted); white-space: nowrap; }
+.cap-bar .speed { flex: none; font: var(--type-data); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.cap-bar .simulated { flex: none; }
+.cap-bar .cap-linkstate { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font: var(--type-small); color: var(--muted); white-space: nowrap; }
 
 .cap-head { flex: none; background: var(--bg); border-bottom: 1px solid var(--line); padding-top: env(safe-area-inset-top, 0px); }
 .cap-head .row { display: flex; align-items: center; gap: var(--space-4); height: 56px; padding: 0 var(--space-16) 0 var(--space-4); }
@@ -126,7 +126,7 @@
 .cap-pin.amber { background: var(--risk-medium); color: var(--on-risk-medium); }
 .cap-pin.red { background: var(--risk-high); color: var(--on-risk-high); }
 .cap-flag { flex: none; }
-.cap-flag .field { fill: var(--risk-high); }
+.cap-flag .flag-field { fill: var(--risk-high); }
 .cap-flag .stripe { fill: var(--on-risk-high); }
 .cap-flag .edge { fill: none; stroke: var(--bg); stroke-width: 2; }
 
@@ -134,7 +134,7 @@
 .cap-screen .scroll { flex: 1; min-height: 0; overflow-y: auto; }
 .cap-screen .scroll.pad { display: flex; flex-direction: column; gap: var(--space-16); padding: var(--space-24) var(--space-16) var(--space-16); }
 .cap-screen .intro { padding: var(--space-16) var(--space-16) var(--space-8); font: var(--type-body); color: var(--muted); }
-.cap-screen .section { padding: 20px var(--space-16) var(--space-8); font: var(--type-heading); }
+.cap-screen .cap-section { padding: 20px var(--space-16) var(--space-8); font: var(--type-heading); }
 
 .cap-notice { display: flex; gap: var(--space-12); align-items: flex-start; width: 100%; padding: 14px var(--space-16); border: 0; border-bottom: 1px solid var(--line); background: var(--bg); text-align: left; cursor: pointer; }
 div.cap-notice { cursor: default; }
