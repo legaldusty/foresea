@@ -289,7 +289,7 @@ export interface CaptainSnapshot {
 
 export interface CommandEvents {
   drive: { contactId: string; lonlat: LonLat };
-  spawn: { preset: 'driven' | 'bot' | 'pair' | 'scenario' | 'glider' | 'whale' | 'diver'; scenarioKey?: string; at?: LonLat };
+  spawn: { preset: 'driven' | 'bot' | 'pair' | 'scenario' | 'glider' | 'whale' | 'diver' | 'friendly'; scenarioKey?: string; at?: LonLat };
   removeContact: { contactId: string };
   contactParams: { contactId: string; sizeM?: number; speedMps?: number };
   sensorLoss: { contactId: string; silent: boolean };

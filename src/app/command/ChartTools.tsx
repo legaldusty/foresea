@@ -42,6 +42,7 @@ export function ChartTools(props: { tool: Tool; setTool: (t: Tool) => void; send
               <button key={i.key} onClick={() => spawn({ preset: 'scenario', scenarioKey: i.key })} data-testid={`incident-${i.key}`}><span>Incident {i.key}: {i.name}</span><span className="t-small">{i.detail}</span></button>
             ))}
             <button onClick={() => spawn({ preset: 'glider' })} data-testid="spawn-glider"><span>Lost glider</span><span className="t-small">AltaSea Glider 3, silent, drifting with the NOAA current</span></button>
+            <button onClick={() => spawn({ preset: 'friendly' })}><span>Friendly hull robot</span><span className="t-small">Registered, dive plan filed, answers the ID ping</span></button>
             <button onClick={() => spawn({ preset: 'whale' })}><span>Whale</span><span className="t-small">Warm, 18 m, erratic, surfacing</span></button>
             <button onClick={() => spawn({ preset: 'diver' })}><span>Diver</span><span className="t-small">Warm, 2 m, slow, near the Cruise Terminal</span></button>
           </div>

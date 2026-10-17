@@ -296,6 +296,8 @@ export class World {
         const speed = Math.max(0.1, this.currentSpeedMps || 0.2);
         return this.spawnContact({ mode: 'drift', startCell: at ?? this.cellAt([-118.266, 33.723]), sizeM: 1.8, speedMps: speed, heat: 'ambient', reply: 'registeredSilent', registryId: 'ALTASEA-G3', driftDir: dir });
       }
+      case 'friendly':
+        return this.spawnContact({ mode: 'bot', startCell: at ?? this.cellAt([-118.2470, 33.7215]), sizeM: 1.2, speedMps: 0.6, heat: 'hot', reply: 'friendly', registryId: 'HULLBOT-1', planFiled: true, plan: [{ goal: 'pier400', sloppy: 0.6 }] });
       case 'whale':
         return this.spawnContact({ mode: 'wander', startCell: at ?? this.cellAt([-118.236, 33.716]), sizeM: 18, speedMps: 1.5, heat: 'warm', reply: 'none', erratic: true }, false);
       case 'diver':

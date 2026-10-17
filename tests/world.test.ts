@@ -131,6 +131,17 @@ describe('Tuesday operations', () => {
     expect(w.cards.some((k) => k.kind === 'lost')).toBe(true);
   });
 
+  it('a registered robot that answers its ping is Friendly and stays at Log', () => {
+    const w = freshWorld('tuesday');
+    const c = w.spawn({ preset: 'friendly' })!;
+    runUntil(w, () => false, 300);
+    const view = w.contactView(c);
+    expect(view.classification.kind).toBe('friendly');
+    expect(view.hostility.H).toBeCloseTo(0.02, 2);
+    expect(view.risk!.level).toBe('Low');
+    expect(w.drafts.size).toBe(0);
+  });
+
   it('every automatic step is logged and the publish can be undone', () => {
     const w = freshWorld('tuesday');
     const draftId = w.dropZone({ kind: 'divers', lonlat: [-118.2495, 33.7235] })!;
