@@ -421,8 +421,9 @@ export class World {
       const meetsOrders = risk.R >= o.draftRiskMin && top.goal >= 0 && top.p >= o.draftOddsMin && plan.withinOrders && plan.kind !== 'watch';
       if (meetsOrders || zone.draftId) this.upsertSecurityDraft(c, zone, plan, risk.level);
     }
-    if (risk.level < HIGH || top.goal < 0) this.removeCards((k) => k.key.startsWith(`hold:${c.id}:`));
-    if (risk.level >= HIGH && top.goal >= 0) {
+    const confident = top.goal >= 0 && top.p >= o.draftOddsMin;
+    if (risk.level < HIGH || !confident) this.removeCards((k) => k.key.startsWith(`hold:${c.id}:`));
+    if (risk.level >= HIGH && confident) {
       const tgt = this.h.targets[top.goal];
       this.removeCards((k) => k.key.startsWith(`hold:${c.id}:`) && k.key !== `hold:${c.id}:${tgt.id}`);
       this.raiseCard(`hold:${c.id}:${tgt.id}`, {

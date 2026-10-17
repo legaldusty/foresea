@@ -12,3 +12,4 @@ data/audit.sqlite*
 certs/
 coverage/
 *.log
+e2e/videos/raw/
