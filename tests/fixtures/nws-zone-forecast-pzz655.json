@@ -1,0 +1,24 @@
+{
+  "type": "Feature",
+  "properties": {
+    "zone": "https://api.weather.gov/zones/forecast/PZZ655",
+    "updated": "2026-10-17T12:48:00-07:00",
+    "periods": [
+      {
+        "number": 1,
+        "name": "Today",
+        "detailedForecast": "Malibu to Santa Monica, NE wind 15 to 25 kt. Otherwise, NE wind 10 to 15 kt becoming NW 5 to 10 kt this afternoon. Seas 2 to 4 ft. Wave Detail: NE 2 ft at 5 seconds and S 2 ft at 16 seconds."
+      },
+      {
+        "number": 2,
+        "name": "Tonight",
+        "detailedForecast": "W wind 5 to 10 kt, becoming NW after midnight. Seas 2 to 3 ft. Wave Detail: S 3 ft at 17 seconds."
+      },
+      {
+        "number": 3,
+        "name": "Sun",
+        "detailedForecast": "Light winds, becoming W 5 to 10 kt in the afternoon. Seas 2 to 3 ft. Wave Detail: W 2 ft at 13 seconds and S 2 ft at 17 seconds."
+      }
+    ]
+  }
+}

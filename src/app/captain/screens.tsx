@@ -3,6 +3,7 @@ import type { CaptainNotice, CaptainSnapshot, CaptainTodayRow, Priority } from '
 import { Button } from '../ui';
 import { ChoiceRow, Header, Num, Pin, pinForReason } from './parts';
 import { LANGUAGES, languageName, listDetail, listTitle, sentence } from './words';
+import { ConditionsLine } from './conditions';
 
 function placeOf(row: CaptainTodayRow): string {
   const near = `${row.reason} near `;
@@ -23,6 +24,7 @@ export function TodaySheet(props: { snap: CaptainSnapshot | null; lang: string; 
           {updated ? <>Updated <span className="num">{updated}</span>.</> : null}
         </span>
       </div>
+      <ConditionsLine c={props.snap?.conditions} />
       {rows.length ? (
         <div className="zones">
           {rows.map((r) => {

@@ -3,10 +3,11 @@ import { ArrowCounterClockwise, CaretDown, CaretUp, DownloadSimple, MapPin, Warn
 import type { AuditWhere, CommandEvents, CommandSnapshot, OnTimeRow } from '../../shared/protocol';
 import { Button, Field, SelectBox, TextBox } from '../ui';
 import { clockOf, signed } from '../format';
+import { ConditionsPane, TodayAdvisories, conditionsTabLabel } from './Conditions';
 import '../../styles/desk.css';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
-type DeskTab = 'today' | 'ontime' | 'sightings' | 'report' | 'log';
+type DeskTab = 'today' | 'ontime' | 'conditions' | 'sightings' | 'report' | 'log';
 
 const HOURS = Array.from({ length: 33 }, (_, i) => 6 + i * 0.5).map((h) => ({ value: h, label: `${String(Math.floor(h)).padStart(2, '0')}:${h % 1 ? '30' : '00'}` }));
 
@@ -17,6 +18,7 @@ function Today(props: { snap: CommandSnapshot; send: Send; divePoint: [number, n
   const rows = props.snap.today;
   return (
     <div className="desk-pane" data-testid="today">
+      <TodayAdvisories snap={props.snap} send={props.send} />
       <div className="today-row head"><span>Zone</span><span>Times</span><span className="num">Boats</span><span className="num">Ack</span><span /></div>
       {rows.map((r) => (
         <div className={`today-row${r.status === 'scheduled' ? ' scheduled' : ''}`} key={r.id} data-testid={`today-${r.id}`}>
@@ -147,6 +149,7 @@ export function DeskRail(props: {
   const tabs: { id: DeskTab; label: string }[] = [
     { id: 'today', label: `Today, ${props.snap.today.filter((r) => r.status === 'active').length} zones` },
     { id: 'ontime', label: atRisk ? `On time, ${atRisk} at risk` : 'On time' },
+    { id: 'conditions', label: conditionsTabLabel(props.snap) },
     { id: 'sightings', label: 'Marine life' },
     { id: 'report', label: 'Daily report' },
     { id: 'log', label: 'Log' },
@@ -163,6 +166,7 @@ export function DeskRail(props: {
       {props.collapsed ? null : <>
       {tab === 'today' ? <Today snap={props.snap} send={props.send} divePoint={props.divePoint} onPickDive={props.onPickDive} /> : null}
       {tab === 'ontime' ? <OnTime snap={props.snap} /> : null}
+      {tab === 'conditions' ? <ConditionsPane snap={props.snap} send={props.send} /> : null}
       {tab === 'sightings' ? <Sightings snap={props.snap} /> : null}
       {tab === 'report' ? <Report snap={props.snap} /> : null}
       {tab === 'log' ? <Log snap={props.snap} send={props.send} onPlace={props.onPlace} /> : null}
