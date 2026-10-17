@@ -518,3 +518,13 @@ body.dragging { user-select: none; cursor: grabbing; }
 .order .blank .box select.words, .order .blank .box select[data-format="level"] { font: var(--type-body-strong); }
 .rail-block.contact-block > .btn { align-self: flex-start; margin: var(--space-4) var(--space-16) 0; padding-left: var(--space-12); padding-right: var(--space-12); }
 .rail-block.contact-block > .btn-quiet { margin-top: 0; padding-left: var(--space-8); }
+.rail-filter .filter-group { padding: var(--space-8) var(--space-4) 2px; font: var(--type-label); color: var(--muted); }
+.rail-filter .filter-group:first-child { padding-top: 0; }
+.check-row { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 32px; padding: 4px var(--space-4); border: 0; border-radius: var(--radius-4); background: transparent; color: var(--text); font: var(--type-body); text-align: left; cursor: pointer; }
+.check-row:hover { background: var(--hover); }
+.check-row:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.check-row .chk { flex: none; color: var(--faint); background: none; }
+.check-row .chk.on { color: var(--accent); }
+.drow-r .name { min-width: 0; }
+.drow-r .instr { grid-column: 3 / -1; margin-top: -6px; font: var(--type-small); color: var(--muted); }
+.rail-filter { max-height: calc(100vh - 120px); overflow-y: auto; }

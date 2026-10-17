@@ -61,17 +61,19 @@ export function DeskTools(props: { tool: Tool; setTool: (t: Tool) => void; onDiv
   );
 }
 
-export type LayerKey = 'forecast' | 'zones' | 'sightings' | 'routes' | 'ais' | 'boats' | 'labels' | 'callouts';
+export type LayerKey = 'forecast' | 'zones' | 'sightings' | 'routes' | 'ais' | 'boats' | 'labels' | 'callouts' | 'rings';
 export const LAYERS: { key: LayerKey; label: string }[] = [
   { key: 'forecast', label: 'Forecast areas and time marks' },
   { key: 'zones', label: 'Zones and notices' },
-  { key: 'sightings', label: 'Marine life and debris sightings' },
+  { key: 'rings', label: 'Boats in the path, ringed' },
+  { key: 'callouts', label: 'Boat instruction cards' },
   { key: 'routes', label: 'Boat routes and new plans' },
+  { key: 'sightings', label: 'Marine life and debris sightings' },
   { key: 'ais', label: 'Real ships from AIS' },
   { key: 'boats', label: 'Simulated boats' },
   { key: 'labels', label: 'Names on the chart' },
-  { key: 'callouts', label: 'Boat callouts' },
 ];
+export const DEFAULT_HIDDEN_LAYERS: LayerKey[] = ['callouts', 'routes'];
 
 export function ChartCorner(props: { onPresenter: () => void; presenterOpen: boolean; hidden: Set<LayerKey>; onLayer: (k: LayerKey) => void }) {
   const [keyOpen, setKeyOpen] = useState(false);

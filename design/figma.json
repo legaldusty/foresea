@@ -351,6 +351,7 @@
     "tourCaptain": "96:155",
     "viewsMenu": "110:114",
     "drive": "110:166",
-    "driveJoystick": "112:140"
+    "driveJoystick": "112:140",
+    "filterMenu": "113:140"
   }
 }

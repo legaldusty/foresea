@@ -15,7 +15,7 @@ import { describeHit } from './describe';
 import { commandChart } from '../map/toChart';
 import { TopBar } from './TopBar';
 import { Headline, StepStrip } from './Headline';
-import { ChartCorner, DeskTools, DriveControl, Presenter, type LayerKey, type Tool } from './ChartTools';
+import { ChartCorner, DEFAULT_HIDDEN_LAYERS, DeskTools, DriveControl, Presenter, type LayerKey, type Tool } from './ChartTools';
 import { ContactDossier } from './Dossier';
 import { VesselInspector } from './Inspector';
 import { ModelsPanel } from './Models';
@@ -38,7 +38,8 @@ function withoutHidden(data: ChartData, hidden: Set<LayerKey>): ChartData {
   if (hidden.has('forecast')) { out.forecast = EMPTY_FC; out.ticks = EMPTY_FC; }
   if (hidden.has('zones')) { out.zones = EMPTY_FC; out.arrows = EMPTY_FC; }
   if (hidden.has('sightings')) out.sightings = EMPTY_FC;
-  if (hidden.has('routes')) { out.routes = EMPTY_FC; out.paths = EMPTY_FC; }
+  if (hidden.has('routes')) out.routes = EMPTY_FC;
+  if (hidden.has('rings')) out.vessels = { ...out.vessels, features: out.vessels.features.map((f) => ({ ...f, properties: { ...f.properties, affected: 'none' } })) };
   if (hidden.has('ais') || hidden.has('boats')) {
     out.vessels = { type: 'FeatureCollection', features: data.vessels.features.filter((f) => {
       const real = String((f.properties as Record<string, unknown> | null)?.id ?? '').startsWith('ais-');
@@ -61,6 +62,12 @@ function lastState(d: DeliveryRow): DeliveryState {
   return last;
 }
 
+function instructionFor(snap: CommandSnapshot, vesselId: string): string | null {
+  const text = snap.vessels.find((v) => v.id === vesselId)?.affected?.text ?? '';
+  if (!text) return null;
+  return text.startsWith('NO ACTION') ? 'Heads-up only' : text;
+}
+
 function DeliveryBlock(props: { snap: CommandSnapshot }) {
   const rows = props.snap.deliveries
     .filter((d) => d.priority !== 'P4' && !d.vesselId.startsWith('ais-'))
@@ -77,6 +84,7 @@ function DeliveryBlock(props: { snap: CommandSnapshot }) {
           <span className="name">{d.vesselName}</span>
           <StepTrack states={d.states} />
           {d.notResponding ? <span className="state warn"><Warning size={14} weight="bold" />No reply</span> : <span className="state">{STATE_WORD[lastState(d)]}</span>}
+          {instructionFor(props.snap, d.vesselId) ? <span className="instr">{instructionFor(props.snap, d.vesselId)}</span> : null}
         </div>
       ))}
     </section>
@@ -117,7 +125,7 @@ export function CommandView() {
   }, [snap?.drafts]);
   const deskCollapsedRef = useRef(deskCollapsed);
   deskCollapsedRef.current = deskCollapsed;
-  const [hiddenList, setHiddenList] = usePersisted<LayerKey[]>('giveway.layers.hidden', []);
+  const [hiddenList, setHiddenList] = usePersisted<LayerKey[]>('giveway.layers.hidden.v2', DEFAULT_HIDDEN_LAYERS);
   const hidden = useMemo(() => new Set(hiddenList), [hiddenList.join(',')]);
   const toggleLayer = (k: LayerKey) => setHiddenList(hidden.has(k) ? hiddenList.filter((x) => x !== k) : [...hiddenList, k]);
   const rail = useDragSize('giveway.rail.width', 384, 320, () => Math.min(720, window.innerWidth * 0.5), 'x');
@@ -313,7 +321,7 @@ export function CommandView() {
       {railCollapsed ? <RailStrip onExpand={() => setRailCollapsed(false)} waiting={railAlerts.alerts.length} /> : <>
       <div className="grip x" onPointerDown={rail.onPointerDown} onDoubleClick={rail.reset} title="Drag to resize. Double-click to reset." data-testid="rail-grip" />
       <aside className="cmd-rail" data-testid="right-rail" ref={railRef}>
-        <RailBar hidden={railHidden} onToggle={toggleRail} onCollapse={() => setRailCollapsed(true)} />
+        <RailBar hidden={railHidden} onToggle={toggleRail} onCollapse={() => setRailCollapsed(true)} layers={hidden} onLayer={toggleLayer} />
         {watched.length > 1 ? (
           <div className="rail-tabs" role="tablist">
             {watched.map((c) => (

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { BellRinging, CaretDoubleLeft, CaretDoubleRight, Eye, EyeSlash, Funnel, X } from '@phosphor-icons/react';
+import { BellRinging, CaretDoubleLeft, CaretDoubleRight, CheckSquare, Funnel, Square, X } from '@phosphor-icons/react';
+import { LAYERS, type LayerKey } from './ChartTools';
 import type { CommandSnapshot } from '../../shared/protocol';
 
 export type RailSection = 'selected' | 'contact' | 'boats' | 'notices' | 'today' | 'watch' | 'incidents';
@@ -14,7 +15,7 @@ export const RAIL_SECTIONS: { key: RailSection; label: string }[] = [
   { key: 'incidents', label: 'Incidents and reports' },
 ];
 
-export function RailBar(props: { hidden: Set<RailSection>; onToggle: (k: RailSection) => void; onCollapse: () => void }) {
+export function RailBar(props: { hidden: Set<RailSection>; onToggle: (k: RailSection) => void; onCollapse: () => void; layers: Set<LayerKey>; onLayer: (k: LayerKey) => void }) {
   const [open, setOpen] = useState(false);
   const shown = RAIL_SECTIONS.length - props.hidden.size;
   useEffect(() => {
@@ -32,12 +33,22 @@ export function RailBar(props: { hidden: Set<RailSection>; onToggle: (k: RailSec
       <button className="icon-btn" onClick={props.onCollapse} aria-label="Collapse the panel" title="Collapse the panel" data-testid="rail-collapse"><CaretDoubleRight size={16} /></button>
       {open ? (
         <div className="rail-filter" data-testid="rail-filter-menu">
+          <span className="filter-group">On the map</span>
+          {LAYERS.map((l) => {
+            const on = !props.layers.has(l.key);
+            return (
+              <button key={l.key} className="check-row" role="menuitemcheckbox" aria-checked={on} onClick={() => props.onLayer(l.key)} data-testid={`map-show-${l.key}`}>
+                {on ? <CheckSquare size={18} className="chk on" /> : <Square size={18} className="chk" />}<span>{l.label}</span>
+              </button>
+            );
+          })}
+          <span className="filter-group">In this panel</span>
           <span className="t-small c-muted">Decisions always show at the top.</span>
           {RAIL_SECTIONS.map((s) => {
             const on = !props.hidden.has(s.key);
             return (
-              <button key={s.key} className="layer-row" aria-pressed={on} onClick={() => props.onToggle(s.key)} data-testid={`rail-show-${s.key}`}>
-                {on ? <Eye size={16} /> : <EyeSlash size={16} />}<span>{s.label}</span>
+              <button key={s.key} className="check-row" role="menuitemcheckbox" aria-checked={on} onClick={() => props.onToggle(s.key)} data-testid={`rail-show-${s.key}`}>
+                {on ? <CheckSquare size={18} className="chk on" /> : <Square size={18} className="chk" />}<span>{s.label}</span>
               </button>
             );
           })}

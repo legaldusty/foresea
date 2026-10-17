@@ -233,6 +233,11 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'sightings-ring', type: 'circle', source: 'sightings', paint: { 'circle-radius': 13, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 1.5, 'circle-stroke-color': ['case', ['==', ['get', 'status'], 'confirmed'], c.riskMedium, c.landEdge] } },
       { id: 'sightings', type: 'symbol', source: 'sightings', layout: { 'icon-image': ['case', ['in', ['get', 'species'], ['literal', ['debris', 'hazard']]], 'symbol-robot', 'symbol-animal'], 'icon-size': 0.75, 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['case', ['==', ['get', 'status'], 'confirmed'], 1, 0.7] } },
       { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.landEdge, 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1, 15, 2], 'line-opacity': night ? 0.75 : 0.6, 'line-dasharray': [1, 1.5] } },
+      { id: 'vessels-affected', type: 'circle', source: 'vessels', filter: ['in', ['get', 'affected'], ['literal', ['P1', 'P2', 'P3']]], paint: {
+        'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 10, 15, 22],
+        'circle-color': ['match', ['get', 'affected'], 'P1', c.riskHigh, 'P2', c.riskSerious, c.riskMedium], 'circle-opacity': 0.18,
+        'circle-stroke-width': 2, 'circle-stroke-color': ['match', ['get', 'affected'], 'P1', c.riskHigh, 'P2', c.riskSerious, c.riskMedium],
+      } },
       { id: 'vessels', type: 'symbol', source: 'vessels', layout: {
         'icon-image': ['coalesce', ['image', ['concat', 'v-', ['get', 'type']]], ['image', 'v-other']],
         'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
