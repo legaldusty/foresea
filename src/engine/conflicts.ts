@@ -182,15 +182,16 @@ function arrival(visits: Visit[]): number {
   return visits.length ? visits[visits.length - 1].enter : 0;
 }
 
-function meeting(area: NoticeArea, visits: Visit[], offsetMin: number, padMin: number, layer: CrossingLayer, from = 0): Crossing | null {
+function meeting(area: NoticeArea, visits: Visit[], offsetMin: number, padMin: number, layer: CrossingLayer, from = 0, escapeUntil = 0): Crossing | null {
   const mask = layer === 'likely' ? area.likely : area.careful;
   for (let k = from; k < visits.length; k++) {
     const v = visits[k];
     if (!mask[v.cell]) continue;
     const e = area.early[v.cell] - offsetMin;
     const l = area.late[v.cell] - offsetMin;
-    if (Number.isNaN(e) || l + padMin < 0) continue;
-    if (v.enter <= l + padMin && v.leave >= e - padMin) {
+    const pad = k < escapeUntil ? 0 : padMin;
+    if (Number.isNaN(e) || l + pad < 0) continue;
+    if (v.enter <= l + pad && v.leave >= e - pad) {
       return { layer, index: k, cell: v.cell, boatMin: v.enter, droneEarlyMin: Math.max(0, e), droneLateMin: Math.max(0, l) };
     }
   }
@@ -248,9 +249,16 @@ function departWait(boat: PlannerBoat): number {
   return boat.waitIndex === 0 ? boat.waitUntilMin : 0;
 }
 
+function escapeLength(area: NoticeArea, cells: number[]): number {
+  let k = 0;
+  while (k < cells.length && area.careful[cells[k]]) k++;
+  return k;
+}
+
 function stillMeets(area: NoticeArea, visits: Visit[], offset: number, r: PlannerRules, boat: PlannerBoat, leavesNow = true): boolean {
   const from = boat.alongside || leavesNow ? 1 : 0;
-  return meeting(area, visits, offset, r.padMinutes, 'likely', from) !== null;
+  const escape = leavesNow ? escapeLength(area, visits.map((v) => v.cell)) : 0;
+  return meeting(area, visits, offset, r.padMinutes, 'likely', from, escape) !== null;
 }
 
 function priceHold(grid: GridLike, area: NoticeArea, boat: PlannerBoat, base: number, offset: number, r: PlannerRules): PricedFix {

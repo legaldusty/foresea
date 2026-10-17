@@ -11,5 +11,60 @@
     "Captain / Notice detail": "32:85",
     "Captain / Offline": "32:139",
     "Captain / All clear": "32:177"
+  },
+  "round3Captain": {
+    "page": "49:24",
+    "pageName": "Round 3 Captain",
+    "night": {
+      "P1 takeover": "51:46",
+      "P2 banner": "53:74",
+      "P3 calm card": "55:4629",
+      "P4 notices": "56:4705",
+      "Today": "56:4746",
+      "Language": "56:5185",
+      "Report / Choose": "56:5231",
+      "Report / Pick on map": "57:329",
+      "Report / Sent": "56:5297",
+      "Offline": "57:378"
+    },
+    "day": {
+      "P1 takeover": "57:5215",
+      "P2 banner": "57:5248",
+      "P3 calm card": "57:5280",
+      "P4 notices": "57:5315",
+      "Today": "57:5323",
+      "Language": "57:5347",
+      "Report / Choose": "57:5357",
+      "Report / Pick on map": "57:5392",
+      "Report / Sent": "57:5375",
+      "Offline": "57:5414"
+    },
+    "parts": {
+      "Frame": "49:25",
+      "Time mark": "49:53",
+      "Your boat": "49:69",
+      "Legend": "49:84",
+      "Map controls": "49:85",
+      "Got it on red": "49:93",
+      "Choice row": "50:49",
+      "Zone row": "50:50",
+      "Notice row": "50:59",
+      "Setting row": "50:66",
+      "Top bar": "50:73",
+      "Header": "50:87",
+      "Detail row": "56:5182",
+      "Icon/Binoculars": "49:29",
+      "Icon/CaretLeft": "49:34",
+      "Icon/Bell": "49:39",
+      "Icon/RadioButton": "49:44",
+      "Icon/Circle": "49:49"
+    },
+    "chartRenders": {
+      "P1 panel": "358 x 300, center -118.2414 33.7178, zoom 13.05",
+      "P2": "390 x 844, center -118.2451 33.7098, zoom 13.0",
+      "P3 and Offline": "390 x 844, center -118.2328 33.7192, zoom 12.65",
+      "Today": "390 x 372, center -118.2340 33.7190, zoom 11.6",
+      "Report": "390 x 844, center -118.24595 33.70636, zoom 13.4"
+    }
   }
 }

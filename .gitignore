@@ -13,5 +13,5 @@ certs/
 coverage/
 *.log
 e2e/videos/raw/
-round3/
+/round3/
 dist-e2e/
