@@ -1,0 +1,98 @@
+{
+  "tell": { "beta": 1.3, "lostPrior": 0.25, "forget": 0.04, "callAt": 0.60, "callSteps": 3, "nearnessPower": 2,
+            "driftPrior": 0.10, "driftToleranceMps": 0.2, "driftSharpness": 3.0 },
+  "risk": {
+    "startHostility": 0.50,
+    "evidence": { "friendlyConfirmed": 0.02, "registryNoReply": 0.25, "spoofedId": 0.30, "noReply": 0.15,
+                  "goalDirected": 0.10, "lostLooking": -0.20, "evasive": 0.10, "loiter": 0.10,
+                  "securityZone": 0.10, "coordinatedEach": 0.15, "nightNoPlan": 0.05 },
+    "sizeFactor": { "micro": 0.15, "small": 0.40, "large": 0.75, "veryLarge": 1.00 },
+    "speedFactor": { "drift": 0.3, "slow": 0.7, "medium": 0.9, "fast": 1.0 },
+    "consequenceWeights": { "people": 0.4, "hazard": 0.3, "economy": 0.2, "environment": 0.1 },
+    "likelihoodBands": [0.10, 0.25, 0.45, 0.65],
+    "severityBands": [0.08, 0.18, 0.32, 0.50],
+    "urgentMinutes": 10,
+    "urgentMinSeverity": 3,
+    "highFloorLevel": "Serious",
+    "splitOddsMin": 0.20,
+    "criticalWithinMinutes": 30,
+    "dropAfterMinutes": 2
+  },
+  "orders": { "draftRiskMin": 10, "draftOddsMin": 0.60, "maxDelayPerBoatMin": 8, "zoneMeters": 250,
+              "zoneGrowWhenUnsure": 2.0, "realertMinutes": 2, "backupOfficerMinutes": 4,
+              "zonePathMinutes": 10, "zoneTopTargets": 2, "unsureBelowOdds": 0.40,
+              "animalSlowMeters": 500, "animalSlowKnots": 10, "routineZoneMeters": 300,
+              "speedAdvisoryKnots": 5, "speedAdvisoryMaxDelayMin": 2 },
+  "priority": { "p1Minutes": 5, "p2Minutes": 15, "criticalFloor": "P2", "routineCeiling": "P2" },
+
+  "evidenceRules": {
+    "hostilityMin": 0.02, "hostilityMax": 0.98,
+    "noReplyAfterMinutes": 2, "goalDirectedLostBelow": 0.20, "goalDirectedMinSteps": 3,
+    "lostLookingAbove": 0.50, "evasiveRatio": 1.5, "evasiveMinSteps": 10,
+    "loiterMeters": 200, "loiterMinutes": 5, "securityZoneMeters": 300,
+    "securityKinds": ["fuel", "passenger"], "coordinatedMax": 0.30, "debrisHostility": 0.05
+  },
+  "classify": {
+    "powered": { "heat": "hot", "minMps": 0.5, "maxMps": 4.0, "minSizeM": 0.3, "maxSizeM": 8.0 },
+    "debris": { "heat": "ambient", "currentToleranceMps": 0.2 },
+    "animal": { "heat": "warm", "minMps": 0.5, "maxMps": 5.0, "minSizeM": 1.5, "maxSizeM": 30.0 },
+    "person": { "heat": "warm", "maxMps": 1.0, "minSizeM": 1.5, "maxSizeM": 2.5 },
+    "sizeBandsM": [0.5, 2.0, 6.0],
+    "speedBandsMps": [0.3, 1.5, 3.0]
+  },
+  "consequence": {
+    "cruise":      { "people": 5, "hazard": 2, "economy": 3, "environment": 2 },
+    "cruiseEmpty": { "people": 2, "hazard": 2, "economy": 3, "environment": 2 },
+    "research":    { "people": 1, "hazard": 1, "economy": 1, "environment": 1 },
+    "pier400":     { "people": 1, "hazard": 3, "economy": 5, "environment": 3 },
+    "fuel":        { "people": 2, "hazard": 5, "economy": 4, "environment": 5 },
+    "ferry":       { "people": 4, "hazard": 2, "economy": 2, "environment": 2 },
+    "islands":     { "people": 2, "hazard": 5, "economy": 3, "environment": 5 }
+  },
+  "harbor": {
+    "targets": [
+      { "id": "cruise",   "name": "Cruise Terminal",            "short": "Cruise Terminal", "kind": "passenger", "lon": -118.2775, "lat": 33.7440, "emptyId": "cruiseEmpty" },
+      { "id": "research", "name": "Research Dock (AltaSea)",    "short": "Research Dock",   "kind": "research",  "lon": -118.2700, "lat": 33.7250 },
+      { "id": "pier400",  "name": "Container Ship, Pier 400",   "short": "Pier 400",        "kind": "hull",      "lon": -118.2495, "lat": 33.7235 },
+      { "id": "fuel",     "name": "Fuel Pier",                  "short": "Fuel Pier",       "kind": "fuel",      "lon": -118.2190, "lat": 33.7520 },
+      { "id": "ferry",    "name": "Ferry Landing (Long Beach)", "short": "Ferry Landing",   "kind": "passenger", "lon": -118.1920, "lat": 33.7560 },
+      { "id": "islands",  "name": "Oil Islands",                "short": "Oil Islands",     "kind": "fuel",      "lon": -118.1630, "lat": 33.7430 }
+    ],
+    "spawns": [
+      { "name": "Outside Angels Gate", "lon": -118.2490, "lat": 33.7000 },
+      { "name": "Outside Queens Gate", "lon": -118.1860, "lat": 33.7120 },
+      { "name": "Open water, east",    "lon": -118.1500, "lat": 33.7050 }
+    ],
+    "gates": [
+      { "name": "Angels Gate", "lon": -118.2490, "lat": 33.7080 },
+      { "name": "Queens Gate", "lon": -118.1858, "lat": 33.7225 }
+    ],
+    "places": [
+      { "id": "eastChannel", "name": "East Channel", "lon": -118.2350, "lat": 33.7300 },
+      { "id": "mainChannel", "name": "Main Channel", "lon": -118.2700, "lat": 33.7330 }
+    ],
+    "craft": [
+      { "id": "ferry1", "name": "Catalina Ferry",   "type": "ferry", "speedKn": 12, "from": "Outside Angels Gate", "to": "cruise",  "scheduledMin": 26, "phone": true },
+      { "id": "pilot1", "name": "Pilot Boat 2",     "type": "pilot", "speedKn": 14, "from": "Outside Queens Gate", "to": "fuel",    "scheduledMin": 16, "phone": false, "ignoresNotices": true },
+      { "id": "tug1",   "name": "Tug Millie",       "type": "tug",   "speedKn": 7,  "from": "pier400",             "to": "ferry",   "scheduledMin": 40, "phone": true },
+      { "id": "dive1",  "name": "Hull-Dive Tender", "type": "dive",  "speedKn": 6,  "from": "research",            "to": "pier400", "scheduledMin": 22, "phone": true },
+      { "id": "water1", "name": "Water Taxi",       "type": "taxi",  "speedKn": 10, "from": "ferry",               "to": "islands", "scheduledMin": 12, "phone": true },
+      { "id": "launch1","name": "Harbor Launch 7",  "type": "pilot", "speedKn": 9,  "from": "Outside Angels Gate", "to": "fuel",    "scheduledMin": 30, "phone": true }
+    ],
+    "registry": [
+      { "id": "ALTASEA-G3", "name": "AltaSea Glider 3", "owner": "AltaSea Research", "kind": "glider", "homeTarget": "research", "sizeM": 1.8 },
+      { "id": "HULLBOT-1",  "name": "Hull Robot 1",     "owner": "Pacific Dive Services", "kind": "hullRobot", "homeTarget": "pier400", "sizeM": 1.2, "divePlan": true }
+    ]
+  },
+  "delivery": { "resendMinutes": 2, "vhfCardMinutes": 4, "simulatedFleetSize": 12,
+                "simulatedSeenRate": 0.75, "simulatedAckRate": 0.6 },
+  "channels": { "captainApp": true, "push": true, "sms": false, "vhf": true, "aisMarker": true },
+  "sim": { "timeScale": 20, "tickMs": 250, "nightStartHour": 19, "nightEndHour": 6, "driveSpeedMps": 2.0, "silenceAfterSeconds": 60 },
+  "map": { "bbox": [-118.300, 33.690, -118.140, 33.785], "center": [-118.225, 33.735], "zoom": 13.2 },
+  "ais": { "bbox": [[33.690, -118.300], [33.785, -118.140]],
+           "messageTypes": ["PositionReport", "StandardClassBPositionReport", "ShipStaticData"],
+           "berthRadiusMeters": 450, "berthedMaxKnots": 0.5, "staleMinutes": 20, "onTimeLateMinutes": 15 },
+  "noaa": { "waterLevelStation": "9410660", "currentStations": ["LAB0101", "LAB0201"], "cacheMinutes": 30 },
+  "language": { "ollamaModels": ["granite4:micro", "granite3.3:2b", "granite3.1-dense:2b"], "timeoutMs": 6000,
+                "languages": ["es", "zh", "ko", "tl", "vi"] }
+}
