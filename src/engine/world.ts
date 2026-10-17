@@ -1145,11 +1145,12 @@ export class World {
     if (!this.cards.some((k) => k.key === key) && !this.dismissed.has(key)) {
       this.log('machine', 'Owner notified', `${reg.owner}: ${reg.name} is silent and drifting. Search area sent.`);
     }
+    const searchOut = this.zones.get(`z-${c.id}`)?.status === 'published';
     this.raiseCard(key, {
-      kind: 'lost', title: 'Lost, not hostile',
-      body: `${reg.name} stopped reporting. It is drifting with the current, not aiming. It was heading back to its dock at the ${home?.short ?? 'home berth'}.`,
-      facts: [`Owner: ${reg.owner}, message ready`, `Drift ${mpsToKnots(c.spec.speedMps).toFixed(1)} kn toward ${compassPoint(c.headingDeg)}`, 'Search area drafted from the drift forecast'],
-      actions: [{ id: 'publishZone', label: 'Publish search area', primary: true }, { id: 'found', label: 'Found' }],
+      kind: 'lost', title: searchOut ? 'Search area published' : 'Lost, not hostile',
+      body: `${reg.name} stopped reporting. It is drifting with the current, not aiming. It was heading back to its dock at the ${home?.short ?? 'home berth'}.${searchOut ? ' Boats keep clear of the search area. Close it when the owner has it back.' : ''}`,
+      facts: [`Owner: ${reg.owner}, message ready`, `Drift ${mpsToKnots(c.spec.speedMps).toFixed(1)} kn toward ${compassPoint(c.headingDeg)}`, searchOut ? 'Search area published from the drift forecast' : 'Search area drafted from the drift forecast'],
+      actions: searchOut ? [{ id: 'found', label: 'Found', primary: true }, { id: 'ok', label: 'OK' }] : [{ id: 'publishZone', label: 'Publish search area', primary: true }, { id: 'found', label: 'Found' }],
       contactId: c.id, noticeId: null, draftId: null,
       script: `${reg.owner}, this is ${this.station}. ${reg.name} stopped reporting at ${clockLabel(c.spec.firstSeenMin)} near ${this.placeNear(c.cell)}. It is drifting with the current toward the ${compassPoint(c.headingDeg)} at about ${mpsToKnots(c.spec.speedMps).toFixed(1)} kn. The search area for the next hour is on the harbor chart. Please call us when it is recovered.`,
     });
@@ -1857,6 +1858,12 @@ export class World {
       case 'publishZone': {
         const z = card.contactId ? this.zones.get(`z-${card.contactId}`) : undefined;
         if (z?.draftId) this.publish(z.draftId);
+        if (card.kind === 'lost') {
+          card.title = 'Search area published';
+          card.body = `${card.body} Boats keep clear of the search area. Close it when the owner has it back.`;
+          card.actions = [{ id: 'found', label: 'Found', primary: true }, { id: 'ok', label: 'OK' }];
+          return;
+        }
         done();
         return;
       }
