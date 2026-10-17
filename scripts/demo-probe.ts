@@ -23,7 +23,15 @@ for (let i = 0; i < 2400; i++) {
     console.log('DRAFT at', s.clock.label, d.plan.comparison.chosen, '|', d.instructionText);
     for (const b of d.plan.boats) console.log('   ', b.name, b.priority, b.instruction, `+${b.addedMin.toFixed(1)}`, b.action, b.minutesToZone?.toFixed(1));
     const id = w.publish(d.id)!;
-    for (const v of ['ferry1', 'tug1', 'dive1', 'water1', 'launch1']) { const cap = w.captainSnapshot(v); console.log('   phone', v, cap.notices.map((n) => `${n.priority} ${n.instructionText} | ${n.detail}`).join('; ')); }
+    for (let k = 0; k < 600; k++) {
+      w.tick(250, Date.now());
+      if (k % 40 === 0) {
+        const s2 = w.commandSnapshot();
+        const row = (v: string) => s2.deliveries.find((d) => d.vesselId === v);
+        const l = row('launch1'), p = row('pilot1');
+        console.log(s2.clock.label, 'launch1', l?.priority, l ? Object.keys(l.states).join('/') : '-', '| pilot1', p?.priority, p?.notResponding ? 'NOT RESPONDING' : '', '| card', s2.card?.title ?? '-');
+      }
+    }
     void id;
     break;
   }

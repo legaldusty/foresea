@@ -17,6 +17,7 @@ import type { CommandEvents, CaptainEvents, OnTimeRow } from '../src/shared/prot
 import { openAuditLog } from './audit';
 import { createPushService } from './push';
 import { createLanguageModel } from './llm';
+import { createSmsService } from './sms';
 import { joinUrls, lanAddresses } from './net';
 import { createAisFeed, type FeedMode } from './ais/live';
 import { berthedAt } from './ais/berth';
@@ -41,12 +42,14 @@ const audit = openAuditLog();
 const push = createPushService();
 const language = createLanguageModel(settings.language);
 const noaa = createNoaaClient();
+const sms = createSmsService();
+world.settings = { ...world.settings, channels: { ...world.settings.channels, sms: sms.ready } };
 
 const certDir = path.resolve('certs');
 const hasCerts = fs.existsSync(path.join(certDir, 'key.pem')) && fs.existsSync(path.join(certDir, 'cert.pem'));
 const urls = () => joinUrls(PORT, hasCerts ? HTTPS_PORT : null, PUBLIC_URL);
 world.link = urls()[0];
-world.setSources({ push: { ready: push.ready, detail: push.detail } });
+world.setSources({ push: { ready: push.ready, detail: `${push.detail}. ${sms.detail}` } });
 
 const fieldCache = new Map<number, Float32Array>();
 function routeMinutes(from: LonLat, to: LonLat, speedKn: number): number | null {
@@ -160,6 +163,16 @@ function flushEffects(): void {
     void push.send(p.vesselId, { title: p.title, body: p.body, tag: p.tag, url: p.url, priority: p.priority, requireInteraction: p.priority === 'P1' }).then((ok) => {
       if (ok) world.log('machine', 'Push sent', `${p.priority} to ${world.craft.find((c) => c.id === p.vesselId)?.name ?? p.vesselId}`);
       world.setSources({ push: { ready: push.ready, detail: push.detail } });
+    });
+  }
+  for (const r of fx.resends) {
+    const viaPush = push.hasSubscription(r.vesselId)
+      ? push.send(r.vesselId, { title: `ACT NOW: ${r.text.split(': ')[1] ?? r.text}`, body: r.text, tag: r.noticeId, url: `/captain?notice=${r.noticeId}`, priority: r.priority, requireInteraction: true })
+      : Promise.resolve(false);
+    void viaPush.then(async (ok) => {
+      if (ok) { world.recordResend(r.noticeId, r.vesselId, 'push'); return; }
+      const texted = await sms.send(r.vesselId, r.text);
+      world.recordResend(r.noticeId, r.vesselId, texted ? 'sms' : null);
     });
   }
   for (const w of fx.wording) {

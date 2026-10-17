@@ -79,11 +79,11 @@
     ],
     "craft": [
       { "id": "ferry1", "name": "Catalina Ferry",   "type": "ferry", "speedKn": 12, "from": "Outside Angels Gate", "to": "cruise",  "scheduledMin": 26, "phone": true },
-      { "id": "pilot1", "name": "Pilot Boat 2",     "type": "pilot", "speedKn": 14, "from": "Outside Queens Gate", "to": "fuel",    "scheduledMin": 16, "phone": false, "ignoresNotices": true },
+      { "id": "pilot1", "name": "Pilot Boat 2",     "type": "pilot", "speedKn": 10, "from": "fuel",                "to": "Outside Angels Gate", "scheduledMin": 30, "phone": false, "ignoresNotices": true, "startFraction": 0.0 },
       { "id": "tug1",   "name": "Tug Millie",       "type": "tug",   "speedKn": 7,  "from": "pier400",             "to": "ferry",   "scheduledMin": 40, "phone": true },
       { "id": "dive1",  "name": "Hull-Dive Tender", "type": "dive",  "speedKn": 6,  "from": "research",            "to": "pier400", "scheduledMin": 22, "phone": true },
       { "id": "water1", "name": "Water Taxi",       "type": "taxi",  "speedKn": 10, "from": "ferry",               "to": "islands", "scheduledMin": 12, "phone": true },
-      { "id": "launch1","name": "Harbor Launch 7",  "type": "pilot", "speedKn": 9,  "from": "fuel",                "to": "Outside Angels Gate", "scheduledMin": 30, "phone": true, "startFraction": 0.05 }
+      { "id": "launch1","name": "Harbor Launch 7",  "type": "pilot", "speedKn": 9,  "from": "fuel",                "to": "Outside Angels Gate", "scheduledMin": 30, "phone": true, "startFraction": 0.1 }
     ],
     "registry": [
       { "id": "ALTASEA-G3", "name": "AltaSea Glider 3", "owner": "AltaSea Research", "kind": "glider", "homeTarget": "research", "sizeM": 1.8 },

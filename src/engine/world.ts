@@ -86,7 +86,8 @@ interface CaptainRec { vesselId: string; connected: boolean; lastSeenWall: strin
 export interface WordingRequest { draftId: string; facts: WordingFacts; template: P.Wording; key: string }
 export interface PushRequest { vesselId: string; title: string; body: string; tag: string; priority: Priority; url: string }
 
-export interface WorldEffects { audit: P.AuditEntry[]; pushes: PushRequest[]; wording: WordingRequest[]; undone: string[] }
+export interface ResendRequest { noticeId: string; vesselId: string; vesselName: string; priority: Priority; text: string }
+export interface WorldEffects { audit: P.AuditEntry[]; pushes: PushRequest[]; wording: WordingRequest[]; undone: string[]; resends: ResendRequest[] }
 
 export interface WorldOptions {
   harbor: Harbor;
@@ -139,7 +140,7 @@ export class World {
     push: { ready: false, detail: 'Starting' },
   };
   private undoers = new Map<string, () => void>();
-  private effects: WorldEffects = { audit: [], pushes: [], wording: [], undone: [] };
+  private effects: WorldEffects = { audit: [], pushes: [], wording: [], undone: [], resends: [] };
   private seq = 0;
   private contactSeq = 13;
   private rand: () => number;
@@ -176,7 +177,7 @@ export class World {
 
   drainEffects(): WorldEffects {
     const out = this.effects;
-    this.effects = { audit: [], pushes: [], wording: [], undone: [] };
+    this.effects = { audit: [], pushes: [], wording: [], undone: [], resends: [] };
     return out;
   }
 
@@ -885,10 +886,14 @@ export class World {
           const waited = t - (rec.states.sent ?? t);
           if (waited >= ds.resendMinutes && rec.resends === 0) {
             rec.resends = 1;
-            const next: P.Channel = channels.push ? 'push' : channels.sms ? 'sms' : 'vhf';
-            rec.channel = next;
-            this.log('machine', 'Re-sent', `${rec.vesselName}: no acknowledgment in ${ds.resendMinutes} min, re-sent by ${next === 'push' ? 'push notification' : next === 'sms' ? 'text message' : 'VHF'}`);
-            if (next === 'push') this.effects.pushes.push({ vesselId: vid, priority: entry.priority, tag: n.id, url: `/captain?notice=${n.id}`, title: `ACT NOW: ${entry.instructionText}`, body: `${n.publicReason}. Tap for the map.` });
+            const phone = craft.phone && (this.captains.get(vid)?.connected ?? false);
+            if (phone) {
+              this.effects.resends.push({ noticeId: n.id, vesselId: vid, vesselName: rec.vesselName, priority: entry.priority, text: `GIVE WAY ${entry.priority}: ${entry.instructionText}. ${n.publicReason}. ${this.link}` });
+            } else {
+              const next: P.Channel = channels.push ? 'push' : channels.sms ? 'sms' : 'vhf';
+              rec.channel = next;
+              this.log('machine', 'Re-sent', `${rec.vesselName}: no acknowledgment in ${ds.resendMinutes} min, re-sent by ${next === 'push' ? 'push notification' : next === 'sms' ? 'text message' : 'VHF'}. Simulated boat.`);
+            }
           }
           if (waited >= ds.vhfCardMinutes && !rec.notResponding) {
             rec.notResponding = true;
@@ -1029,6 +1034,14 @@ export class World {
   private diff(a: number, b: number): [number, number] {
     const [ax, ay] = this.h.grid.xy(a), [bx, by] = this.h.grid.xy(b);
     return [ax - bx, ay - by];
+  }
+
+  recordResend(noticeId: string, vesselId: string, channel: P.Channel | null): void {
+    const rec = this.deliveries.get(`${noticeId}:${vesselId}`);
+    if (!rec) return;
+    if (channel) rec.channel = channel;
+    const how = channel === 'push' ? 'push notification' : channel === 'sms' ? 'text message' : 'no second channel available; VHF next';
+    this.log('machine', 'Re-sent', `${rec.vesselName}: no acknowledgment in ${this.settings.delivery.resendMinutes} min, ${channel ? `re-sent by ${how}` : how}`);
   }
 
   markVhfCalled(noticeId: string, vesselId: string): void {
