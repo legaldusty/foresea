@@ -57,7 +57,7 @@ function Delivery(props: { snap: CommandSnapshot }) {
               <span className="chan">{channelIcon(d.channel)}{CHANNEL_WORD[d.channel]}</span>
               <StepTrack states={d.states} />
               {d.notResponding
-                ? <span className="state warn"><Warning size={16} weight="bold" />No reply, VHF script ready</span>
+                ? <span className="state warn" title="No reply. The VHF script is on the card."><Warning size={16} weight="bold" />No reply</span>
                 : <span className="state">{STATE_WORD[st]}</span>}
               <span className="time">{elapsed(at - since)}</span>
             </div>

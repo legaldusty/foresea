@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import type { ContactView } from '../../shared/protocol';
 import { useCommandHub } from '../hub/useHub';
 import { ChartMap } from '../map/ChartMap';
@@ -25,6 +25,9 @@ export function CommandView() {
   const theme: 'night' | 'day' = themeChoice ?? (snap && !snap.clock.night ? 'day' : 'night');
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
+  const railRef = useRef<HTMLElement>(null);
+  const cardId = snap?.card?.id ?? null;
+  useEffect(() => { if (cardId) railRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); }, [cardId]);
 
   const data = useMemo(() => commandChart(snap, selected), [snap, selected]);
   if (!snap) return <div className="rail-empty">Connecting to the hub</div>;
@@ -52,7 +55,7 @@ export function CommandView() {
         <ChartTools tool={tool} setTool={setTool} send={hub.send} driven={driven} />
         {tool === 'drive' && driven ? <DriveControl c={driven} send={hub.send} onStop={() => setTool('select')} /> : <Legend />}
       </div>
-      <aside className="cmd-rail" data-testid="right-rail">
+      <aside className="cmd-rail" data-testid="right-rail" ref={railRef}>
         {snap.contacts.length > 1 ? (
           <div className="rail-tabs" role="tablist">
             {snap.contacts.map((c) => (
