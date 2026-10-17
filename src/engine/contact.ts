@@ -14,7 +14,7 @@ import { rng } from './bench';
 import type { Leg } from './scenarios';
 import { bearingDeg, lerpLonLat, type LonLat } from './geo';
 
-export type ContactMode = 'driven' | 'bot' | 'scenario' | 'drift' | 'wander';
+export type ContactMode = 'driven' | 'bot' | 'scenario' | 'drift' | 'wander' | 'external';
 
 export interface ContactSpec {
   id: string;
@@ -165,6 +165,7 @@ function stepWander(h: Harbor, c: ContactSim): number {
 
 function chooseNext(h: Harbor, settings: Settings, c: ContactSim, t: number): number | null {
   const spec = c.spec;
+  if (spec.mode === 'external') return null;
   if (spec.mode === 'driven') {
     if (c.pointer === null || c.pointer === c.cell) return null;
     if (!c.queue.length || c.queue[c.queue.length - 1] !== c.pointer) {
@@ -224,6 +225,25 @@ export function moveContact(h: Harbor, settings: Settings, c: ContactSim, dtSec:
     c.nextCell = next !== null && next >= 0 ? next : null;
     if (c.nextCell === null) c.progressM = 0;
   }
+}
+
+export function followCells(h: Harbor, c: ContactSim, cells: number[], current: CurrentVector | null): number {
+  let moved = 0;
+  for (const to of cells) {
+    const from = c.cell;
+    if (to === from) continue;
+    const flow = c.spec.currentOverride !== undefined ? c.spec.currentOverride : current;
+    observe(c.tell, from, to, flow ? { ...flow, contactSpeedMps: c.spec.speedMps } : {});
+    c.headingDeg = bearingDeg(h.grid.toLonLat(...h.grid.xy(from)) as LonLat, h.grid.toLonLat(...h.grid.xy(to)) as LonLat);
+    c.cell = to;
+    c.steps++;
+    c.track.push(to);
+    if (c.track.length > 400) c.track.shift();
+    moved++;
+  }
+  c.nextCell = null;
+  c.progressM = 0;
+  return moved;
 }
 
 export function etaToGoal(h: Harbor, c: ContactSim, goal: number): number | null {

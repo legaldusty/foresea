@@ -14,10 +14,12 @@ import { captainChart } from './map/toChart';
 import { CommandView } from './command/CommandView';
 import { setManifest } from './captain/device';
 import { CaptainView } from './captain/CaptainView';
+import { DriveView } from './drive/DriveView';
 
 const params = new URLSearchParams(location.search);
 const isCaptain = location.pathname.startsWith('/captain');
-document.documentElement.dataset.theme = params.get('theme') === 'day' || isCaptain ? (params.get('theme') === 'night' ? 'night' : 'day') : 'night';
+const isDrive = location.pathname.startsWith('/drive');
+document.documentElement.dataset.theme = params.get('theme') === 'day' || isCaptain || isDrive ? (params.get('theme') === 'night' ? 'night' : 'day') : 'night';
 setManifest(isCaptain ? 'captain' : 'command');
 
 function CaptainMapCheck() {
@@ -28,4 +30,4 @@ function CaptainMapCheck() {
   return <ChartMap theme={theme} compact data={captainChart(hub.snapshot, 0)} follow={v?.lonlat ?? null} />;
 }
 
-createRoot(document.getElementById('root') as HTMLElement).render(isCaptain ? <CaptainView /> : params.get('view') === 'captain' ? <CaptainMapCheck /> : <CommandView />);
+createRoot(document.getElementById('root') as HTMLElement).render(isCaptain ? <CaptainView /> : isDrive ? <DriveView /> : params.get('view') === 'captain' ? <CaptainMapCheck /> : <CommandView />);

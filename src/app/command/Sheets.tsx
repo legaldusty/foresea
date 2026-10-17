@@ -168,13 +168,23 @@ export function OrdersSheet(props: { snap: CommandSnapshot; send: Send; onClose:
 interface JoinPhone { vesselId: string; name: string; type: string; url: string; svg: string; joined: boolean }
 
 export function JoinSheet(props: { snap: CommandSnapshot; onClose: () => void }) {
-  const [data, setData] = useState<{ urls: string[]; phones: JoinPhone[] } | null>(null);
+  const [data, setData] = useState<{ urls: string[]; phones: JoinPhone[]; drive?: { url: string; svg: string } } | null>(null);
   useEffect(() => { void fetch('/api/join').then((r) => r.json()).then(setData).catch(() => setData(null)); }, []);
   const joined = new Set(props.snap.captains.filter((c) => c.connected).map((c) => c.vesselId));
   return (
     <Sheet title="Join phones" meta={<>Join the team hotspot, scan, tap Join. Or open <span className="t-mono-small">{data?.urls[0] ?? ''}</span></>} onClose={props.onClose} testId="join-sheet" width={640}>
       {!data ? <div className="t-body c-muted">Loading join codes</div> : (
         <div className="join-list">
+          {data.drive ? (
+            <div className="join-row" data-testid="join-drive">
+              <div className="qr" dangerouslySetInnerHTML={{ __html: data.drive.svg }} />
+              <div className="title-block">
+                <span className="t-title">Let a judge drive</span>
+                <span className="t-body c-muted">{props.snap.mode === 'live' ? 'Switch to Simulation first. The drive page does nothing in Live mode.' : 'A judge steers the unknown drone from a phone. The chart calls the target before it arrives.'}</span>
+                <span className="t-mono-small c-muted">{data.drive.url}</span>
+              </div>
+            </div>
+          ) : null}
           {data.phones.map((p) => (
             <div className="join-row" key={p.vesselId}>
               <div className="qr" dangerouslySetInnerHTML={{ __html: p.svg }} />

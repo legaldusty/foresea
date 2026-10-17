@@ -1,11 +1,11 @@
 import type { Harbor } from './harbor';
 import type { Settings } from './settings';
-import { nearestWater, walkLine } from './grid';
+import { findPath, nearestWater, walkLine } from './grid';
 import { topGoal, targetOdds, lostOnlyOdds, driftOdds, LOST, DRIFT, type CurrentVector } from './tell';
 import { HIGH, CRITICAL, SERIOUS, levelName, rungName, consequence } from './risk';
 import { INCIDENTS } from './scenarios';
 import {
-  createContact, moveContact, evaluateContact, contactLonLat, oddsRows, setPointer, factors, etaToGoal, recordOdds,
+  createContact, moveContact, evaluateContact, contactLonLat, oddsRows, setPointer, factors, etaToGoal, recordOdds, followCells,
   type ContactSim, type ContactSpec,
 } from './contact';
 import {
@@ -27,6 +27,7 @@ import { clockLabel, isNight, minutesLabel, signedMinutes } from './eta';
 import { metersBetween, mpsToKnots, offsetPoint, bearingDeg, compassPoint, type LonLat } from './geo';
 import type * as P from '../shared/protocol';
 import { workLine, pointAlong, stepAlong, seedSightings, type WorkLine } from './tuesday';
+import type { PublicZone } from './cap';
 
 export interface AisInputVessel {
   mmsi: number;
@@ -68,6 +69,23 @@ function laMinutesOfDay(wallMs: number): number {
 }
 
 interface AisShown { lonlat: LonLat; reportedAtMs: number; correction: [number, number]; correctionAtMs: number }
+
+interface ExternalTrack {
+  sensorId: string;
+  trackId: string;
+  contactId: string;
+  lastFixWallMs: number;
+  lastFixTimeMs: number;
+  lonlat: LonLat;
+  depthM: number | null;
+  acousticDb: number | null;
+  confidence: number | null;
+  fixes: number;
+}
+
+const SENSOR_HEAT: Record<NonNullable<P.SensorDetection['heat']>, ContactSpec['heat']> = { hot: 'hot', warm: 'warm', cold: 'ambient' };
+const SENSOR_REPLY: Record<NonNullable<P.SensorDetection['pingReply']>, ContactSpec['reply']> = { none: 'none', correct: 'friendly', wrong: 'spoof' };
+const clampTo = (v: number, lo: number, hi: number): number => Math.max(lo, Math.min(hi, v));
 
 const AIS_MOVING_KN = 0.5;
 const AIS_REACH_MS = 180_000;
@@ -256,6 +274,7 @@ export class World {
   private wordingCounts = { granite: 0, template: 0 };
   private autoHeld = new Set<string>();
   private aisShown = new Map<number, AisShown>();
+  private externalTracks = new Map<string, ExternalTrack>();
   sightings: P.Sighting[] = [];
   scheduled: ScheduledZone[] = [];
   private tuesdayOpen = false;
@@ -336,7 +355,7 @@ export class World {
     }
     const presetIds = new Set(this.h.craft.map((spec) => spec.id));
     for (const cap of this.captains.values()) if (!presetIds.has(cap.vesselId)) this.captains.delete(cap.vesselId);
-    this.log('officer', mode === 'live' ? 'Live operations' : 'Simulation scene', mode === 'live' ? `Live: real time ${clockLabel(this.simMin)}, AIS and NOAA as they arrive. Boats with phones and any sensor contact are simulated.` : mode === 'night' ? 'Night watch, 02:00' : mode === 'tuesday' ? `Tuesday operations, ${clockLabel(this.simMin)}` : 'Empty harbor');
+    this.log('officer', mode === 'live' ? 'Live operations' : 'Simulation scene', mode === 'live' ? `Live: real time ${clockLabel(this.simMin)}, AIS and NOAA as they arrive. Boats with phones and any contact made at the desk are simulated; sensor feed contacts carry their sensor id.` : mode === 'night' ? 'Night watch, 02:00' : mode === 'tuesday' ? `Tuesday operations, ${clockLabel(this.simMin)}` : 'Empty harbor');
     if (mode === 'tuesday') this.openTuesday();
   }
 
@@ -1151,6 +1170,7 @@ export class World {
   tick(dtRealMs: number, wallMs: number): void {
     this.wallMs = wallMs;
     this.updateAisShown();
+    this.checkSensorSilence(wallMs);
     if (this.paused) return;
     const dtSec = (dtRealMs / 1000) * this.timeScale;
     this.simMin += dtSec / 60;
@@ -2207,14 +2227,129 @@ export class World {
     this.respondTo(c);
   }
 
-  removeContact(contactId: string): void {
+  removeContact(contactId: string, actor = 'officer'): void {
     const c = this.contacts.get(contactId);
     if (!c) return;
     this.contacts.delete(contactId);
     const z = this.zones.get(`z-${contactId}`);
     if (z && z.status === 'draft') this.removeZone(z.id);
     this.cards = this.cards.filter((k) => k.contactId !== contactId);
-    this.log('officer', 'Contact removed', c.spec.label);
+    this.log(actor, 'Contact removed', c.spec.label);
+  }
+
+  ingestDetection(d: P.SensorDetection, wallMs: number): P.SensorIngestResult {
+    const sf = this.settings.sensorFeed;
+    const key = `${d.sensorId}/${d.trackId}`;
+    const at = Date.parse(d.time);
+    const lonlat: LonLat = [d.lon, d.lat];
+    const known = this.externalTracks.get(key);
+    const existing = known ? this.contacts.get(known.contactId) : undefined;
+    const base = { sensorId: d.sensorId, trackId: d.trackId };
+    const cell = this.cellAt(lonlat);
+    if (cell < 0) return { ...base, contactId: existing?.id ?? null, status: 'land' };
+    if (known && existing && at < known.lastFixTimeMs) return { ...base, contactId: existing.id, status: 'stale' };
+    const readings = { depthM: d.depthM ?? null, acousticDb: d.acousticDb ?? null, confidence: d.confidence ?? null };
+    if (!known || !existing) {
+      if (!known && this.externalTracks.size >= sf.maxTracks) return { ...base, contactId: null, status: 'full' };
+      const c = this.spawnContact({
+        mode: 'external', startCell: cell, erratic: false,
+        sizeM: clampTo(d.sizeM ?? sf.defaultSizeM, sf.minSizeM, sf.maxSizeM), speedMps: clampTo(d.speedMps ?? sf.defaultSpeedMps, sf.minSpeedMps, sf.maxSpeedMps),
+        heat: SENSOR_HEAT[d.heat ?? 'hot'], reply: SENSOR_REPLY[d.pingReply ?? 'none'],
+      });
+      if (d.headingDeg !== undefined) c.headingDeg = d.headingDeg;
+      this.externalTracks.set(key, { ...base, contactId: c.id, lastFixWallMs: wallMs, lastFixTimeMs: at, lonlat, ...readings, fixes: 1 });
+      this.log('system', 'Sensor feed', `${c.spec.label} is track ${d.trackId} from sensor ${d.sensorId}`);
+      return { ...base, contactId: c.id, status: 'new' };
+    }
+    const c = existing;
+    if (c.silent) this.sensorLoss(c.id, false);
+    const dtSec = (at - known.lastFixTimeMs) / 1000;
+    const measured = d.speedMps ?? (dtSec > 0 ? metersBetween(known.lonlat, lonlat) / dtSec : c.spec.speedMps);
+    c.spec.speedMps = clampTo(measured, sf.minSpeedMps, sf.maxSpeedMps);
+    if (d.sizeM !== undefined) c.spec.sizeM = clampTo(d.sizeM, sf.minSizeM, sf.maxSizeM);
+    if (d.heat) c.spec.heat = SENSOR_HEAT[d.heat];
+    if (d.pingReply && SENSOR_REPLY[d.pingReply] !== c.spec.reply) {
+      c.spec.reply = SENSOR_REPLY[d.pingReply];
+      this.log('machine', 'ID ping reply', `${c.spec.label}: ${d.pingReply === 'correct' ? 'correct reply' : d.pingReply === 'wrong' ? 'replied with an unregistered ID' : 'no reply'}, from sensor ${d.sensorId}`);
+    }
+    Object.assign(known, {
+      lastFixWallMs: wallMs, lastFixTimeMs: at, lonlat, fixes: known.fixes + 1,
+      depthM: readings.depthM ?? known.depthM, acousticDb: readings.acousticDb ?? known.acousticDb, confidence: readings.confidence ?? known.confidence,
+    });
+    const steps = this.cellsToward(c.cell, cell);
+    let moved = 0;
+    if (steps) moved = followCells(this.h, c, steps, this.current);
+    else { c.cell = cell; c.track.push(cell); c.nextCell = null; c.progressM = 0; moved = 1; }
+    if (d.headingDeg !== undefined) c.headingDeg = d.headingDeg;
+    c.lastSeenMin = this.simMin;
+    this.evaluate(c);
+    if (moved) { this.updateForecast(c); this.lastResponseMin.set(c.id, this.simMin); this.respondTo(c); }
+    return { ...base, contactId: c.id, status: 'updated' };
+  }
+
+  private cellsToward(from: number, to: number): number[] | null {
+    if (from === to) return [];
+    const line = walkLine(this.h.grid, from, to);
+    if (line.length && line[line.length - 1] === to) return line;
+    const path = findPath(this.h.grid, from, to);
+    return path && path.length - 1 <= this.settings.sensorFeed.maxPathCells ? path.slice(1) : null;
+  }
+
+  private checkSensorSilence(wallMs: number): void {
+    const quietMs = this.settings.sensorFeed.silentAfterSeconds * 1000;
+    for (const [key, track] of this.externalTracks) {
+      const c = this.contacts.get(track.contactId);
+      if (!c) { this.externalTracks.delete(key); continue; }
+      if (!c.silent && wallMs - track.lastFixWallMs > quietMs) this.sensorLoss(c.id, true);
+    }
+  }
+
+  private externalTrackOf(contactId: string): ExternalTrack | null {
+    for (const t of this.externalTracks.values()) if (t.contactId === contactId) return t;
+    return null;
+  }
+
+  drivenContact(): ContactSim | null {
+    for (const c of this.contacts.values()) if (c.spec.mode === 'driven') return c;
+    return null;
+  }
+
+  pilotSnapshot(): P.PilotSnapshot {
+    const c = this.drivenContact();
+    const launch = this.h.spawns[0];
+    return {
+      mode: this.mode,
+      clock: this.clockView(),
+      drone: c ? {
+        id: c.id, label: c.spec.label, lonlat: contactLonLat(this.h, c), headingDeg: c.headingDeg, speedKn: mpsToKnots(c.spec.speedMps),
+        steerTo: c.pointer !== null ? this.lonlatOf(c.pointer) : null, track: c.track.filter((_, i) => i % 2 === 0).map((cell) => this.lonlatOf(cell)),
+      } : null,
+      targets: this.h.targets.map((t) => ({ id: t.id, name: t.short ?? t.name, lonlat: [t.lon, t.lat] as LonLat })),
+      launch: { name: launch.name, lonlat: this.lonlatOf(launch.cell) },
+      serverWall: this.wall(),
+    };
+  }
+
+  private wallAtMin(simMin: number): string {
+    return new Date(this.wallMs + ((simMin - this.simMin) * 60_000) / Math.max(1, this.timeScale)).toISOString();
+  }
+
+  publicZones(): PublicZone[] {
+    const order: Record<Priority, number> = { P1: 0, P2: 1, P3: 2, P4: 3 };
+    const out: PublicZone[] = [];
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active') continue;
+      const z = this.zones.get(n.zoneId);
+      if (!z || !z.geometry.rings.length) continue;
+      let priority: Priority = 'P4';
+      for (const e of n.perVessel.values()) if (order[e.priority] < order[priority]) priority = e.priority;
+      out.push({
+        noticeId: n.id, kind: z.kind, reason: n.publicReason, instruction: n.instructionText, priority, place: this.placeNear(z.centerCell),
+        sentWall: n.publishedAtWall, expiresWall: this.wallAtMin(n.expiresAtMin), rings: z.geometry.rings, radiusM: n.radiusM,
+        slowKnots: z.kind === 'slow' ? n.slowKnots : null,
+      });
+    }
+    return out;
   }
 
   signOrders(officer: string, orders: Record<string, number>): void {
@@ -2346,7 +2481,7 @@ export class World {
     const reasons = c.hostility?.items ?? [];
     return {
       id: c.id, label: c.spec.label, mode: c.spec.mode === 'wander' ? 'bot' : c.spec.mode, scenarioKey: c.spec.scenarioKey ?? null,
-      lonlat: contactLonLat(this.h, c), headingDeg: c.headingDeg, speedMps: c.spec.speedMps, sizeM: c.spec.sizeM, heat: c.spec.heat,
+      lonlat: this.externalTrackOf(c.id)?.lonlat ?? contactLonLat(this.h, c), headingDeg: c.headingDeg, speedMps: c.spec.speedMps, sizeM: c.spec.sizeM, heat: c.spec.heat,
       silent: c.silent, silentForMin: c.silent && c.silentSinceMin !== null ? this.simMin - c.silentSinceMin : 0, firstSeenMin: c.spec.firstSeenMin,
       classification: {
         kind, label: kind === 'friendly' ? 'Friendly' : c.classification.label,
@@ -2392,10 +2527,14 @@ export class World {
     const base = kind === 'powered' || kind === 'unknown' ? sc.acousticBaseDb.powered : kind === 'animal' ? sc.acousticBaseDb.animal : kind === 'person' ? sc.acousticBaseDb.person : sc.acousticBaseDb.other;
     const acousticDb = base + (kind === 'powered' || kind === 'unknown' ? speedKn * sc.acousticPerKnDb + c.spec.sizeM * sc.acousticPerMeterDb : 0);
     const silentMin = c.silent && c.silentSinceMin !== null ? t - c.silentSinceMin : 0;
+    const ext = this.externalTrackOf(c.id);
+    const decay = Math.pow(0.5, silentMin / sc.confidenceHalfLifeMin);
     return {
-      lonlat: contactLonLat(this.h, c), depthM, headingDeg: c.headingDeg, speedMps: c.spec.speedMps, speedKn, sizeM: c.spec.sizeM,
-      heatDeltaC, heatLabel, acousticDb, observedMin: t - c.spec.firstSeenMin, lastFixSec: c.silent ? silentMin * 60 : sc.fixIntervalSec,
-      trackKm: (c.steps * this.h.grid.cellMeters) / 1000, confidence: sc.confidenceTracking * Math.pow(0.5, silentMin / sc.confidenceHalfLifeMin), simulated: true,
+      lonlat: ext?.lonlat ?? contactLonLat(this.h, c), depthM: ext?.depthM ?? depthM, headingDeg: c.headingDeg, speedMps: c.spec.speedMps, speedKn, sizeM: c.spec.sizeM,
+      heatDeltaC, heatLabel, acousticDb: ext?.acousticDb ?? acousticDb, observedMin: t - c.spec.firstSeenMin,
+      lastFixSec: ext ? Math.max(0, (this.wallMs - ext.lastFixWallMs) / 1000) : c.silent ? silentMin * 60 : sc.fixIntervalSec,
+      trackKm: (c.steps * this.h.grid.cellMeters) / 1000, confidence: (ext?.confidence ?? sc.confidenceTracking) * decay,
+      simulated: !ext, source: ext ? `Sensor feed ${ext.sensorId}` : 'Simulated',
     };
   }
 

@@ -13,7 +13,10 @@ import { createWorld, type AisInputVessel } from '../src/engine/world';
 import { distanceField, nearestWater } from '../src/engine/grid';
 import { knotsToMps, type LonLat } from '../src/engine/geo';
 import { clockLabel } from '../src/engine/eta';
-import type { CommandEvents, CaptainEvents, OnTimeRow } from '../src/shared/protocol';
+import type { CommandEvents, CaptainEvents, OnTimeRow, SensorIngestResult } from '../src/shared/protocol';
+import { capAlert, capFeed, feedOptions, zonesGeoJson } from '../src/engine/cap';
+import { PILOT_REQUESTS, pilotDecision } from '../src/engine/pilot';
+import { parseDetections, sensorAccess } from './sensor';
 import { openAuditLog } from './audit';
 import { createPushService } from './push';
 import { createLanguageModel } from './llm';
@@ -146,7 +149,11 @@ app.get('/api/join', async (_req, res) => {
     const url = `${base[0]}?v=${c.id}`;
     return { vesselId: c.id, name: c.name, type: c.type, url, svg: await QRCode.toString(url, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }), joined: world.captains.get(c.id)?.connected ?? false };
   }));
-  res.json({ urls: base, phones: out, any: { url: base[0], svg: await QRCode.toString(base[0], { type: 'svg', margin: 1 }) } });
+  const driveUrl = base[0].replace(/\/captain$/, '/drive');
+  res.json({
+    urls: base, phones: out, any: { url: base[0], svg: await QRCode.toString(base[0], { type: 'svg', margin: 1 }) },
+    drive: { url: driveUrl, svg: await QRCode.toString(driveUrl, { type: 'svg', margin: 1, errorCorrectionLevel: 'M' }) },
+  });
 });
 app.get('/api/audit', (_req, res) => res.json(audit.recent(500)));
 app.get('/api/sightings.csv', (_req, res) => {
@@ -169,6 +176,50 @@ app.get('/api/report.csv', (_req, res) => {
 app.post('/api/orders/draft', async (req, res) => {
   const rule = await language.draftOrder(String(req.body?.text ?? '').slice(0, 400));
   res.json({ rule, source: rule ? 'granite' : 'none' });
+});
+app.post('/api/sensor/detections', (req, res) => {
+  const access = sensorAccess({ configuredKey: process.env.GIVEWAY_SENSOR_KEY, providedKey: req.get('x-giveway-key'), remoteAddress: req.socket.remoteAddress, headers: req.headers });
+  if (!access.ok) { res.status(access.status).json({ ok: false, error: access.error }); return; }
+  if (!req.is('application/json')) { res.status(400).json({ ok: false, error: 'Send the detections as JSON with Content-Type: application/json' }); return; }
+  const parsed = parseDetections(req.body, { maxBatch: settings.sensorFeed.maxBatch, maxIdLength: settings.sensorFeed.maxIdLength, bbox: settings.map.bbox });
+  if (!parsed.ok) { res.status(400).json({ ok: false, error: parsed.error }); return; }
+  const now = Date.now();
+  const results: SensorIngestResult[] = [];
+  try {
+    for (const d of parsed.detections) results.push(world.ingestDetection(d, now));
+  } catch (err) {
+    world.log('system', 'Sensor feed error', (err as Error).message);
+    res.status(500).json({ ok: false, error: 'The hub could not take that detection' });
+    return;
+  }
+  flushEffects();
+  res.json({ ok: true, accepted: results.filter((r) => r.status === 'new' || r.status === 'updated').length, results });
+});
+function feedOpts(req: express.Request) {
+  const baseUrl = PUBLIC_URL ? PUBLIC_URL.replace(/\/$/, '') : `${req.protocol}://${req.get('host') ?? `localhost:${PORT}`}`;
+  return feedOptions(settings, { mode: world.mode, senderName: world.station, baseUrl, nowWall: new Date().toISOString() });
+}
+app.get('/api/cap.xml', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.type('application/atom+xml; charset=utf-8');
+  res.send(capFeed(world.publicZones(), feedOpts(req)));
+});
+app.get('/api/cap/:id.xml', (req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  const zone = world.publicZones().find((z) => z.noticeId === req.params.id);
+  if (!zone) { res.status(404).type('text/plain').send('No active published notice with that id'); return; }
+  res.type('application/cap+xml; charset=utf-8');
+  res.send(capAlert(zone, feedOpts(req)));
+});
+app.get('/api/zones.geojson', (_req, res) => {
+  res.set('Access-Control-Allow-Origin', '*');
+  res.type('application/geo+json');
+  res.send(JSON.stringify(zonesGeoJson(world.publicZones(), { mode: world.mode, polygonDecimals: settings.feeds.polygonDecimals })));
+});
+app.use((err: Error & { type?: string }, _req: express.Request, res: express.Response, next: express.NextFunction) => {
+  if (err.type === 'entity.parse.failed') { res.status(400).json({ ok: false, error: 'The body is not valid JSON' }); return; }
+  if (err.type === 'entity.too.large') { res.status(413).json({ ok: false, error: 'The body is over 256 kB; send fewer detections per request' }); return; }
+  next(err);
 });
 
 const httpServer = http.createServer(app);
@@ -303,9 +354,51 @@ function bindCaptain(socket: Socket): void {
   });
 }
 
+function emitPilots(): void {
+  const room = io.sockets.adapter.rooms.get('pilot');
+  if (!room || room.size === 0) return;
+  io.to('pilot').emit('pilot', world.pilotSnapshot());
+}
+
+function bindPilot(socket: Socket): void {
+  socket.join('pilot');
+  for (const name of PILOT_REQUESTS) {
+    socket.on(name, (payload: unknown, ack?: (r: unknown) => void) => {
+      const decision = pilotDecision(name, payload, { mode: world.mode, drivenId: world.drivenContact()?.id ?? null, bbox: settings.map.bbox });
+      if (!decision.ok) { ack?.({ ok: false, error: decision.error }); return; }
+      try {
+        if (decision.action === 'drive') {
+          const now = Date.now();
+          if (now - ((socket.data.lastSteerMs as number | undefined) ?? 0) >= settings.pilot.steerMinIntervalMs) {
+            socket.data.lastSteerMs = now;
+            world.drive(decision.contactId, decision.lonlat);
+          }
+          ack?.({ ok: true });
+          return;
+        }
+        if (decision.action === 'spawn') {
+          const c = world.spawn({ preset: 'driven' });
+          if (c) world.log('Drive page', 'Judge took the helm', `${c.spec.label} launched outside Angels Gate from the drive page. Simulated.`);
+        }
+        if (decision.action === 'remove') world.removeContact(decision.contactId, 'Drive page');
+        flushEffects();
+        emitCommand();
+        emitCaptains();
+        emitPilots();
+        ack?.({ ok: true });
+      } catch (err) {
+        world.log('system', 'Drive page error', `${name}: ${(err as Error).message}`);
+        ack?.({ ok: false, error: 'The hub could not do that' });
+      }
+    });
+  }
+  socket.emit('pilot', world.pilotSnapshot());
+}
+
 io.on('connection', (socket) => {
   const role = socket.handshake.auth?.role;
   if (role === 'command') bindCommand(socket);
+  else if (role === 'pilot') bindPilot(socket);
   else bindCaptain(socket);
 });
 
@@ -330,6 +423,7 @@ setInterval(guarded('tick', () => {
   flushEffects();
   emitCommand();
   if (++tickCount % 2 === 0) emitCaptains();
+  if (tickCount % settings.pilot.snapshotEveryTicks === 0) emitPilots();
 }), settings.sim.tickMs);
 setInterval(refreshOnTime, 5000);
 const trafficIntel = createTrafficIntel();
