@@ -437,3 +437,8 @@ body.dragging { user-select: none; cursor: grabbing; }
 }
 .keys > div { display: grid; grid-template-columns: 96px 1fr; gap: var(--space-16); padding: var(--space-8) 0; border-top: 1px solid var(--line); font: var(--type-body); align-items: baseline; }
 .keys .key-cap { color: var(--text); }
+
+.chart-tip[hidden] { display: none; }
+@media (max-width: 1599px) {
+  .top-sources .src.noaa { display: none; }
+}

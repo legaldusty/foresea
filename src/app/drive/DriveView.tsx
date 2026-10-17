@@ -50,7 +50,7 @@ export function DriveView() {
   };
 
   return (
-    <div className="drive" data-testid="drive">
+    <div className="drive-page" data-testid="drive">
       <header className="drive-head">
         <Lockup />
         <span className="drive-link" data-testid="drive-link">{online ? 'Connected' : hub.link === 'connecting' ? 'Connecting' : 'Offline'}</span>

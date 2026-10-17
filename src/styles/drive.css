@@ -1,5 +1,5 @@
-.drive { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); color: var(--text); overflow: hidden; }
-.drive .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+.drive-page { position: fixed; inset: 0; display: flex; flex-direction: column; background: var(--bg); color: var(--text); overflow: hidden; }
+.drive-page .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 .drive-head { flex: none; display: flex; align-items: center; gap: var(--space-12); min-height: 56px; padding: env(safe-area-inset-top, 0px) var(--space-16) 0; border-bottom: 1px solid var(--line); }
 .drive-head .lockup .mark { width: 28px; height: 28px; }

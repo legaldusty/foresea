@@ -109,10 +109,10 @@ export function DecisionSlot(props: {
         {isDraft ? <Button variant="secondary" icon={<PencilSimple size={16} />} onClick={props.onEdit} testId="edit-draft">{props.editing ? 'Close' : 'Edit'}</Button> : null}
       </div>
       {props.editing ? props.editor : null}
-      <div className="d-why">
+      {c.contactId ? <div className="d-why">
         <Button variant="quiet" icon={<Question size={16} />} onClick={props.onWhy} testId="why">Why?</Button>
         <span className="t-small c-muted">Evidence, risk grid, odds, rules</span>
-      </div>
+      </div> : null}
     </div>
   );
 }
