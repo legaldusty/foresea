@@ -32,7 +32,7 @@ function cardMeta(c: Card, waiting: number): string {
   const first = c.kind === 'publish' ? 'Drafted by GIVE WAY from signed Standing Orders'
     : c.kind === 'notResponding' ? 'No acknowledgment in 4 min. Read this on VHF:'
     : `Raised ${clockOf(c.createdAtMin)}`;
-  return [first, c.realerts ? `Re-alerted ${c.realerts} ${c.realerts === 1 ? 'time' : 'times'}` : '', c.backupCalled ? 'backup officer called' : '', waiting ? `${waiting} more waiting` : '']
+  return [first, c.realerts ? `Re-alerted ${c.realerts} ${c.realerts === 1 ? 'time' : 'times'}` : '', c.backupCalled ? 'Backup officer called' : '', waiting ? `${waiting} more waiting` : '']
     .filter(Boolean).join('. ');
 }
 
@@ -47,7 +47,7 @@ export function CardSlot(props: { card: Card; waiting: number; send: Send; simMi
         meta={cardMeta(c, props.waiting)}
         body={c.kind === 'notResponding' && c.script ? c.script : c.body}
         facts={compare
-          ? <div className="compare"><div><span className="t-small c-muted">{chosen.split(':')[0]}</span><span className="t-strong">{chosen.split(': ').slice(1).join(': ')}</span></div><div><span className="t-small">Closing the harbor</span><span className="t-body">{closing.split(': ').slice(1).join(': ') || 'every ship delayed'}</span></div></div>
+          ? <div className="compare"><div><span className="t-small c-muted">{chosen.includes(': ') ? chosen.split(': ')[0] : 'Gentlest response'}</span><span className="t-strong">{chosen.includes(': ') ? chosen.split(': ').slice(1).join(': ') : chosen}</span></div><div><span className="t-small">Closing the harbor</span><span className="t-body">{closing.split(': ').slice(1).join(': ') || 'every ship delayed'}</span></div></div>
           : c.facts.length && c.kind !== 'notResponding' ? <div className="facts">{c.facts.map((f) => <span key={f}>{f}</span>)}</div> : null}
         script={c.kind === 'notResponding' ? null : c.script}
         actions={c.actions.map((a) => (
