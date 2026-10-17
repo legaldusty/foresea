@@ -125,10 +125,15 @@ function spokenNumber(meters: number): string {
   return `${Math.round(meters / 50) * 50} meters`;
 }
 
+export function reasonAt(reason: string, place: string): string {
+  if (!place) return reason;
+  return /nearby$/i.test(reason) ? reason.replace(/nearby$/i, `near ${place}`) : `${reason} near ${place}`;
+}
+
 export function templateWording(facts: WordingFacts): Wording {
   const until = clockLabel(facts.validUntilMin);
-  const where = facts.nearPlace ? ` near ${facts.nearPlace}` : '';
-  const notice = `${facts.publicReason}${where}. ${facts.instructionText}. Valid until ${until}. Approved by ${facts.approvedBy}, ${facts.station}.`;
+  const headline = reasonAt(facts.publicReason, facts.nearPlace);
+  const notice = `${headline}. ${facts.instructionText}. Valid until ${until}. Approved by ${facts.approvedBy}, ${facts.station}.`;
   const boatsLine = facts.boats.length
     ? `${facts.boats.length === 1 ? 'One boat' : `${facts.boats.length} boats`} ${facts.boats.length === 1 ? 'is' : 'are'} in its path; the reroutes add ${Math.round(facts.totalAddedMin)} min in total.`
     : 'No boat routes cross it.';
@@ -138,14 +143,14 @@ export function templateWording(facts: WordingFacts): Wording {
     const eta = c.etaMin !== null ? `, about ${minutesLabel(c.etaMin)} out` : '';
     why = `${c.targetName} is the likeliest target at ${Math.round(c.odds * 100)}%${eta}. A ${c.sizeM.toFixed(1)} m ${c.classification.toLowerCase()} there ${c.damage}, so the risk is ${c.riskScore} (${c.level}). ${boatsLine}`;
   } else {
-    why = `${facts.publicReason}${where}. ${boatsLine}`;
+    why = `${headline}. ${boatsLine}`;
   }
   const named = facts.boats.filter((b) => b.instructionText !== facts.instructionText).slice(0, 2)
     .map((b) => `${b.name}, ${b.instructionText.toLowerCase()}.`).join(' ');
   const spokenInstruction = facts.instruction === 'KEEP CLEAR' ? `Keep ${spokenNumber(facts.radiusM)} clear` : facts.instructionText.charAt(0) + facts.instructionText.slice(1).toLowerCase();
-  const vhf = `All stations, all stations, this is ${facts.station}. ${facts.publicReason}${where}. ${spokenInstruction}. ${named} Until ${until}. ${facts.station} out.`.replace(/\s+/g, ' ');
+  const vhf = `All stations, all stations, this is ${facts.station}. ${headline}. ${spokenInstruction}. ${named} Until ${until}. ${facts.station} out.`.replace(/\s+/g, ' ');
   const aisMarker = `${facts.publicReason.toUpperCase()} ${facts.nearPlace.replace(/^the /, '').toUpperCase()} ${facts.instructionText} UNTIL ${until.replace(':', '')}`.replace(/\s+/g, ' ').slice(0, 160);
-  const sms = `GIVE WAY: ${facts.publicReason}${where}. ${facts.instructionText} until ${until}. Map: ${facts.link}`;
+  const sms = `GIVE WAY: ${headline}. ${facts.instructionText} until ${until}. Map: ${facts.link}`;
   const translations: Record<string, string> = {};
   for (const lang of Object.keys(PHRASES) as Lang[]) translations[lang] = translateInstruction(lang, facts.instruction, facts);
   let brief: string | null = null;

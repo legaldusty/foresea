@@ -211,7 +211,8 @@ export function CaptainView() {
               : <span className="t-small c-muted">Keep this page open for alerts{push === 'insecure' ? '; push needs the HTTPS link' : ''}.</span>}
             <Button variant="quiet" title={theme === 'day' ? 'Night chart' : 'Day chart'} icon={theme === 'day' ? <Moon size={18} /> : <Sun size={18} />} onClick={() => setThemeChoice(theme === 'day' ? 'night' : 'day')} />
           </div>
-          <Simulated text="Your boat is simulated for this demo. Map data OpenStreetMap contributors." />
+          <Simulated text="Your boat is simulated for this demo." />
+          <Simulated text="Map data OpenStreetMap contributors" />
         </div>
       )}
       {urgent ? <Takeover n={urgent} theme={theme} you={vessel?.lonlat ?? null} data={data} onGotIt={() => gotIt(urgent.id)} /> : null}

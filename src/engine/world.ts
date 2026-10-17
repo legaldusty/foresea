@@ -16,7 +16,7 @@ import { securityZone, circleZone, type ZoneGeometry } from './zones';
 import { chooseResponse, instructionText, type Boat, type ResponsePlan, type Instruction } from './response';
 import { dilate, rerouteAround, routeEntersMask } from './routing';
 import { minutesUntilZone, priorityFor, lessUrgent, type Priority } from './priority';
-import { templateWording, allClearWording, damagePhrase, type WordingFacts } from './wording';
+import { templateWording, allClearWording, damagePhrase, reasonAt, type WordingFacts } from './wording';
 import { rng } from './bench';
 import { clockLabel, isNight, minutesLabel, signedMinutes } from './eta';
 import { metersBetween, mpsToKnots, offsetPoint, bearingDeg, compassPoint, type LonLat } from './geo';
@@ -898,7 +898,7 @@ export class World {
           if (waited >= ds.vhfCardMinutes && !rec.notResponding) {
             rec.notResponding = true;
             const facts = this.wordingFacts(null, z!, n.responsePlan ?? this.slowPlan(mask!), null);
-            const script = `${rec.vesselName}, ${rec.vesselName}, this is ${this.station}. ${n.publicReason} near ${facts.nearPlace}. ${entry.instructionText.charAt(0)}${entry.instructionText.slice(1).toLowerCase()}. Acknowledge on channel 12. Over.`;
+            const script = `${rec.vesselName}, ${rec.vesselName}, this is ${this.station}. ${reasonAt(n.publicReason, facts.nearPlace)}. ${entry.instructionText.charAt(0)}${entry.instructionText.slice(1).toLowerCase()}. Acknowledge on channel 12. Over.`;
             this.raiseCard(`vhf:${n.id}:${vid}`, {
               kind: 'notResponding', title: `${rec.vesselName} not responding`,
               body: `No acknowledgment after ${ds.vhfCardMinutes} minutes on the app and ${rec.channel === 'push' ? 'push' : 'text'}. Call on VHF channel 12. The script is ready.`,
@@ -1281,7 +1281,7 @@ export class World {
       audit: this.audit.slice(-80).reverse(),
       marineLog: this.marineLog.slice(-30).reverse(),
       orders: this.signedOrders,
-      sources: this.sources,
+      sources: { ...this.sources, ais: { ...this.sources.ais, vessels: this.ais.length } },
       berths: { cruiseDocked: this.cruiseDocked, cruiseShip: this.cruiseShip },
       captains: [...this.captains.values()].map((c) => ({ vesselId: c.vesselId, vesselName: this.craft.find((k) => k.id === c.vesselId)?.name ?? c.vesselId, connected: c.connected, lastSeenWall: c.lastSeenWall })),
       officer: this.officer,

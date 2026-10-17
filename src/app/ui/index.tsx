@@ -11,9 +11,9 @@ export function Button(props: {
 }) {
   const cls = ['btn', `btn-${props.variant ?? 'secondary'}`, props.size === 'l' ? 'btn-l' : '', props.block ? 'btn-block' : '', !props.children ? 'btn-icon' : ''].filter(Boolean).join(' ');
   return (
-    <button type={props.type ?? 'button'} className={cls} onClick={props.onClick} disabled={props.disabled} title={props.title} aria-label={props.title} data-testid={props.testId}>
+    <button type={props.type ?? 'button'} className={cls} onClick={props.onClick} disabled={props.disabled} title={props.title ?? (typeof props.children === 'string' ? props.children : undefined)} aria-label={props.title} data-testid={props.testId}>
       {props.icon}
-      {props.children}
+      {props.children !== undefined && props.children !== null ? <span className="btn-label">{props.children}</span> : null}
     </button>
   );
 }

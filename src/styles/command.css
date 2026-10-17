@@ -132,3 +132,14 @@
 .join-row .qr { width: 132px; height: 132px; background: var(--color-white); padding: 6px; }
 .join-row .qr svg { width: 100%; height: 100%; display: block; }
 .join-row .url { font: var(--type-mono-small); color: var(--muted); word-break: break-all; }
+
+@media (max-width: 1400px) {
+  .cmd { grid-template-columns: 1fr 360px; }
+  .cmd-top .top-actions .btn-secondary .btn-label { display: none; }
+  .cmd-top .top-actions .btn-secondary { width: 32px; padding: 0; }
+  .toolbar button { padding: 0 var(--space-8); }
+}
+@media (max-width: 1180px) {
+  .toolbar button .btn-label, .tools .toolbar button span { display: none; }
+  .legend > span:last-child { display: none; }
+}

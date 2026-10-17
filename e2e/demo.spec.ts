@@ -61,6 +61,8 @@ test('the six-step demo runs end to end', async ({ browser }) => {
     await desk.getByTestId('scene').click();
     await desk.getByTestId('reset-night').click();
     await judge.goto(`${BASE}/captain?v=launch1`);
+    await judge.getByTestId('join').click();
+    await expect(judge.getByTestId('captain')).toBeVisible();
     await desk.getByTestId('add-contact').click();
     await desk.getByTestId('spawn-driven').click();
     const pt = await screenPoint(desk, [-118.2190, 33.7520]);
