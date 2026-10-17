@@ -215,7 +215,7 @@ export function NoticeEditor(props: { d: NoticeDraft; send: Send; simMin: number
         <Field label="Approved by"><TextBox value={d.approvedBy} readOnly /></Field>
       </div>
       <div className="t-body">{d.wording.notice}</div>
-      <div className="t-small c-muted">{d.wording.source === 'granite' ? `Worded by ${d.wording.model ?? 'Granite'} on this laptop from the facts. It decides nothing.` : 'Worded from templates.'}</div>
+      <div className="t-small c-muted">{d.wording.source === 'granite' ? `Worded by ${d.wording.model ?? 'Granite'} on the hub from the facts. It decides nothing.` : 'Worded from templates.'}</div>
       <div className="compare">
         <div><span className="t-small c-muted">{plan.kind === 'hold' ? 'Gentlest response' : plan.kind === 'speedAdvisory' ? 'Slowing' : 'Rerouting'}</span><span className="t-strong" data-testid="plan-chosen">{plan.comparison.chosen.replace(/^(Rerouting|Slowing): /, '')}</span></div>
         <div><span className="t-small">Closing the harbor</span><span className="t-body">every ship delayed</span></div>
@@ -254,7 +254,7 @@ export function PublishedNotice(props: { n: Notice; snap: CommandSnapshot; send:
           {Object.entries(n.wording.translations).map(([lang, text]) => (
             <div className="row" key={lang}><span className="what">{({ es: 'Español', zh: '中文', ko: '한국어', tl: 'Tagalog', vi: 'Tiếng Việt' } as Record<string, string>)[lang] ?? lang}</span><span className="why c-text">{text}</span></div>
           ))}
-          <div className="row"><span className="what">Words by</span><span className="why">{n.wording.source === 'granite' ? `${n.wording.model} on this laptop, from the facts` : 'Templates'}</span></div>
+          <div className="row"><span className="what">Words by</span><span className="why">{n.wording.source === 'granite' ? `${n.wording.model} on the hub, from the facts` : 'Templates'}</span></div>
         </div>
       ) : null}
       <div style={{ display: 'flex', gap: 8 }}>

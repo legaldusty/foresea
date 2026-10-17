@@ -120,8 +120,8 @@ function Sentence(props: { text: string }) {
 interface TypedDraft { when: OrderWhen; then: OrderThen[]; text: string; source: OrderSource }
 
 const SOURCE_WORDS: Record<OrderSource, string> = {
-  parser: 'Read by the order parser on this laptop.',
-  granite: 'Read by IBM Granite on this laptop, then checked against the fixed limits.',
+  parser: 'Read by the order parser on the hub.',
+  granite: 'Read by IBM Granite on the hub, then checked against the fixed limits.',
   officer: 'Set by you.',
 };
 const LEVEL_CHOICES = ORDER_LEVEL_NAMES.map((label, value) => ({ value, label }));

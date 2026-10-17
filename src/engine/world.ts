@@ -1217,7 +1217,7 @@ export class World {
         lastRunMs: traffic?.lastRunMs ?? null, runsPerMinute: traffic?.runsPerMinute ?? null,
       },
       {
-        id: 'language', name: lang.model ? `IBM Granite (${lang.model})` : 'IBM Granite', kind: 'Local language model through Ollama, on this laptop', role: 'Writes notice wording, radio scripts, the Coast Guard brief and translations from checked facts; never decides',
+        id: 'language', name: lang.model ? `IBM Granite (${lang.model})` : 'IBM Granite', kind: 'Local language model through Ollama, on the hub', role: 'Writes notice wording, radio scripts, the Coast Guard brief and translations from checked facts; never decides',
         decides: false, trainedOn: 'Pretrained by IBM; every field it writes is checked against the facts or replaced by a template',
         metrics: [
           { label: 'Status', value: lang.detail },
@@ -2489,12 +2489,12 @@ export class World {
       case 'send':
         if (card.key.startsWith('overboard:') && card.contactId) {
           this.overboardBriefs.add(card.contactId);
-          this.log('officer', 'Coast Guard brief sent', `${card.title}. Simulated: drafted and marked sent, no message leaves this laptop.`);
+          this.log('officer', 'Coast Guard brief sent', `${card.title}. Simulated: drafted and marked sent, no message leaves the hub.`);
           const c = this.contacts.get(card.contactId);
           if (c) this.respondToOverboard(c);
           return;
         }
-        this.log('officer', card.kind === 'person' ? 'Port police brief sent' : 'Coast Guard brief sent', `${card.title}. Simulated: drafted and marked sent, no message leaves this laptop.`);
+        this.log('officer', card.kind === 'person' ? 'Port police brief sent' : 'Coast Guard brief sent', `${card.title}. Simulated: drafted and marked sent, no message leaves the hub.`);
         done();
         return;
       case 'confirmSighting':

@@ -21,7 +21,7 @@ if ! command -v ollama >/dev/null; then
   curl -fsSL https://ollama.com/install.sh | sh
 fi
 mkdir -p /etc/systemd/system/ollama.service.d
-printf '[Service]\nEnvironment=OLLAMA_KEEP_ALIVE=24h\n' > /etc/systemd/system/ollama.service.d/keepalive.conf
+printf '[Service]\nEnvironment=OLLAMA_KEEP_ALIVE=24h\nEnvironment=OLLAMA_NUM_PARALLEL=1\nNice=15\nCPUWeight=20\n' > /etc/systemd/system/ollama.service.d/keepalive.conf
 systemctl daemon-reload
 systemctl enable ollama
 systemctl restart ollama

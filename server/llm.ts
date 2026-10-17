@@ -100,7 +100,7 @@ export function createLanguageModel(settings: LanguageSettings, host = process.e
       const found = settings.ollamaModels.find((m) => names.has(m) || names.has(`${m}:latest`)) ?? null;
       if (found && found !== model) {
         model = found;
-        detail = `IBM Granite (${found}) through Ollama, on this laptop`;
+        detail = `IBM Granite (${found}) through Ollama, on the hub`;
         void call([{ role: 'user', content: 'Reply with {"ok":true}' }], { type: 'object', properties: { ok: { type: 'boolean' } } }, 30_000);
       }
       if (!found) { model = null; detail = 'No local model found; using templates'; }

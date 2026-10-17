@@ -401,7 +401,7 @@ function NoteSection(props: { c: ContactView }) {
           <p className="dsr-note" data-testid="dossier-note-text">{withMono(n.text)}</p>
           <p className="dsr-source" data-testid="dossier-note-source">
             {n.source === 'granite' ? <Cpu size={16} /> : <FileText size={16} />}
-            <span>{n.source === 'granite' ? 'Written by IBM Granite on this laptop from the facts above' : 'Template'}</span>
+            <span>{n.source === 'granite' ? 'Written by IBM Granite on the hub from the facts above' : 'Template'}</span>
           </p>
         </>
       ) : <p className="dsr-small">No note yet.</p>}
