@@ -41,11 +41,7 @@ A person always publishes. The officer reads the draft, taps Publish, and every 
 
 Every decision explains itself. One tap on "Why?" shows the evidence, the risk grid, the odds over time and the exact rules that fired. Afterwards there is an after action report with how many minutes of warning the port got and who acknowledged.
 
-## The dual use part
-
-This is what we are proudest of. The same engine that tracks a hostile drone runs the harbor on a regular Tuesday.
-
-Dive teams file a dive plan and boats near them get told to slow down. A dredge working the main channel gets a moving keep clear zone. When a captain reports a whale from their phone, the officer confirms it and big ships slow to 10 knots around it.
+**The dual use part.** This is what we are proudest of. The same engine that tracks a hostile drone runs the harbor on a regular Tuesday. Dive teams file a dive plan and boats near them get told to slow down. A dredge working the main channel gets a moving keep clear zone. When a captain reports a whale from their phone, the officer confirms it and big ships slow down around it.
 
 When a research robot loses contact, Foresea sees that it is drifting with the real NOAA ocean current instead of aiming anywhere, calls it "lost, not hostile", messages the owner and turns the drift forecast into a search area.
 
@@ -55,11 +51,7 @@ The phone also shows live tide curves, wind, waves and the National Weather Serv
 
 So the defense side and the everyday side are not two products. They are one system, and the everyday use is what keeps the officer practiced and the captains trusting it for the night it really matters.
 
-## What is real and what is simulated
-
-We wanted judges to trust what they see, so everything that can be real is real. Ship positions are live from AIS. Tides, currents, wind, waves and water temperature are live from NOAA stations and buoys. Forecasts and advisories come straight from the National Weather Service. The chart is built from OpenStreetMap. The wording and translations come from IBM Granite running on our own server.
-
-The underwater contacts, their sensor readings and the small boats with phones are simulated, because we obviously cannot launch a drone into the Port of LA. Every simulated number says "Simulated" right next to it on screen.
+**Try it yourself** at https://foresea.imdusty.com. Press Start the tour, and when it gets to the phone part, scan the QR code with your phone camera. You get your own private harbor, so feel free to break things.
 
 ## How we built it
 
@@ -77,21 +69,9 @@ The desk and phone app are built with React and Vite. The nautical chart is MapL
 
 We trained a traffic model on 2,620 real AIS reports so the desk can flag real ships acting strange, like a ship that suddenly goes dark. IBM Granite 4 runs locally through Ollama and writes the notice, the radio call, the Coast Guard brief and translations into Spanish, Chinese, Korean, Tagalog and Vietnamese. It never makes a decision, and every sentence it writes is checked against the facts. If it gets anything wrong, a template takes over.
 
+Everything that can be real is real. Ship positions are live from AIS. Tides, currents, wind, waves and water temperature are live from NOAA stations and buoys. Forecasts and advisories come straight from the National Weather Service. The chart is built from OpenStreetMap. The underwater contacts, their sensor readings and the small boats with phones are simulated, because we obviously cannot launch a drone into the Port of LA, and every simulated number says "Simulated" right next to it on screen.
+
 We designed every screen in Figma first and built from the design. The site runs on a VPS behind HTTPS, and every visitor gets their own private harbor, so two judges can try it at the same time without stepping on each other. Each private harbor has a guided tour that runs the real scenes and points at each feature as it happens.
-
-## Proof that it works
-
-We did not want to just say it works, so we tested it.
-
-In 1,000 simulated nights with the drone detected at the harbor gates, Foresea gave about 74 minutes of warning. Just guessing the nearest dock gave about 47 minutes. That is about 1.56 times more warning, and it picked the right target before arrival every single time.
-
-When we checked the forecast against the drone's real path, the drone stayed inside the yellow area 97% of the time.
-
-Our traffic model flags only about 0.5% of normal real traffic, but catches 94% of ships that go dark while moving.
-
-Five incident scenarios, including a fake out, a lost glider and a late detection, pass every rule we wrote down before we ran them. 353 automated tests and two full end to end walkthroughs with a laptop and two phones pass on every change.
-
-We are also honest about the weak spot. If the drone is only spotted when it is already very close, guessing the nearest dock is about as good as TELL, because there is no time left to learn anything.
 
 ## Challenges we ran into
 
@@ -103,13 +83,17 @@ A small AI model running on a cheap server sometimes writes bad radio calls. We 
 
 Our first design looked like an airplane cockpit and nobody could follow it. We threw it out and rebuilt the interface around one plain sentence at the top that says what is happening, plus a guided tour.
 
+Two judges trying the site at once would have been controlling the same harbor. We split it so every visitor gets their own private copy, while the live ship and weather data stays shared.
+
 ## Accomplishments that we're proud of
+
+We did not want to just say it works, so we tested it. In 1,000 simulated nights with the drone detected at the harbor gates, Foresea gave about 74 minutes of warning. Just guessing the nearest dock gave about 47 minutes. That is about 1.56 times more warning, and it picked the right target before arrival every single time. When we checked the forecast against the drone's real path, the drone stayed inside the yellow area 97% of the time.
+
+Our traffic model flags only about 0.5% of normal real traffic, but catches 94% of ships that go dark while moving. Five incident scenarios, including a fake out, a lost glider and a late detection, pass every rule we wrote down before we ran them. 353 automated tests and two full end to end walkthroughs with a laptop and two phones pass on every change.
 
 You can grab a joystick on your phone, drive the drone yourself, and watch the desk call your target before you get there.
 
-Only the boats in the path move, each one priced in minutes, and nothing closes.
-
-A captain's phone lights up within seconds of the officer tapping Publish, and it still works if the signal drops.
+Only the boats in the path move, each one priced in minutes, and nothing closes. A captain's phone lights up within seconds of the officer tapping Publish, and it still works if the signal drops.
 
 Every number on screen can be traced back to a source or a calculation.
 
@@ -117,19 +101,15 @@ Every number on screen can be traced back to a source or a calculation.
 
 The earlier you know, the gentler you can be. Most of the value is not in the alarm. It is in moving three boats instead of closing a port.
 
-We also learned that people only trust a system they can question. The "Why?" button ended up being one of the most important features we built.
+We learned that people only trust a system they can question. The "Why?" button ended up being one of the most important features we built.
 
-## What's next
+We also learned to be honest about the weak spot. If the drone is only spotted when it is already very close, guessing the nearest dock is about as good as TELL, because there is no time left to learn anything. Saying that out loud made the rest of our numbers more believable, not less.
+
+## What's next for Foresea
 
 We want to sit down with the Port of LA operations team and test it with real officers. Foresea already has a sensor API that accepts detections from real underwater sensors, and it publishes alerts in CAP, the standard format emergency systems already use, so plugging in real hardware is the next step. We would also love to run TELL inside NULL's autonomy simulator and against real drone tracks.
 
-## Responsible use
-
-A system like this could be misused to track people or push certain boats out of an area unfairly. Foresea never touches any vehicle. A person approves every public notice, any action can be undone with one tap, and everything is logged with who did it and when.
-
-## Try it
-
-Go to https://foresea.imdusty.com on a laptop and press Start the tour. When it gets to the phone part, scan the QR code with your phone camera. You get your own private harbor, so feel free to break things.
+We also want to keep it safe to use. A system like this could be misused to track people or push certain boats out of an area unfairly. Foresea never touches any vehicle, a person approves every public notice, any action can be undone with one tap, and everything is logged with who did it and when. That stays true no matter what we add next.
 ```
 
 ## Built with
