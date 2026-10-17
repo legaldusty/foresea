@@ -121,24 +121,32 @@ export function createLanguageModel(settings: LanguageSettings, host = process.e
         return { value, ok };
       };
       const instruction = facts.instructionText.toLowerCase();
-      const notice = pick('notice', true, (s) => s.toLowerCase().includes(instruction));
-      const vhf = pick('vhf', true, (s) => s.length > 60 && /all stations/i.test(s) && / out\.?$/i.test(s));
+      const place = facts.nearPlace.replace(/^the /, '').toLowerCase();
+      const radius = String(Math.round(facts.radiusM / 50) * 50);
+      const mentionsInstruction = (s: string) => s.toLowerCase().includes(instruction) || (facts.instruction === 'KEEP CLEAR' && s.includes(radius) && /clear/i.test(s)) || (facts.instruction === 'SLOW' && s.includes(String(facts.slowKnots)) && /knot/i.test(s));
+      const mentionsPlace = (s: string) => !place || s.toLowerCase().includes(place);
+      const notice = pick('notice', true, (s) => s.toLowerCase().includes(instruction) && mentionsPlace(s));
+      const vhf = pick('vhf', true, (s) => s.length > 80 && /^all stations/i.test(s) && / out\.?$/i.test(s) && mentionsInstruction(s) && mentionsPlace(s));
       const sms = pick('sms', true, (s) => s.length <= 200 && s.toLowerCase().includes(instruction));
-      const why = pick('why', false, (s) => s.length > 30);
-      const brief = facts.contact ? pick('brief', false, (s) => s.length > 80) : { value: '', ok: false };
+      const target = facts.contact?.targetName.toLowerCase() ?? '';
+      const why = pick('why', false, (s) => s.length > 40 && (!facts.contact || (s.toLowerCase().includes(target) && s.includes(String(facts.contact.riskScore)))) && !/\bBoat Boat\b|\bBoat [A-Z]/.test(s));
+      const brief = facts.contact ? pick('brief', false, (s) => s.length > 80 && s.toLowerCase().includes(target) && s.includes(String(facts.contact!.riskScore))) : { value: '', ok: false };
       const used = [notice, vhf, sms, why, brief].filter((f) => f.ok).length;
       if (!used) return template;
       const publicNotice = notice.ok ? notice.value : template.notice;
       const translations = { ...template.translations };
       const langs = settings.languages.filter((l): l is Lang => l in LANGUAGE_NAMES);
+      const required = Object.fromEntries(langs.map((l) => [l, (template.translations[l] ?? '').split(': ').slice(1).join(': ')]));
+      const englishReason = facts.publicReason.toLowerCase();
       const translated = await call([
-        { role: 'system', content: 'You translate short harbor notices for boat captains. Keep numbers and units exactly. Keep it short and plain. Reply with JSON only.' },
-        { role: 'user', content: `Translate this notice into ${langs.map((l) => `${LANGUAGE_NAMES[l]} (${l})`).join(', ')}:\n${publicNotice}` },
+        { role: 'system', content: 'You translate short harbor notices for boat captains. Keep place names as written in English. Keep numbers and units exactly. Reply with JSON only.' },
+        { role: 'user', content: `For each language, write the public reason and the place in that language, then a colon, then the required instruction copied exactly.\nPublic reason and place in English: ${facts.publicReason} near ${facts.nearPlace.replace(/^the /, '')}.\n${langs.map((l) => `${LANGUAGE_NAMES[l]} (${l}) required instruction: ${required[l]}`).join('\n')}` },
       ], { type: 'object', properties: Object.fromEntries(langs.map((l) => [l, { type: 'string' }])), required: langs }, 20_000);
-      const radius = String(Math.round(facts.radiusM / 50) * 50);
+      const placeName = facts.nearPlace.replace(/^the /, '');
       for (const l of langs) {
         const t = cleanText(translated?.[l]);
-        if (t && (facts.instruction !== 'KEEP CLEAR' || t.includes(radius)) && supported(t, allowed)) translations[l] = t;
+        const keepsPlace = l === 'zh' || l === 'ko' || t.includes(placeName);
+        if (t && required[l] && t.includes(required[l]) && keepsPlace && !t.toLowerCase().includes(englishReason) && supported(t, allowed)) translations[l] = t;
       }
       return {
         source: 'granite',

@@ -104,10 +104,20 @@ function phraseNumber(instruction: string, facts: WordingFacts): number {
   return instruction === 'SLOW' ? facts.slowKnots : Math.round(facts.radiusM / 50) * 50;
 }
 
+const REASON_AT: Record<Lang, Record<PublicReason, (p: string) => string>> = {
+  es: { 'Security zone': (p) => `Zona de seguridad cerca de ${p}`, 'Whale nearby': (p) => `Ballena cerca de ${p}`, 'Divers in water': (p) => `Buzos en el agua cerca de ${p}`, 'Dredge working': (p) => `Draga trabajando cerca de ${p}`, 'Person in the water': (p) => `Persona en el agua cerca de ${p}` },
+  zh: { 'Security zone': (p) => `${p}附近安全区`, 'Whale nearby': (p) => `${p}附近有鲸鱼`, 'Divers in water': (p) => `${p}附近有潜水员`, 'Dredge working': (p) => `${p}附近疏浚作业中`, 'Person in the water': (p) => `${p}附近有人在水中` },
+  ko: { 'Security zone': (p) => `${p} 근처 보안 구역`, 'Whale nearby': (p) => `${p} 근처에 고래 출현`, 'Divers in water': (p) => `${p} 근처 잠수부 작업 중`, 'Dredge working': (p) => `${p} 근처 준설 작업 중`, 'Person in the water': (p) => `${p} 근처 물에 사람이 있음` },
+  tl: { 'Security zone': (p) => `Sonang pangseguridad malapit sa ${p}`, 'Whale nearby': (p) => `May balyena malapit sa ${p}`, 'Divers in water': (p) => `May mga maninisid malapit sa ${p}`, 'Dredge working': (p) => `May dredge na gumagana malapit sa ${p}`, 'Person in the water': (p) => `May tao sa tubig malapit sa ${p}` },
+  vi: { 'Security zone': (p) => `Khu vực an ninh gần ${p}`, 'Whale nearby': (p) => `Có cá voi gần ${p}`, 'Divers in water': (p) => `Có thợ lặn gần ${p}`, 'Dredge working': (p) => `Tàu nạo vét đang hoạt động gần ${p}`, 'Person in the water': (p) => `Có người dưới nước gần ${p}` },
+};
+
 export function translateInstruction(lang: Lang, instruction: string, facts: WordingFacts): string {
   const table = PHRASES[lang];
   const key = (instruction in table ? instruction : 'KEEP CLEAR') as PhraseKey;
-  return `${REASONS[lang][facts.publicReason]}: ${table[key](phraseNumber(key, facts))}`;
+  const place = facts.nearPlace.replace(/^the /, '');
+  const reason = place ? REASON_AT[lang][facts.publicReason](place) : REASONS[lang][facts.publicReason];
+  return `${reason}: ${table[key](phraseNumber(key, facts))}`;
 }
 
 const DAMAGE_BY_KIND: Record<string, string> = {

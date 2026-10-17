@@ -23,7 +23,7 @@ async function startTunnel(): Promise<string | null> {
   return new Promise((resolve) => {
     const timer = setTimeout(() => resolve(null), 20_000);
     const scan = (buf: Buffer) => {
-      const m = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/.exec(buf.toString());
+      const m = /https:\/\/[a-z0-9]+(?:-[a-z0-9]+)+\.trycloudflare\.com/.exec(buf.toString());
       if (m) { clearTimeout(timer); resolve(m[0]); }
     };
     child.stdout?.on('data', scan);
