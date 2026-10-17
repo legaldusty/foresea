@@ -30,7 +30,7 @@ function factsText(facts: WordingFacts): string {
   const lines = [
     `Public reason: ${facts.publicReason}.`,
     `Instruction: ${facts.instructionText}.`,
-    facts.nearPlace ? `Place: near the ${facts.nearPlace}.` : '',
+    facts.nearPlace ? `Place: near ${facts.nearPlace}.` : '',
     `Valid until ${String(Math.floor(facts.validUntilMin / 60) % 24).padStart(2, '0')}:${String(Math.floor(facts.validUntilMin % 60)).padStart(2, '0')}.`,
     `Approved by ${facts.approvedBy}, ${facts.station}.`,
     `Boats rerouted: ${facts.boats.length}, adding ${Math.round(facts.totalAddedMin)} min in total.`,

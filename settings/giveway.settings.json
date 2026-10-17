@@ -26,7 +26,7 @@
   "orders": { "draftRiskMin": 10, "draftOddsMin": 0.60, "maxDelayPerBoatMin": 8, "zoneMeters": 250,
               "zoneGrowWhenUnsure": 2.0, "realertMinutes": 2, "backupOfficerMinutes": 4,
               "zonePathMinutes": 10, "zoneTopTargets": 2, "unsureBelowOdds": 0.40,
-              "animalSlowMeters": 500, "animalSlowKnots": 10, "routineZoneMeters": 300,
+              "animalSlowMeters": 500, "animalSlowKnots": 10, "animalCoreFraction": 0.5, "animalMaxBendMin": 3, "routineZoneMeters": 300,
               "speedAdvisoryKnots": 5, "speedAdvisoryMaxDelayMin": 2 },
   "priority": { "p1Minutes": 5, "p2Minutes": 15, "criticalFloor": "P2", "routineCeiling": "P2" },
 
@@ -83,7 +83,7 @@
       { "id": "tug1",   "name": "Tug Millie",       "type": "tug",   "speedKn": 7,  "from": "pier400",             "to": "ferry",   "scheduledMin": 40, "phone": true },
       { "id": "dive1",  "name": "Hull-Dive Tender", "type": "dive",  "speedKn": 6,  "from": "research",            "to": "pier400", "scheduledMin": 22, "phone": true },
       { "id": "water1", "name": "Water Taxi",       "type": "taxi",  "speedKn": 10, "from": "ferry",               "to": "islands", "scheduledMin": 12, "phone": true },
-      { "id": "launch1","name": "Harbor Launch 7",  "type": "pilot", "speedKn": 9,  "from": "Outside Angels Gate", "to": "fuel",    "scheduledMin": 30, "phone": true }
+      { "id": "launch1","name": "Harbor Launch 7",  "type": "pilot", "speedKn": 9,  "from": "fuel",                "to": "Outside Angels Gate", "scheduledMin": 30, "phone": true, "startFraction": 0.05 }
     ],
     "registry": [
       { "id": "ALTASEA-G3", "name": "AltaSea Glider 3", "owner": "AltaSea Research", "kind": "glider", "homeTarget": "research", "sizeM": 1.8 },

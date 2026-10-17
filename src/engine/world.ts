@@ -98,6 +98,8 @@ export interface WorldOptions {
 
 const CARD_RANK: Record<P.Card['kind'], number> = { person: 0, publish: 1, handoff: 2, notResponding: 3, hold: 4, animal: 5, lost: 6, info: 7 };
 const STATION = 'Los Angeles Harbor Watch';
+const NO_ARTICLE = /^(Angels Gate|Queens Gate|Pier \d+|the )/;
+const withArticle = (name: string): string => (NO_ARTICLE.test(name) ? name : `the ${name}`);
 const MAX_AUDIT = 400;
 
 export class World {
@@ -195,7 +197,7 @@ export class World {
         if (spec.fromCell === undefined || spec.toCell === undefined) continue;
         const c = createCraft(this.h, {
           id: spec.id, name: spec.name, type: spec.type, speedKn: spec.speedKn, fromCell: spec.fromCell, toCell: spec.toCell,
-          scheduledMin: spec.scheduledMin, phone: !!spec.phone, fleet: false, ignoresNotices: !!spec.ignoresNotices, startFraction: 0.05 + 0.25 * r(),
+          scheduledMin: spec.scheduledMin, phone: !!spec.phone, fleet: false, ignoresNotices: !!spec.ignoresNotices, startFraction: (spec as { startFraction?: number }).startFraction ?? 0.05 + 0.25 * r(),
         }, t);
         if (c) this.craft.push(c);
       }
@@ -314,7 +316,7 @@ export class World {
     let best = 'the harbor', bd = Infinity;
     const named = [...this.h.targets.map((t) => ({ name: t.short ?? t.name, cell: t.cell })), ...this.h.gates.map((g) => ({ name: g.name, cell: g.cell })), ...this.h.places.map((p) => ({ name: p.name, cell: p.cell }))];
     for (const p of named) { const [px, py] = this.h.grid.xy(p.cell); const d = Math.hypot(px - x, py - y); if (d < bd) { bd = d; best = p.name; } }
-    return best;
+    return withArticle(best);
   }
 
   tick(dtRealMs: number, wallMs: number): void {
@@ -400,7 +402,7 @@ export class World {
     const plan = chooseResponse(this.h.grid, g2.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(risk.level, false), targetName);
     if (zone.status === 'published' && zone.noticeId) {
       const n = this.notices.get(zone.noticeId);
-      if (n) { n.responsePlan = plan; n.plan = this.planView(plan); }
+      if (n) { n.responsePlan = plan; n.plan = this.planView(plan, n.radiusM, n.slowKnots); }
     } else {
       const meetsOrders = risk.R >= o.draftRiskMin && top.goal >= 0 && top.p >= o.draftOddsMin && plan.withinOrders && plan.kind !== 'watch';
       if (meetsOrders || zone.draftId) this.upsertSecurityDraft(c, zone, plan, risk.level);
@@ -500,27 +502,34 @@ export class World {
     zone.radiusM = r;
     zone.centerCell = cell;
     this.zones.set(zoneId, zone);
-    const plan = kind === 'slow' ? this.slowPlan(geometry.mask) : chooseResponse(this.h.grid, geometry.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(0, true), null);
+    const plan = kind === 'slow' ? this.slowPlan(geometry.mask, cell, r) : chooseResponse(this.h.grid, geometry.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(0, true), null);
     const noticeKind: P.NoticeKind = reason === 'Whale nearby' ? 'whale' : reason === 'Divers in water' ? 'divers' : reason === 'Person in the water' ? 'person' : 'dredge';
     return this.upsertDraft(zone, plan, noticeKind, instruction, true, null, label);
   }
 
-  private slowPlan(mask: Uint8Array): ResponsePlan {
+  private slowPlan(mask: Uint8Array, centerCell: number | null = null, radiusM = 0): ResponsePlan {
     const o = this.orders();
     const pr = this.settings.priority;
     const slowMps = o.animalSlowKnots * 0.514444;
+    const core = centerCell !== null && radiusM > 0 ? circleZone(this.h.grid, centerCell, radiusM * o.animalCoreFraction).mask : null;
     const everyone = this.boats().map((b) => {
       const onRoute = routeEntersMask(b.route, mask);
       const minutesToZone = onRoute ? minutesUntilZone(this.h.grid, b.route, mask, b.speedMps) : null;
       let addedMin = 0;
+      let reroute: ReturnType<typeof rerouteAround> | null = null;
+      if (onRoute && core && routeEntersMask(b.route, core)) {
+        const r = rerouteAround(this.h.grid, b.route, core, b.speedMps);
+        if ((r.status === 'rerouted' || r.status === 'leaveZone') && r.addedMin <= o.animalMaxBendMin) { reroute = r; addedMin += r.addedMin; }
+      }
+      const path = reroute ? reroute.cells : b.route;
       if (onRoute && b.speedMps > slowMps) {
-        const inside = b.route.filter((cell) => mask[cell]).length * this.h.grid.cellMeters;
-        addedMin = (inside / slowMps - inside / b.speedMps) / 60;
+        const inside = path.filter((cell) => mask[cell]).length * this.h.grid.cellMeters;
+        addedMin += (inside / slowMps - inside / b.speedMps) / 60;
       }
       return {
         id: b.id, name: b.name, onRoute, nearPath: false, insideNow: mask[b.route[0]] === 1, minutesToZone,
         priority: priorityFor(minutesToZone, { p1Minutes: pr.p1Minutes, p2Minutes: pr.p2Minutes, ceiling: pr.routineCeiling as Priority }),
-        action: onRoute ? 'slow' as const : 'none' as const, instruction: 'SLOW' as Instruction, addedMin, reroute: null,
+        action: reroute ? 'reroute' as const : onRoute ? 'slow' as const : 'none' as const, instruction: 'SLOW' as Instruction, addedMin, reroute,
       };
     });
     const affected = everyone.filter((e) => e.onRoute);
@@ -533,12 +542,12 @@ export class World {
     };
   }
 
-  private planView(plan: ResponsePlan): P.PlanView {
+  private planView(plan: ResponsePlan, radiusM = 250, slowKnots = this.orders().speedAdvisoryKnots): P.PlanView {
     const craftById = new Map(this.craft.map((c) => [c.id, c]));
     return {
       kind: plan.kind,
       boats: plan.affected.map((a) => ({
-        vesselId: a.id, name: a.name, priority: a.priority, instruction: instructionText(a.instruction, 0, this.orders().speedAdvisoryKnots),
+        vesselId: a.id, name: a.name, priority: a.priority, instruction: instructionText(a.instruction, radiusM, slowKnots),
         addedMin: a.addedMin, action: a.action, minutesToZone: a.minutesToZone, simulated: !craftById.get(a.id)?.phone,
       })),
       totalAddedMin: plan.totalAddedMin, maxAddedMin: plan.maxAddedMin, clears: plan.clears, withinOrders: plan.withinOrders,
@@ -569,7 +578,7 @@ export class World {
       d = {
         id, kind, contactId: c?.id ?? zone.contactId, zoneId: zone.id, instruction, instructionText: '', radiusM: zone.radiusM, slowKnots,
         recipients: 'all', named: [], publicReason: zone.reason, validForMin: routine ? 120 : 60, approvedBy: this.officer,
-        plan: this.planView(plan), wording: templateWording(this.blankFacts(zone)), createdAtMin: this.simMin, updatedAtMin: this.simMin,
+        plan: this.planView(plan, zone.radiusM, slowKnots), wording: templateWording(this.blankFacts(zone)), createdAtMin: this.simMin, updatedAtMin: this.simMin,
         edited: false, routine, responsePlan: plan, wordingKey: '', wordingInFlight: false, officerRadius: null, officerInstruction: null,
       };
       this.drafts.set(id, d);
@@ -582,7 +591,7 @@ export class World {
     d.slowKnots = slowKnots;
     d.instructionText = instructionText(d.instruction as Instruction, d.radiusM, d.slowKnots);
     d.responsePlan = plan;
-    d.plan = this.planView(plan);
+    d.plan = this.planView(plan, d.radiusM, d.slowKnots);
     d.updatedAtMin = this.simMin;
     d.approvedBy = this.officer;
     const facts = this.wordingFacts(c, zone, plan, d);
@@ -679,7 +688,7 @@ export class World {
       const c = z.contactId ? this.contacts.get(z.contactId) : undefined;
       if (c && c.classification.threatScored && c.classification.kind !== 'debris') this.respondTo(c);
       else if (z.status === 'draft') {
-        const plan = z.kind === 'slow' ? this.slowPlan(z.geometry.mask) : chooseResponse(this.h.grid, z.geometry.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(0, true), null);
+        const plan = z.kind === 'slow' ? this.slowPlan(z.geometry.mask, z.centerCell, z.radiusM) : chooseResponse(this.h.grid, z.geometry.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(0, true), null);
         this.upsertDraft(z, plan, d.kind, (d.officerInstruction ?? d.instruction) as Instruction, d.routine, null, null);
       }
     }
@@ -798,8 +807,18 @@ export class World {
       n.perVessel.set(r.id, entry);
       const key = `${n.id}:${r.id}`;
       if (!this.deliveries.has(key)) this.createDelivery(n, r, entry);
-      else { const dRec = this.deliveries.get(key)!; dRec.priority = entry.priority; }
+      else this.updateDeliveryPriority(this.deliveries.get(key)!, r.craft, entry);
     }
+  }
+
+  private updateDeliveryPriority(rec: DeliveryRec, craft: CraftSim | null, entry: VesselPlanEntry): void {
+    rec.priority = entry.priority;
+    const relevant = entry.priority === 'P1' || entry.priority === 'P2' || entry.action !== 'none';
+    if (!craft || !rec.simulated || craft.ignoresNotices || !relevant || rec.states.acknowledged !== undefined || rec.plannedAck !== null) return;
+    const t = this.simMin;
+    rec.plannedDelivered ??= t + 0.05;
+    rec.plannedSeen ??= Math.max(t, rec.plannedDelivered) + 0.1 + this.rand() * 0.4;
+    rec.plannedAck = rec.plannedSeen + 0.2 + this.rand() * 0.6;
   }
 
   private createDelivery(n: NoticeRec, r: ReturnType<World['recipientsFor']>[number], entry: VesselPlanEntry): void {
@@ -825,7 +844,7 @@ export class World {
       this.effects.pushes.push({
         vesselId: r.id, priority: entry.priority, tag: n.id, url: `/captain?notice=${n.id}`,
         title: entry.priority === 'P1' ? `ACT NOW: ${entry.instructionText}` : `Act soon: ${entry.instructionText}`,
-        body: `${n.publicReason} near the ${this.placeNear(this.zones.get(n.zoneId)?.centerCell ?? 0)}. Tap for the map.`,
+        body: `${n.publicReason} near ${this.placeNear(this.zones.get(n.zoneId)?.centerCell ?? 0)}. Tap for the map.`,
       });
     }
   }
@@ -869,7 +888,7 @@ export class World {
           if (waited >= ds.vhfCardMinutes && !rec.notResponding) {
             rec.notResponding = true;
             const facts = this.wordingFacts(null, z!, n.responsePlan ?? this.slowPlan(mask!), null);
-            const script = `${rec.vesselName}, ${rec.vesselName}, this is ${this.station}. ${n.publicReason} near the ${facts.nearPlace}. ${entry.instructionText.charAt(0)}${entry.instructionText.slice(1).toLowerCase()}. Acknowledge on channel 12. Over.`;
+            const script = `${rec.vesselName}, ${rec.vesselName}, this is ${this.station}. ${n.publicReason} near ${facts.nearPlace}. ${entry.instructionText.charAt(0)}${entry.instructionText.slice(1).toLowerCase()}. Acknowledge on channel 12. Over.`;
             this.raiseCard(`vhf:${n.id}:${vid}`, {
               kind: 'notResponding', title: `${rec.vesselName} not responding`,
               body: `No acknowledgment after ${ds.vhfCardMinutes} minutes on the app and ${rec.channel === 'push' ? 'push' : 'text'}. Call on VHF channel 12. The script is ready.`,
@@ -889,7 +908,7 @@ export class World {
     if (entry.action === 'wait') { craft.held = true; return; }
     if ((entry.action === 'reroute' || entry.action === 'leave') && entry.newRoute && craft.rerouteNoticeId !== n.id && !craft.ignoresNotices) {
       const z = this.zones.get(n.zoneId);
-      const fresh = z ? rerouteAround(this.h.grid, remainingRoute(craft), z.geometry.mask, craft.speedMps) : null;
+      const fresh = z && z.kind === 'keepOut' ? rerouteAround(this.h.grid, remainingRoute(craft), z.geometry.mask, craft.speedMps) : null;
       const cells = fresh && fresh.status !== 'clear' && fresh.status !== 'noPath' && fresh.status !== 'destinationInZone' ? fresh.cells : entry.newRoute;
       applyRoute(this.h, craft, cells, n.id, fresh?.addedMin ?? entry.addedMin);
       if (actor !== 'simulated') this.log(actor, 'Route changed', `${craft.name} follows the new route (${signedMinutes(craft.addedMin)})`);

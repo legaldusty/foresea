@@ -1,0 +1,163 @@
+import type { Map as MLMap } from 'maplibre-gl';
+import { withAlpha, type ChartColors } from './chartTheme';
+
+const RATIO = 2;
+
+export const SILHOUETTES = ['container', 'tanker', 'cruise', 'ferry', 'tug', 'pilot', 'dive', 'taxi', 'robot', 'other'] as const;
+export type Silhouette = (typeof SILHOUETTES)[number];
+
+export function silhouetteFor(type: string, lengthM: number | null): Silhouette {
+  switch (type) {
+    case 'cargo': return 'container';
+    case 'tanker': return 'tanker';
+    case 'passenger': return lengthM !== null && lengthM > 150 ? 'cruise' : 'ferry';
+    case 'ferry': return 'ferry';
+    case 'tug': return 'tug';
+    case 'pilot': case 'law': case 'sar': return 'pilot';
+    case 'dive': return 'dive';
+    case 'taxi': case 'fishing': case 'pleasure': case 'sailing': case 'sail': return 'taxi';
+    case 'robot': case 'glider': return 'robot';
+    default: return 'other';
+  }
+}
+
+function canvas(size: number): [HTMLCanvasElement, CanvasRenderingContext2D] {
+  const c = document.createElement('canvas');
+  c.width = c.height = size * RATIO;
+  const ctx = c.getContext('2d') as CanvasRenderingContext2D;
+  ctx.scale(RATIO, RATIO);
+  return [c, ctx];
+}
+
+function add(map: MLMap, id: string, c: HTMLCanvasElement): void {
+  const ctx = c.getContext('2d') as CanvasRenderingContext2D;
+  const data = ctx.getImageData(0, 0, c.width, c.height);
+  if (map.hasImage(id)) map.removeImage(id);
+  map.addImage(id, { width: c.width, height: c.height, data: new Uint8Array(data.data.buffer) }, { pixelRatio: RATIO });
+}
+
+function hatch(map: MLMap, id: string, color: string, fillAlpha: number, lineAlpha: number): void {
+  const size = 12;
+  const [c, ctx] = canvas(size);
+  ctx.fillStyle = withAlpha(color, fillAlpha);
+  ctx.fillRect(0, 0, size, size);
+  ctx.strokeStyle = withAlpha(color, lineAlpha);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  for (const o of [-size, 0, size]) { ctx.moveTo(o, size); ctx.lineTo(o + size, 0); }
+  ctx.stroke();
+  add(map, id, c);
+}
+
+function arrow(map: MLMap, id: string, color: string): void {
+  const size = 24;
+  const [c, ctx] = canvas(size);
+  ctx.fillStyle = color;
+  ctx.beginPath();
+  ctx.moveTo(12, 3);
+  ctx.lineTo(19, 19);
+  ctx.lineTo(12, 15);
+  ctx.lineTo(5, 19);
+  ctx.closePath();
+  ctx.fill();
+  add(map, id, c);
+}
+
+function diamond(map: MLMap, id: string, stroke: string, fill: string | null, half: boolean, bg: string): void {
+  const size = 32;
+  const [c, ctx] = canvas(size);
+  const path = () => { ctx.beginPath(); ctx.moveTo(16, 4); ctx.lineTo(28, 16); ctx.lineTo(16, 28); ctx.lineTo(4, 16); ctx.closePath(); };
+  path();
+  ctx.fillStyle = bg;
+  ctx.fill();
+  if (fill) {
+    ctx.save();
+    path();
+    ctx.clip();
+    ctx.fillStyle = fill;
+    if (half) ctx.fillRect(0, 16, size, 16); else ctx.fillRect(0, 0, size, size);
+    ctx.restore();
+  }
+  path();
+  ctx.lineWidth = 2.5;
+  ctx.strokeStyle = stroke;
+  ctx.stroke();
+  add(map, id, c);
+}
+
+function you(map: MLMap, color: string, edge: string): void {
+  const size = 40;
+  const [c, ctx] = canvas(size);
+  ctx.fillStyle = withAlpha(color, 0.18);
+  ctx.beginPath(); ctx.arc(20, 20, 18, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 3;
+  ctx.beginPath(); ctx.moveTo(20, 2); ctx.lineTo(20, 10); ctx.stroke();
+  ctx.fillStyle = color;
+  ctx.beginPath(); ctx.arc(20, 20, 8, 0, Math.PI * 2); ctx.fill();
+  ctx.strokeStyle = edge;
+  ctx.lineWidth = 2.5;
+  ctx.stroke();
+  add(map, 'you', c);
+}
+
+function ring(map: MLMap, id: string, color: string): void {
+  const size = 40;
+  const [c, ctx] = canvas(size);
+  ctx.strokeStyle = color;
+  ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.arc(20, 20, 16, 0, Math.PI * 2); ctx.stroke();
+  add(map, id, c);
+}
+
+async function svgImage(url: string, recolor: Record<string, string>): Promise<HTMLImageElement | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    let text = await res.text();
+    for (const [from, to] of Object.entries(recolor)) text = text.split(from).join(to);
+    const img = new Image();
+    img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;
+    await img.decode();
+    return img;
+  } catch {
+    return null;
+  }
+}
+
+async function vessel(map: MLMap, kind: Silhouette, colors: ChartColors): Promise<void> {
+  const img = await svgImage(`/icons/vessels/${kind}.svg`, { currentColor: colors.text });
+  const w = 48, h = 48;
+  const [c, ctx] = canvas(w);
+  if (img) {
+    const scale = Math.min(w / img.width, h / img.height);
+    const dw = img.width * scale, dh = img.height * scale;
+    ctx.drawImage(img, (w - dw) / 2, (h - dh) / 2, dw, dh);
+  } else {
+    ctx.fillStyle = colors.muted;
+    ctx.beginPath(); ctx.moveTo(24, 6); ctx.lineTo(31, 18); ctx.lineTo(31, 42); ctx.lineTo(17, 42); ctx.lineTo(17, 18); ctx.closePath(); ctx.fill();
+  }
+  add(map, `v-${kind}`, c);
+}
+
+export async function loadChartImages(map: MLMap, colors: ChartColors): Promise<void> {
+  hatch(map, 'hatch-keepout', colors.riskHigh, 0.1, 0.6);
+  hatch(map, 'hatch-slow', colors.riskMedium, 0.1, 0.65);
+  arrow(map, 'arrow-keepout', colors.riskHigh);
+  arrow(map, 'arrow-slow', colors.riskMedium);
+  arrow(map, 'arrow-path', colors.text);
+  const bg = colors.water;
+  diamond(map, 'diamond-unknown', colors.text, null, false, bg);
+  diamond(map, 'diamond-low', colors.riskLow, colors.riskLow, true, bg);
+  diamond(map, 'diamond-medium', colors.riskMedium, colors.riskMedium, true, bg);
+  diamond(map, 'diamond-serious', colors.riskSerious, colors.riskSerious, true, bg);
+  diamond(map, 'diamond-high', colors.riskHigh, colors.riskHigh, true, bg);
+  diamond(map, 'diamond-critical', colors.riskCritical, colors.riskCritical, true, bg);
+  diamond(map, 'diamond-friendly', colors.muted, colors.muted, false, bg);
+  diamond(map, 'diamond-debris', colors.muted, null, false, bg);
+  diamond(map, 'diamond-animal', colors.riskMedium, null, false, bg);
+  diamond(map, 'diamond-person', colors.riskHigh, null, false, bg);
+  you(map, colors.you, colors.bg);
+  ring(map, 'ring-alert', colors.riskHigh);
+  await Promise.all(SILHOUETTES.map((k) => vessel(map, k, colors)));
+}

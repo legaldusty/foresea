@@ -152,11 +152,13 @@ export function chooseResponse(grid: GridLike, mask: Uint8Array, boats: Boat[], 
 
   if (blocked) {
     const waiting = onRoute.filter((e) => e.action === 'wait');
-    reasons.push(`The zone covers the way in for ${plural(waiting.length, 'boat', 'boats')}; no reroute can clear it.`);
+    const moving = affected.filter((e) => e.action !== 'wait');
+    reasons.push(`The zone covers the way in for ${plural(waiting.length, 'boat', 'boats')}; no reroute can clear it, so holding the berth is recommended.`);
+    const rerouted = moving.length ? `Rerouting ${plural(moving.length, 'boat', 'boats')}, +${Math.round(total)} min; ` : '';
     return {
-      kind: 'hold', affected, everyone, totalAddedMin: total, maxAddedMin: maxAdded, clears: false, withinOrders: false, blockedBerth: berthName, reasons,
+      kind: 'hold', affected, everyone, totalAddedMin: total, maxAddedMin: maxAdded, clears: false, withinOrders: maxAdded <= rules.maxDelayPerBoatMin, blockedBerth: berthName, reasons,
       nextStepUp: { kind: 'closeChannel', text: 'Close one channel: delay for every ship using it' },
-      comparison: { chosen: `Holding ${berthName ?? 'one berth'}: ${plural(waiting.length, 'boat waits', 'boats wait')}`, closeHarbor },
+      comparison: { chosen: `${rerouted}${plural(waiting.length, 'boat waits', 'boats wait')} for ${berthName ?? 'the berth'}`, closeHarbor },
     };
   }
 

@@ -127,7 +127,7 @@ function spokenNumber(meters: number): string {
 
 export function templateWording(facts: WordingFacts): Wording {
   const until = clockLabel(facts.validUntilMin);
-  const where = facts.nearPlace ? ` near the ${facts.nearPlace}` : '';
+  const where = facts.nearPlace ? ` near ${facts.nearPlace}` : '';
   const notice = `${facts.publicReason}${where}. ${facts.instructionText}. Valid until ${until}. Approved by ${facts.approvedBy}, ${facts.station}.`;
   const boatsLine = facts.boats.length
     ? `${facts.boats.length === 1 ? 'One boat' : `${facts.boats.length} boats`} ${facts.boats.length === 1 ? 'is' : 'are'} in its path; the reroutes add ${Math.round(facts.totalAddedMin)} min in total.`
@@ -144,7 +144,7 @@ export function templateWording(facts: WordingFacts): Wording {
     .map((b) => `${b.name}, ${b.instructionText.toLowerCase()}.`).join(' ');
   const spokenInstruction = facts.instruction === 'KEEP CLEAR' ? `Keep ${spokenNumber(facts.radiusM)} clear` : facts.instructionText.charAt(0) + facts.instructionText.slice(1).toLowerCase();
   const vhf = `All stations, all stations, this is ${facts.station}. ${facts.publicReason}${where}. ${spokenInstruction}. ${named} Until ${until}. ${facts.station} out.`.replace(/\s+/g, ' ');
-  const aisMarker = `${facts.publicReason.toUpperCase()} ${facts.nearPlace.toUpperCase()} ${facts.instructionText} UNTIL ${until.replace(':', '')}`.replace(/\s+/g, ' ').slice(0, 160);
+  const aisMarker = `${facts.publicReason.toUpperCase()} ${facts.nearPlace.replace(/^the /, '').toUpperCase()} ${facts.instructionText} UNTIL ${until.replace(':', '')}`.replace(/\s+/g, ' ').slice(0, 160);
   const sms = `GIVE WAY: ${facts.publicReason}${where}. ${facts.instructionText} until ${until}. Map: ${facts.link}`;
   const translations: Record<string, string> = {};
   for (const lang of Object.keys(PHRASES) as Lang[]) translations[lang] = translateInstruction(lang, facts.instruction, facts);
@@ -164,11 +164,11 @@ export function templateWording(facts: WordingFacts): Wording {
 }
 
 export function allClearWording(station: string, nearPlace: string, atMin: number): Pick<Wording, 'notice' | 'vhf' | 'aisMarker' | 'sms'> {
-  const where = nearPlace ? ` near the ${nearPlace}` : '';
+  const where = nearPlace ? ` near ${nearPlace}` : '';
   return {
     notice: `ALL CLEAR${where}. Resume normal navigation. ${clockLabel(atMin)}.`,
     vhf: `All stations, all stations, this is ${station}. All clear${where}. Resume normal navigation. ${station} out.`,
-    aisMarker: `ALL CLEAR ${nearPlace.toUpperCase()} ${clockLabel(atMin).replace(':', '')}`.trim(),
+    aisMarker: `ALL CLEAR ${nearPlace.replace(/^the /, '').toUpperCase()} ${clockLabel(atMin).replace(':', '')}`.trim(),
     sms: `GIVE WAY: ALL CLEAR${where}. Resume normal navigation.`,
   };
 }
