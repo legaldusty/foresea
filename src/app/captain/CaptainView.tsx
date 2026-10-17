@@ -237,7 +237,7 @@ export function CaptainView() {
   useEffect(() => {
     if (!alertsOn || !hub.pushKey || !secureEnough() || pushState() !== 'on') return;
     void enablePush(hub.pushKey).then((sub) => { if (sub) hub.sendSubscription(sub); });
-  }, [alertsOn, hub.pushKey]);
+  }, [alertsOn, hub.pushKey, hub.vessel?.vesselId]);
 
   const join = async () => {
     setJoining(true);

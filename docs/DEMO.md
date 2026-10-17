@@ -31,7 +31,7 @@ If a judge wants to use their own phone, give them the Catalina Ferry QR for ste
 - **No live AIS:** the hub switches to the recording and says so. Keep going.
 - **No Granite:** templates write every message. The data line says "Wording: templates".
 - **A phone drops off the hotspot:** it keeps the last zones and shows "Updated N min ago". Rejoin from Join phones.
-- **The judge steers somewhere else:** fine. TELL follows them. If no boat is in the path, publish anyway and show the P4 on the phones, then use **Add contact**, **Incident A**, which always runs Angels Gate to the Fuel Pier.
+- **The judge steers somewhere else:** fine. TELL follows them. If no boat is in the path, there is no draft: say so, because watching is the gentlest response and nobody gets a notice they do not need. Then use **Add contact**, **Incident A**, which always runs Angels Gate to the Fuel Pier, head on to Harbor Launch 7.
 - **Anything looks stuck:** **Scene**, **Night watch, 02:00** resets the harbor in one click. Phones stay joined.
 - **Laptop dies:** play the backup video.
 

@@ -309,8 +309,8 @@ export interface CommandEvents {
 
 export interface CaptainEvents {
   join: { vesselId?: string; token?: string };
-  delivered: { noticeId: string };
-  seen: { noticeId: string };
-  gotIt: { noticeId: string };
-  pushSubscription: { subscription: unknown };
+  delivered: { noticeId: string; vesselId?: string };
+  seen: { noticeId: string; vesselId?: string };
+  gotIt: { noticeId: string; vesselId?: string };
+  pushSubscription: { subscription: unknown; vesselId?: string };
 }

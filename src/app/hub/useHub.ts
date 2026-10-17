@@ -98,17 +98,17 @@ export function useCaptainHub(requestedVessel: string | null): CaptainHub {
       for (const n of s.notices) {
         if (delivered.current.has(n.id)) continue;
         delivered.current.add(n.id);
-        socket.emit('delivered', { noticeId: n.id });
+        socket.emit('delivered', { noticeId: n.id, vesselId: v?.vesselId });
       }
     });
     return () => { socket.close(); };
   }, []);
 
   const ack = useMemo(() => (kind: 'delivered' | 'seen' | 'gotIt', noticeId: string) => {
-    socketRef.current?.emit(kind, { noticeId });
+    socketRef.current?.emit(kind, { noticeId, vesselId: vesselRef.current?.vesselId });
   }, []);
   const sendSubscription = useMemo(() => (sub: PushSubscription) => {
-    socketRef.current?.emit('pushSubscription', { subscription: sub.toJSON() });
+    socketRef.current?.emit('pushSubscription', { subscription: sub.toJSON(), vesselId: vesselRef.current?.vesselId });
   }, []);
   return { snapshot, receivedAt, link, vessel, pushKey, join, ack, sendSubscription };
 }

@@ -35,7 +35,10 @@ export function createPushService(): PushService {
     publicKey,
     ready: true,
     detail: 'Web Push ready (VAPID)',
-    subscribe(vesselId, sub) { subs.set(vesselId, sub); },
+    subscribe(vesselId, sub) {
+      for (const [other, existing] of subs) if (other !== vesselId && existing.endpoint === sub.endpoint) subs.delete(other);
+      subs.set(vesselId, sub);
+    },
     hasSubscription(vesselId) { return subs.has(vesselId); },
     async send(vesselId, msg) {
       const sub = subs.get(vesselId);

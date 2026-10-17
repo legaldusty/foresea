@@ -133,6 +133,7 @@ export class World {
   allClearRecent: { id: string; publicReason: string; atWall: string; atMin: number; approvedBy: string }[] = [];
   lastAllClearMin: number | null = null;
   dismissed = new Set<string>();
+  private discardedAtLevel = new Map<string, number>();
   signedOrders: P.SignedOrders;
   sources: P.SourceStatus = {
     ais: { mode: 'offline', detail: 'Starting', vessels: 0 },
@@ -190,6 +191,7 @@ export class World {
     this.deliveries.clear();
     this.cards = [];
     this.dismissed.clear();
+    this.discardedAtLevel.clear();
     this.allClearRecent = [];
     this.simMin = mode === 'night' ? 2 * 60 : 9 * 60;
     const t = this.simMin;
@@ -209,7 +211,8 @@ export class World {
         if (c) this.craft.push(c);
       }
     }
-    for (const cap of this.captains.values()) if (!this.craft.some((c) => c.id === cap.vesselId)) this.captains.delete(cap.vesselId);
+    const presetIds = new Set(this.h.craft.map((spec) => spec.id));
+    for (const cap of this.captains.values()) if (!presetIds.has(cap.vesselId)) this.captains.delete(cap.vesselId);
     this.log('officer', 'Reset harbor', mode === 'night' ? 'Night watch, 02:00' : mode === 'tuesday' ? 'Tuesday operations, 09:00' : 'Empty harbor');
   }
 
@@ -350,7 +353,8 @@ export class World {
     for (const craft of this.craft) moveCraft(this.h, craft, dtSec, t, null);
     this.updateNotices();
     this.updateCards();
-    this.allClearRecent = this.allClearRecent.filter((a) => t - a.atMin < 3);
+    const showMs = this.settings.sim.allClearShowSeconds * 1000;
+    this.allClearRecent = this.allClearRecent.filter((a) => wallMs - Date.parse(a.atWall) < showMs);
   }
 
   private boats(): Boat[] {
@@ -379,7 +383,7 @@ export class World {
     const kind = c.classification.kind;
     if (kind === 'animal') return this.respondToAnimal(c);
     if (kind === 'person') return this.respondToPerson(c);
-    if (c.spec.registryId && kind === 'debris') this.respondToLostRobot(c);
+    if (c.spec.registryId && kind === 'debris') return this.respondToLostRobot(c);
     const risk = c.lastRisk;
     const zoneId = `z-${c.id}`;
     const existing = this.zones.get(zoneId);
@@ -387,6 +391,7 @@ export class World {
       if (existing && existing.status === 'draft') { this.zones.delete(zoneId); this.dropDraftFor(zoneId); }
       return;
     }
+    if (!existing && this.stillDismissed(zoneId, risk.level)) return;
     const o = this.orders();
     const top = topGoal(c.tell);
     const unsure = top.goal < 0 || top.p < o.unsureBelowOdds;
@@ -394,13 +399,15 @@ export class World {
     const geom = securityZone(this.h.grid, {
       contactCell: c.cell, predictedPaths: predictedPaths(this.h, c, o.zoneTopTargets), speedMps: c.spec.speedMps,
       zoneMeters: o.zoneMeters, pathMinutes: o.zonePathMinutes, unsure, growWhenUnsure: o.zoneGrowWhenUnsure,
-      silentMinutes: silentFor, topSpeedMps: c.spec.speedMps,
+      silentMinutes: silentFor, topSpeedMps: c.spec.speedMps, maxRadiusM: o.zoneMaxMeters,
     });
     const draft = existing?.draftId ? this.drafts.get(existing.draftId) : undefined;
-    const radiusM = draft?.officerRadius ?? geom.radiusM;
-    const g2 = draft?.officerRadius ? securityZone(this.h.grid, {
+    const notice = existing?.noticeId ? this.notices.get(existing.noticeId) : undefined;
+    const pinnedRadius = draft?.officerRadius ?? (notice?.status === 'active' ? notice.radiusM : null);
+    const radiusM = pinnedRadius ?? geom.radiusM;
+    const g2 = pinnedRadius ? securityZone(this.h.grid, {
       contactCell: c.cell, predictedPaths: predictedPaths(this.h, c, o.zoneTopTargets), speedMps: c.spec.speedMps,
-      zoneMeters: draft.officerRadius, pathMinutes: o.zonePathMinutes, unsure: false, growWhenUnsure: 1, silentMinutes: silentFor, topSpeedMps: c.spec.speedMps,
+      zoneMeters: pinnedRadius, pathMinutes: o.zonePathMinutes, unsure: false, growWhenUnsure: 1, silentMinutes: silentFor, topSpeedMps: c.spec.speedMps, maxRadiusM: o.zoneMaxMeters,
     }) : geom;
     const zone: ZoneRec = existing ?? {
       id: zoneId, kind: 'keepOut', reason: 'Security zone', status: 'draft', geometry: g2, radiusM, contactId: c.id, noticeId: null, draftId: null,
@@ -471,6 +478,7 @@ export class World {
       contactId: c.id, noticeId: null, draftId: null, script: null,
     });
     const zoneId = `z-${c.id}`;
+    if (this.stillDismissed(zoneId, null)) return;
     const radius = 150 + c.spec.speedMps * (this.simMin - c.spec.firstSeenMin) * 60 * 0.5;
     this.upsertRoutineZone(zoneId, 'keepOut', 'Dredge working', c.cell, Math.min(600, radius), c.id, 'KEEP CLEAR', 'Search area: lost research robot');
   }
@@ -482,6 +490,7 @@ export class World {
       this.log('machine', 'Marine-life log', `Animal logged near ${this.placeNear(c.cell)}`);
     }
     const o = this.orders();
+    if (this.stillDismissed(`z-${c.id}`, null)) return;
     const draftId = this.upsertRoutineZone(`z-${c.id}`, 'slow', 'Whale nearby', c.cell, o.animalSlowMeters, c.id, 'SLOW', null);
     this.raiseCard(key, {
       kind: 'animal', title: 'Whale slow zone?',
@@ -494,7 +503,7 @@ export class World {
 
   private respondToPerson(c: ContactSim): void {
     const key = `person:${c.id}`;
-    const draftId = this.upsertRoutineZone(`z-${c.id}`, 'keepOut', 'Person in the water', c.cell, 200, c.id, 'KEEP CLEAR', null);
+    const draftId = this.stillDismissed(`z-${c.id}`, null) ? null : this.upsertRoutineZone(`z-${c.id}`, 'keepOut', 'Person in the water', c.cell, 200, c.id, 'KEEP CLEAR', null);
     this.raiseCard(key, {
       kind: 'person', title: 'Person in the water: hand off',
       body: `A warm body about ${c.spec.sizeM.toFixed(1)} m moving slowly near ${this.placeNear(c.cell)}. Boats are routed away. Port police brief is ready. People are never scored as targets.`,
@@ -594,7 +603,7 @@ export class World {
       const id = this.id('d');
       d = {
         id, kind, contactId: c?.id ?? zone.contactId, zoneId: zone.id, instruction, instructionText: '', radiusM: zone.radiusM, slowKnots,
-        recipients: 'all', named: [], publicReason: zone.reason, validForMin: routine ? 120 : 60, approvedBy: this.officer,
+        recipients: 'all', named: [], publicReason: zone.reason, validForMin: routine ? o.routineValidMinutes : o.noticeValidMinutes, approvedBy: this.officer,
         plan: this.planView(plan, zone.radiusM, slowKnots), wording: templateWording(this.blankFacts(zone)), createdAtMin: this.simMin, updatedAtMin: this.simMin,
         edited: false, routine, responsePlan: plan, wordingKey: '', factsKey: '', wordingInFlight: false, officerRadius: null, officerInstruction: null,
       };
@@ -641,7 +650,7 @@ export class World {
   private blankFacts(zone: ZoneRec): WordingFacts {
     return {
       kind: 'security', instruction: 'KEEP CLEAR', instructionText: instructionText('KEEP CLEAR', zone.radiusM, 5), publicReason: zone.reason, radiusM: zone.radiusM,
-      slowKnots: 5, nearPlace: this.placeNear(zone.centerCell), validUntilMin: this.simMin + 60, approvedBy: this.officer, boats: [], totalAddedMin: 0,
+      slowKnots: 5, nearPlace: this.placeNear(zone.centerCell), validUntilMin: this.simMin + this.orders().noticeValidMinutes, approvedBy: this.officer, boats: [], totalAddedMin: 0,
       station: this.station, link: this.link,
     };
   }
@@ -652,7 +661,7 @@ export class World {
     const slowKnots = d?.slowKnots ?? this.orders().speedAdvisoryKnots;
     const facts: WordingFacts = {
       kind: d?.kind ?? 'security', instruction, instructionText: instructionText(instruction as Instruction, radiusM, slowKnots), publicReason: d?.publicReason ?? zone.reason,
-      radiusM, slowKnots, nearPlace: this.placeNear(zone.centerCell), validUntilMin: this.simMin + (d?.validForMin ?? 60), approvedBy: this.officer,
+      radiusM, slowKnots, nearPlace: this.placeNear(zone.centerCell), validUntilMin: this.simMin + (d?.validForMin ?? this.orders().noticeValidMinutes), approvedBy: this.officer,
       boats: plan.affected.map((a) => ({ name: a.name, instructionText: instructionText(a.instruction, radiusM, slowKnots), addedMin: a.addedMin })),
       totalAddedMin: plan.totalAddedMin, station: this.station, link: this.link,
     };
@@ -671,6 +680,22 @@ export class World {
     return facts;
   }
 
+  private stopDrafting(z: ZoneRec): void {
+    if (!z.contactId) return;
+    this.dismissed.add(`zone:${z.id}`);
+    const level = this.contacts.get(z.contactId)?.lastRisk?.level;
+    if (level !== undefined) this.discardedAtLevel.set(z.id, level);
+  }
+
+  private stillDismissed(zoneId: string, level: number | null): boolean {
+    if (!this.dismissed.has(`zone:${zoneId}`)) return false;
+    const at = this.discardedAtLevel.get(zoneId);
+    if (level === null || at === undefined || level <= at) return true;
+    this.dismissed.delete(`zone:${zoneId}`);
+    this.discardedAtLevel.delete(zoneId);
+    return false;
+  }
+
   private dropDraftFor(zoneId: string): void {
     for (const d of this.drafts.values()) if (d.zoneId === zoneId) { this.drafts.delete(d.id); this.removeCards((k) => k.draftId === d.id); }
   }
@@ -680,7 +705,7 @@ export class World {
     if (!d) return;
     this.drafts.delete(draftId);
     const z = this.zones.get(d.zoneId);
-    if (z && z.status === 'draft') { this.zones.delete(z.id); this.dismissed.add(`zone:${z.id}`); }
+    if (z && z.status === 'draft') { this.zones.delete(z.id); this.stopDrafting(z); }
     this.removeCards((k) => k.draftId === draftId);
     this.log(actor, 'Draft discarded', `${d.publicReason} near ${z ? this.placeNear(z.centerCell) : 'the harbor'}`);
   }
@@ -764,7 +789,7 @@ export class World {
     z.noticeId = id;
     z.draftId = null;
     this.refreshNotice(notice);
-    this.log('officer', 'Published', `${d.publicReason}: ${d.instructionText}. ${notice.perVessel.size} recipients. ${plan?.comparison.chosen ?? ''}`, () => this.clearNotice(id, 'officer', true));
+    this.log('officer', 'Published', `${d.publicReason}: ${d.instructionText}. ${notice.perVessel.size} recipients. ${plan?.comparison.chosen ?? ''}`, () => this.clearNotice(id, 'officer', true, 'All clear', false));
     if (notice.wording.source === 'template') this.effects.wording.push({ draftId: id, facts: this.wordingFacts(z.contactId ? this.contacts.get(z.contactId) ?? null : null, z, plan ?? this.slowPlan(z.geometry.mask), null), template: notice.wording, key: 'notice' });
     return id;
   }
@@ -859,13 +884,16 @@ export class World {
       }
     }
     this.deliveries.set(`${n.id}:${r.id}`, rec);
-    if (isPhone && (entry.priority === 'P1' || entry.priority === 'P2')) {
-      this.effects.pushes.push({
-        vesselId: r.id, priority: entry.priority, tag: n.id, url: `/captain?notice=${n.id}`,
-        title: entry.priority === 'P1' ? `ACT NOW: ${entry.instructionText}` : `Act soon: ${entry.instructionText}`,
-        body: `${n.publicReason} near ${this.placeNear(this.zones.get(n.zoneId)?.centerCell ?? 0)}. Tap for the map.`,
-      });
-    }
+    if (isPhone) this.queueAlertPush(n, r.id, entry);
+  }
+
+  private queueAlertPush(n: NoticeRec, vesselId: string, entry: VesselPlanEntry): void {
+    if (entry.priority !== 'P1' && entry.priority !== 'P2') return;
+    this.effects.pushes.push({
+      vesselId, priority: entry.priority, tag: n.id, url: `/captain?notice=${n.id}`,
+      title: entry.priority === 'P1' ? `ACT NOW: ${entry.instructionText}` : `Act soon: ${entry.instructionText}`,
+      body: `${n.publicReason} near ${this.placeNear(this.zones.get(n.zoneId)?.centerCell ?? 0)}. Tap for the map.`,
+    });
   }
 
   private updateNotices(): void {
@@ -938,12 +966,12 @@ export class World {
     }
   }
 
-  clearNotice(noticeId: string, actor: string, logIt = true, reason = 'All clear'): void {
+  clearNotice(noticeId: string, actor: string, logIt = true, reason = 'All clear', keepClear = actor === 'officer'): void {
     const n = this.notices.get(noticeId);
     if (!n || n.status !== 'active') return;
     n.status = reason === 'Expired' ? 'expired' : 'cleared';
     const z = this.zones.get(n.zoneId);
-    if (z) this.zones.delete(z.id);
+    if (z) { this.zones.delete(z.id); if (keepClear) this.stopDrafting(z); }
     for (const c of this.craft) {
       if (c.rerouteNoticeId === noticeId) restoreRoute(this.h, c);
       c.held = false;
@@ -1142,7 +1170,28 @@ export class World {
     }
     this.captains.set(pick.id, { vesselId: pick.id, connected: true, lastSeenWall: this.wall() });
     this.log(`captain:${pick.name}`, 'Captain joined', `${pick.name} joined from a phone`);
+    this.handToPhone(pick);
     return { vesselId: pick.id, name: pick.name };
+  }
+
+  private handToPhone(craft: CraftSim): void {
+    const t = this.simMin;
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active') continue;
+      const rec = this.deliveries.get(`${n.id}:${craft.id}`);
+      const entry = n.perVessel.get(craft.id);
+      if (!rec || !entry || !rec.simulated) continue;
+      if (craft.rerouteNoticeId === n.id) restoreRoute(this.h, craft);
+      if (entry.action === 'wait') craft.held = false;
+      rec.simulated = false;
+      rec.channel = 'app';
+      rec.states = { sent: t };
+      rec.plannedDelivered = rec.plannedSeen = rec.plannedAck = null;
+      rec.resends = 0;
+      rec.notResponding = false;
+      this.removeCards((k) => k.key === `vhf:${n.id}:${craft.id}`);
+      this.queueAlertPush(n, craft.id, entry);
+    }
   }
 
   captainLeft(vesselId: string): void {

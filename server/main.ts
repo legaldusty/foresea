@@ -182,6 +182,7 @@ function flushEffects(): void {
 }
 
 const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled'];
+const STEERING_EVENTS = new Set<keyof CommandEvents>(['drive', 'contactParams']);
 
 function bindCommand(socket: Socket): void {
   socket.join('command');
@@ -191,7 +192,7 @@ function bindCommand(socket: Socket): void {
         world.handle(name, payload as never);
         flushEffects();
         emitCommand();
-        emitCaptains();
+        if (!STEERING_EVENTS.has(name)) emitCaptains();
         ack?.({ ok: true });
       } catch (err) {
         world.log('system', 'Command error', `${name}: ${(err as Error).message}`);
@@ -220,8 +221,9 @@ function bindCaptain(socket: Socket): void {
     emitCommand();
   });
   const on = (kind: 'delivered' | 'seen' | 'gotIt') => socket.on(kind, (payload: CaptainEvents['gotIt'], ack?: (r: unknown) => void) => {
-    const vesselId = socket.data.vesselId as string | undefined;
-    if (!vesselId) return;
+    const claimed = typeof payload?.vesselId === 'string' && world.captains.has(payload.vesselId) ? payload.vesselId : undefined;
+    const vesselId = (socket.data.vesselId as string | undefined) ?? claimed;
+    if (!vesselId || typeof payload?.noticeId !== 'string') return;
     world.captainEvent(vesselId, kind, payload.noticeId);
     flushEffects();
     emitCommand();
@@ -232,7 +234,8 @@ function bindCaptain(socket: Socket): void {
   on('seen');
   on('gotIt');
   socket.on('pushSubscription', (payload: CaptainEvents['pushSubscription']) => {
-    const vesselId = socket.data.vesselId as string | undefined;
+    const claimed = typeof payload?.vesselId === 'string' && world.captains.has(payload.vesselId) ? payload.vesselId : undefined;
+    const vesselId = (socket.data.vesselId as string | undefined) ?? claimed;
     if (!vesselId || !payload?.subscription) return;
     push.subscribe(vesselId, payload.subscription as never);
     world.log(`captain:${vesselId}`, 'Push enabled', `${world.craft.find((c) => c.id === vesselId)?.name ?? vesselId} turned on notifications`);
@@ -252,14 +255,26 @@ io.on('connection', (socket) => {
 });
 
 let last = Date.now();
-setInterval(() => {
+let lastTickError = '';
+function guarded(name: string, fn: () => void): () => void {
+  return () => {
+    try {
+      fn();
+    } catch (err) {
+      const message = `${name}: ${(err as Error).message}`;
+      if (message !== lastTickError) { lastTickError = message; console.error(`Hub kept running after an error in ${message}`); world.log('system', 'Hub error', message); }
+    }
+  };
+}
+setInterval(guarded('tick', () => {
   const now = Date.now();
-  world.tick(now - last, now);
+  const dt = now - last;
   last = now;
+  world.tick(dt, now);
   flushEffects();
-}, settings.sim.tickMs);
-setInterval(emitCommand, 250);
-setInterval(emitCaptains, 400);
+}), settings.sim.tickMs);
+setInterval(guarded('command update', emitCommand), 250);
+setInterval(guarded('phone update', emitCaptains), 400);
 setInterval(refreshOnTime, 5000);
 setInterval(() => void refreshNoaa(), 10 * 60_000);
 void refreshNoaa();

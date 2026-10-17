@@ -95,6 +95,91 @@ describe('night demo path', () => {
   });
 });
 
+describe('officer decisions hold', () => {
+  it('the radius the officer sets stays after Publish', () => {
+    const w = freshWorld('night');
+    driveToFuel(w);
+    runUntil(w, () => w.drafts.size > 0);
+    const draftId = [...w.drafts.keys()][0];
+    w.editDraft({ draftId, edits: { radiusM: 500 } });
+    const noticeId = w.publish(draftId)!;
+    runUntil(w, () => false, 40);
+    const zone = [...w.zones.values()].find((z) => z.noticeId === noticeId)!;
+    expect(zone.radiusM).toBe(500);
+    expect(w.notices.get(noticeId)!.instructionText).toContain('500');
+  });
+
+  it('a phone that joins after Publish still gets the alert and its own Got it', () => {
+    const w = freshWorld('night');
+    driveToFuel(w);
+    runUntil(w, () => w.drafts.size > 0);
+    const noticeId = w.publish([...w.drafts.keys()][0])!;
+    runUntil(w, () => false, 60);
+    w.captainJoin('launch1');
+    const notice = w.captainSnapshot('launch1').notices.find((n) => n.id === noticeId)!;
+    expect(notice.acknowledged).toBe(false);
+    const row = w.commandSnapshot().deliveries.find((d) => d.vesselId === 'launch1')!;
+    expect(row.simulated).toBe(false);
+    w.captainEvent('launch1', 'gotIt', noticeId);
+    expect(w.captainSnapshot('launch1').notices[0].acknowledged).toBe(true);
+  });
+
+  it('a discarded draft stays discarded until the risk goes up', () => {
+    const w = freshWorld('night');
+    const id = driveToFuel(w);
+    runUntil(w, () => w.drafts.size > 0);
+    const levelAtDiscard = w.contacts.get(id)!.lastRisk!.level;
+    w.discardDraft([...w.drafts.keys()][0]);
+    const back = runUntil(w, () => w.drafts.size > 0, 120);
+    if (back) expect(w.contacts.get(id)!.lastRisk!.level).toBeGreaterThan(levelAtDiscard);
+    expect(w.audit.filter((a) => a.action === 'Notice drafted').length).toBe(back ? 2 : 1);
+  });
+
+  it('a lost glider gets one search-area draft that the card publishes', () => {
+    const w = freshWorld('tuesday');
+    w.spawn({ preset: 'glider' });
+    runUntil(w, () => false, 600);
+    expect(w.audit.filter((a) => a.action === 'Notice drafted').length).toBe(1);
+    const card = w.cards.find((k) => k.kind === 'lost')!;
+    w.cardAction(card.id, 'publishZone');
+    expect([...w.notices.values()].filter((n) => n.status === 'active').length).toBe(1);
+  });
+
+  it('a zone that grows after the sensor loses the contact stops at the signed maximum', () => {
+    const w = freshWorld('night');
+    const id = driveToFuel(w);
+    runUntil(w, () => w.drafts.size > 0);
+    w.sensorLoss(id, true);
+    runUntil(w, () => false, 400);
+    const zone = w.zones.get(`z-${id}`)!;
+    const grown = (zone.geometry as unknown as { radiusM: number }).radiusM;
+    expect(grown).toBeGreaterThan(defaultSettings.orders.zoneMeters);
+    expect(grown).toBeLessThanOrEqual(defaultSettings.orders.zoneMaxMeters);
+  });
+
+  it('Empty harbor keeps the phones connected for the next scene', () => {
+    const w = freshWorld('night');
+    w.captainJoin('launch1');
+    w.resetHarbor('empty');
+    w.resetHarbor('night');
+    expect(w.captains.get('launch1')?.connected).toBe(true);
+  });
+
+  it('ALL CLEAR stays on the phones for a minute of real time at any speed', () => {
+    const w = freshWorld('night');
+    w.captainJoin('launch1');
+    driveToFuel(w);
+    runUntil(w, () => w.drafts.size > 0);
+    w.publish([...w.drafts.keys()][0]);
+    const start = w.wallMs;
+    w.allClear();
+    w.tick(250, start + 30_000);
+    expect(w.captainSnapshot('launch1').allClear.length).toBe(1);
+    w.tick(250, start + 61_000);
+    expect(w.captainSnapshot('launch1').allClear.length).toBe(0);
+  });
+});
+
 describe('several contacts', () => {
   it('two coordinated unknowns each get their own TELL and raise a hand-off card', () => {
     const w = freshWorld('night');

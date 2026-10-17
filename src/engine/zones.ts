@@ -136,6 +136,7 @@ export interface SecurityZoneInput {
   growWhenUnsure: number;
   silentMinutes: number;
   topSpeedMps: number;
+  maxRadiusM?: number;
 }
 
 export interface SecurityZone extends ZoneGeometry {
@@ -149,6 +150,7 @@ export function securityZone(grid: GridLike, z: SecurityZoneInput): SecurityZone
   let radiusM = z.zoneMeters;
   if (z.unsure) { radiusM *= z.growWhenUnsure; grewFor.push('unsure'); }
   if (z.silentMinutes > 0) { radiusM += z.topSpeedMps * z.silentMinutes * 60; grewFor.push('silent'); }
+  if (z.maxRadiusM !== undefined) radiusM = Math.min(radiusM, Math.max(z.zoneMeters, z.maxRadiusM));
   const aheadCellsBudget = (z.speedMps * z.pathMinutes * 60) / grid.cellMeters;
   const aheadCells = z.predictedPaths.map((p) => trimPath(grid, p, aheadCellsBudget));
   const radiusCells = radiusM / grid.cellMeters;
