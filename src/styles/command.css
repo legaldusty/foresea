@@ -398,3 +398,14 @@ body.dragging { user-select: none; cursor: grabbing; }
 .watch-row.anomalous { box-shadow: inset 3px 0 0 var(--risk-serious); }
 .watch-row .mono { text-align: right; font: var(--type-data); }
 .watch-row .why { grid-column: 1 / -1; font: var(--type-small); color: var(--muted); }
+
+.cmd-desk.collapsed { height: auto; }
+.chart-tip { position: absolute; z-index: 9; max-width: 280px; pointer-events: none; display: flex; flex-direction: column; gap: 2px; padding: var(--space-8) var(--space-12); background: var(--panel); border: 1px solid var(--line); color: var(--text); font: var(--type-small); }
+.chart-tip strong { font: var(--type-body-strong); }
+.chart-tip span { color: var(--muted); }
+.zone-radius { display: flex; gap: var(--space-8); align-items: center; }
+.insp-kv.flush { padding: 0; }
+
+.presenter-head { cursor: grab; touch-action: none; user-select: none; }
+.presenter-head .grip-dots { color: var(--muted); vertical-align: -3px; margin-right: 4px; }
+.presenter.floating { right: auto; bottom: auto; max-height: calc(100vh - 64px); border: 1px solid var(--line); }

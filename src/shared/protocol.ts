@@ -182,6 +182,7 @@ export interface VesselView {
   affected: { priority: Priority; text: string; crossingLabel: string | null; untilLabel: string | null } | null;
   intel: VesselIntel | null;
   detail: VesselDetail;
+  trail?: LonLat[];
 }
 
 export interface ModelCard {
@@ -385,7 +386,10 @@ export interface AuditEntry {
   detail: string;
   undoable: boolean;
   undone: boolean;
+  where?: AuditWhere;
 }
+
+export interface AuditWhere { lonlat: LonLat; radiusM: number | null; zoneId: string | null; contactId: string | null; vesselId: string | null; place: string | null }
 
 export interface MarineLogEntry { id: string; atMin: number; lonlat: LonLat; kind: string; detail: string }
 

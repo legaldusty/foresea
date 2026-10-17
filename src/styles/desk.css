@@ -33,7 +33,7 @@
 .report-nums .big { font: var(--type-data-xl); }
 .report-lines { margin: 0; padding: var(--space-12) var(--space-16) var(--space-12) 32px; font: var(--type-body); display: flex; flex-direction: column; gap: 4px; }
 
-.log-row { display: grid; grid-template-columns: 48px 140px 160px 1fr 72px; gap: var(--space-12); padding: 6px var(--space-16); border-bottom: 1px solid var(--line); font: var(--type-small); align-items: baseline; }
+.log-row { display: grid; grid-template-columns: 68px 140px 160px 1fr 72px; gap: var(--space-12); padding: 6px var(--space-16); border-bottom: 1px solid var(--line); font: var(--type-small); align-items: baseline; }
 .log-row.undone { opacity: 0.5; text-decoration: line-through; }
 .log-row .undo { display: inline-flex; align-items: center; gap: 4px; background: none; border: 0; color: var(--text); font: var(--type-small); cursor: pointer; }
 
@@ -63,3 +63,9 @@
 .cov-bar i { display: block; height: 8px; border-radius: 0 2px 2px 0; }
 .cov-bar i.likely { background: var(--risk-high); }
 .cov-bar i.careful { background: var(--risk-medium); }
+
+.desk-tabs .desk-tabs-fill { flex: 1; }
+.desk-tabs .desk-collapse { margin-right: calc(-1 * var(--space-8)); }
+.log-row.placed { cursor: pointer; }
+.log-row.placed:hover { background: var(--raised); }
+.log-row .pin { color: var(--tide); margin-right: 4px; vertical-align: -2px; }

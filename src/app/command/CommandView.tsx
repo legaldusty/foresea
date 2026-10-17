@@ -4,7 +4,10 @@ import type { CommandSnapshot, ContactView, DeliveryRow, DeliveryState } from '.
 import { DELIVERY_STATES } from '../../shared/protocol';
 import { useCommandHub } from '../hub/useHub';
 import { defaultSettings } from '../../engine/settings';
-import { ChartMap, type CalloutSide, type ChartCallout, type ChartData, type ZoneHandle } from '../map/ChartMap';
+import { ChartMap, type CalloutSide, type ChartCallout, type ChartData, type ChartHit, type ZoneHandle } from '../map/ChartMap';
+import type { AuditWhere } from '../../shared/protocol';
+import { ZoneInspector } from './ZoneInspector';
+import { describeHit } from './describe';
 import { commandChart } from '../map/toChart';
 import { TopBar } from './TopBar';
 import { Headline, StepStrip } from './Headline';
@@ -78,7 +81,10 @@ export function CommandView() {
   const [selected, setSelected] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>('select');
   const [sheet, setSheet] = useState<'nights' | 'orders' | 'join' | 'models' | null>(null);
-  const [inspect, setInspect] = useState<{ kind: 'vessel' | 'contact'; id: string } | null>(null);
+  const [inspect, setInspect] = useState<{ kind: 'vessel' | 'contact' | 'zone'; id: string } | null>(null);
+  const [highlight, setHighlight] = useState<{ lonlat: [number, number]; radiusM: number | null } | null>(null);
+  const [deskCollapsed, setDeskCollapsed] = usePersisted<boolean>('giveway.desk.collapsed', false);
+  const [deskTab, setDeskTab] = useState<string>('today');
   const [hiddenList, setHiddenList] = usePersisted<LayerKey[]>('giveway.layers.hidden', []);
   const hidden = useMemo(() => new Set(hiddenList), [hiddenList.join(',')]);
   const toggleLayer = (k: LayerKey) => setHiddenList(hidden.has(k) ? hiddenList.filter((x) => x !== k) : [...hiddenList, k]);
@@ -89,7 +95,6 @@ export function CommandView() {
   const [presenter, setPresenter] = useState(false);
   const [why, setWhy] = useState(false);
   const [editing, setEditing] = useState(false);
-  const [deskOpen, setDeskOpen] = useState(false);
   const [divePoint, setDivePoint] = useState<[number, number] | null>(null);
   const [framed, setFramed] = useState<{ id: string; points: [number, number][] } | null>(null);
   const theme: 'night' | 'day' = themeChoice ?? (snap && !snap.clock.night ? 'day' : 'night');
@@ -100,11 +105,13 @@ export function CommandView() {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
       if (e.key === 'p' || e.key === 'P') setPresenter((v) => !v);
-      if (e.key === 'Escape') { setWhy(false); setTool('select'); setInspect(null); }
+      if (e.key === 'Escape') { setWhy(false); setTool('select'); setInspect(null); setHighlight(null); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
   }, []);
+  const incidentOn = !!snap?.steps;
+  useEffect(() => { if (incidentOn) setDeskCollapsed(true); }, [incidentOn]);
   const railRef = useRef<HTMLElement>(null);
   const cardId = snap?.card?.id ?? null;
   useEffect(() => { if (cardId) { railRef.current?.scrollTo({ top: 0, behavior: 'smooth' }); setEditing(false); } }, [cardId]);
@@ -150,6 +157,18 @@ export function CommandView() {
   const flagged = snap.vessels.filter((v) => v.intel && v.intel.level !== 'normal').sort((a, b) => (b.intel?.score ?? 0) - (a.intel?.score ?? 0)).slice(0, 6);
   const inspectedVessel = inspect?.kind === 'vessel' ? snap.vessels.find((v) => v.id === inspect.id) ?? null : null;
   const dossierContact = inspect?.kind === 'contact' ? snap.contacts.find((c) => c.id === inspect.id) ?? null : null;
+  const inspectedZone = inspect?.kind === 'zone' ? inspect.id : null;
+  const describe = (hit: ChartHit) => describeHit(snap, hit);
+  const onPlace = (where: AuditWhere) => {
+    setHighlight({ lonlat: where.lonlat, radiusM: where.radiusM });
+    const z = where.zoneId ? snap.zones.find((x) => x.id === where.zoneId) : undefined;
+    const pts = z ? z.rings.flat(2) : [];
+    if (pts.length > 2) setRecenter({ id: `${Date.now()}`, points: pts.filter((_, i) => i % 4 === 0) });
+    else centerOn([where.lonlat]);
+    if (z) setInspect({ kind: 'zone', id: z.id });
+    else if (where.contactId && snap.contacts.some((c) => c.id === where.contactId)) setInspect({ kind: 'contact', id: where.contactId });
+    else if (where.vesselId && snap.vessels.some((v) => v.id === where.vesselId)) setInspect({ kind: 'vessel', id: where.vesselId });
+  };
   const centerOn = (points: [number, number][]) => setRecenter({ id: `${Date.now()}`, points: points.length === 1 ? [[points[0][0] - 0.006, points[0][1] - 0.004], [points[0][0] + 0.006, points[0][1] + 0.004]] : points });
   const onMode = (mode: 'live' | 'sim') => {
     if (mode === snap.mode) return;
@@ -176,26 +195,30 @@ export function CommandView() {
             showLabels={!hidden.has('labels')}
             handles={handles}
             onResize={(zoneId, radiusM) => void hub.send('resizeZone', { zoneId, radiusM })}
-            onSelect={(kind, id) => { if (kind === 'contact') { setSelected(id); setInspect({ kind: 'contact', id }); setWhy(false); } else setInspect({ kind: 'vessel', id }); }}
+            describe={describe}
+            highlight={highlight}
+            onSelect={(kind, id) => { setHighlight(null); if (kind === 'contact') { setSelected(id); setInspect({ kind: 'contact', id }); setWhy(false); } else setInspect({ kind, id }); }}
             onPointer={(lonlat) => { if (driven) void hub.send('drive', { contactId: driven.id, lonlat }); }}
             onDrop={onDrop}
             labels={hidden.has('labels') ? [] : [
               ...snap.contacts.map((c) => ({ id: c.id, text: c.label, lonlat: c.lonlat })),
               ...snap.vessels.filter((v) => v.phone?.joined && !v.affected).map((v) => ({ id: v.id, text: `${v.name}, phone`, lonlat: v.lonlat })),
             ]} />
-          <DeskTools tool={tool} setTool={setTool} onDivePlans={() => setDeskOpen(!deskOpen)} />
+          <DeskTools tool={tool} setTool={setTool} onDivePlans={() => { setDeskTab('today'); setDeskCollapsed(false); }} />
           <ChartCorner onPresenter={() => setPresenter(!presenter)} presenterOpen={presenter} hidden={hidden} onLayer={toggleLayer} />
           {tool === 'drive' && driven ? <DriveControl c={driven} send={hub.send} onStop={() => setTool('select')} /> : null}
           {dossierContact ? <ContactDossier c={dossierContact} onClose={() => setInspect(null)} onCenter={() => centerOn([dossierContact.lonlat])} /> : null}
+          {inspectedZone && tool !== 'drive' ? <ZoneInspector snap={snap} zoneId={inspectedZone} send={hub.send} onClose={() => { setInspect(null); setHighlight(null); }}
+            onCenter={() => { const z = snap.zones.find((x) => x.id === inspectedZone); if (z) setRecenter({ id: `${Date.now()}`, points: z.rings.flat(2).filter((_, i) => i % 4 === 0) }); }}
+            onDossier={(id) => setInspect({ kind: 'contact', id })} /> : null}
           {inspectedVessel && tool !== 'drive' ? <VesselInspector v={inspectedVessel} onClose={() => setInspect(null)} onCenter={() => centerOn([inspectedVessel.lonlat])} /> : null}
           <span className="chart-attr">Map data: OpenStreetMap contributors</span>
         </div>
-        {!incident || deskOpen ? (
-          <div className="cmd-desk" style={{ ['--desk-h' as string]: `${desk.size}px` }}>
-            <div className="grip y" onPointerDown={desk.onPointerDown} onDoubleClick={desk.reset} title="Drag to resize. Double-click to reset." data-testid="desk-grip" />
-            <DeskRail snap={snap} send={hub.send} divePoint={divePoint} onPickDive={() => setTool('dive')} />
-          </div>
-        ) : null}
+        <div className={`cmd-desk${deskCollapsed ? ' collapsed' : ''}`} style={{ ['--desk-h' as string]: `${desk.size}px` }} data-testid="desk">
+          {deskCollapsed ? null : <div className="grip y" onPointerDown={desk.onPointerDown} onDoubleClick={desk.reset} title="Drag to resize. Double-click to reset." data-testid="desk-grip" />}
+          <DeskRail snap={snap} send={hub.send} divePoint={divePoint} onPickDive={() => setTool('dive')}
+            tab={deskTab} onTab={(t) => { setDeskTab(t); setDeskCollapsed(false); }} collapsed={deskCollapsed} onCollapse={() => setDeskCollapsed(!deskCollapsed)} onPlace={onPlace} />
+        </div>
         {why && !dossierContact ? <WhyDrawer snap={snap} c={focus} plan={(draft ?? focusNotice)?.plan ?? null} onClose={() => setWhy(false)} /> : null}
       </div>
       <div className="cmd-rail-wrap">

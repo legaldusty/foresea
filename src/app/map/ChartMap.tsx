@@ -26,6 +26,7 @@ export interface ChartData {
   you: GeoJSON.FeatureCollection;
   forecast: GeoJSON.FeatureCollection;
   ticks: GeoJSON.FeatureCollection;
+  trails: GeoJSON.FeatureCollection;
 }
 
 export const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -50,7 +51,9 @@ export interface ChartMapProps {
   follow?: LonLat | null;
   fitTo?: LonLat[] | null;
   interactive?: boolean;
-  onSelect?: (kind: 'vessel' | 'contact', id: string) => void;
+  onSelect?: (kind: 'vessel' | 'contact' | 'zone', id: string) => void;
+  describe?: (hit: ChartHit) => { title: string; lines: string[] } | null;
+  highlight?: { lonlat: LonLat; radiusM: number | null } | null;
   onPointer?: (lonlat: LonLat) => void;
   onDrop?: (lonlat: LonLat) => void;
   padding?: { top: number; right: number; bottom: number; left: number };
@@ -65,6 +68,21 @@ export interface ChartMapProps {
 }
 
 export interface ZoneHandle { id: string; center: LonLat; radiusM: number; label: string }
+
+export interface ChartHit { kind: 'vessel' | 'contact' | 'zone' | 'forecast' | 'tick'; id: string; layer?: string }
+
+const HIT_LAYERS = ['contacts', 'vessels', 'tick-rings', 'zone-fill-keepout', 'zone-fill-slow', 'fc-likely-fill-a', 'fc-likely-fill-b', 'fc-careful-fill-a', 'fc-careful-fill-b'];
+
+function hitOf(f: maplibregl.MapGeoJSONFeature): ChartHit | null {
+  const p = (f.properties ?? {}) as Record<string, unknown>;
+  const layer = f.layer.id;
+  if (layer === 'contacts') return { kind: 'contact', id: String(p.id) };
+  if (layer === 'vessels') return { kind: 'vessel', id: String(p.id) };
+  if (layer === 'tick-rings') return { kind: 'tick', id: String(p.id), layer: String(p.label ?? '') };
+  if (layer.startsWith('zone-fill')) return { kind: 'zone', id: String(p.id) };
+  if (layer.startsWith('fc-')) return { kind: 'forecast', id: String(p.owner), layer: String(p.layer) };
+  return null;
+}
 
 const EARTH_M_PER_DEG = 111_320;
 
@@ -89,7 +107,7 @@ function ringAround(center: LonLat, meters: number): GeoJSON.FeatureCollection {
   return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts } }] };
 }
 
-const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you', 'ticks'];
+const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you', 'ticks', 'trails'];
 const FADE_MS = 400;
 const FORECAST_OPACITY = { carefulFill: 0.22, carefulEdge: 1, likelyFill: 0.38, likelyEdge: 1 };
 const FORECAST_SIDES = ['a', 'b'] as const;
@@ -114,7 +132,7 @@ function showForecast(map: MLMap, side: Side, on: boolean): void {
   map.setPaintProperty(`fc-likely-edge-${side}`, 'line-opacity', on ? FORECAST_OPACITY.likelyEdge : 0);
 }
 const MOTION_SOURCES: (keyof ChartData)[] = ['vessels', 'contacts', 'you'];
-const STATIC_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'arrows', 'ticks'];
+const STATIC_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'arrows', 'ticks', 'trails'];
 const FRAMES_KEPT = 4;
 const EXTRAPOLATE_MAX = 2;
 
@@ -172,6 +190,7 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       'forecast-a': { type: 'geojson', data: EMPTY },
       'forecast-b': { type: 'geojson', data: EMPTY },
       'resize-preview': { type: 'geojson', data: EMPTY },
+      highlight: { type: 'geojson', data: EMPTY },
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': c.water } },
@@ -188,6 +207,8 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'zone-fill-slow', type: 'fill', source: 'zones', filter: ['all', ['==', ['get', 'kind'], 'slow'], ['!', ['get', 'area']]], paint: { 'fill-pattern': 'hatch-slow', 'fill-opacity': ['case', ['==', ['get', 'status'], 'draft'], 0.55, 1] } },
       { id: 'zone-fill-keepout', type: 'fill', source: 'zones', filter: ['all', ['==', ['get', 'kind'], 'keepOut'], ['!', ['get', 'area']]], paint: { 'fill-pattern': 'hatch-keepout', 'fill-opacity': ['case', ['==', ['get', 'status'], 'draft'], 0.55, 1] } },
       { id: 'zone-edge', type: 'line', source: 'zones', filter: ['==', ['get', 'status'], 'published'], paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.6 } },
+      { id: 'highlight-fill', type: 'fill', source: 'highlight', filter: ['==', ['geometry-type'], 'Polygon'], paint: { 'fill-color': c.tide, 'fill-opacity': 0.12 } },
+      { id: 'highlight-ring', type: 'line', source: 'highlight', paint: { 'line-color': c.tide, 'line-width': 3, 'line-dasharray': [1.5, 1] } },
       { id: 'resize-preview', type: 'line', source: 'resize-preview', paint: { 'line-color': c.tide, 'line-width': 2, 'line-dasharray': [2, 1.5] } },
       { id: 'zone-edge-draft', type: 'line', source: 'zones', filter: ['==', ['get', 'status'], 'draft'], paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.4, 'line-dasharray': [3, 2] } },
       { id: 'route-old', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'planned'], paint: { 'line-color': withAlpha(c.muted, night ? 0.55 : 0.6), 'line-width': 1.2, 'line-dasharray': [2, 2] } },
@@ -196,12 +217,13 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'tick-rings', type: 'circle', source: 'ticks', paint: { 'circle-radius': 4, 'circle-color': c.bg, 'circle-stroke-width': 1.5, 'circle-stroke-color': c.text } },
       { id: 'arrows-line', type: 'line', source: 'arrows', paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.4, 'line-dasharray': [2, 1.6] } },
       { id: 'arrows-head', type: 'symbol', source: 'arrows', filter: ['==', ['geometry-type'], 'Point'], layout: { 'icon-image': ['case', ['==', ['get', 'kind'], 'slow'], 'arrow-slow', 'arrow-keepout'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-size': 0.5 } },
+      { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.landEdge, 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1, 15, 2], 'line-opacity': night ? 0.75 : 0.6, 'line-dasharray': [1, 1.5] } },
       { id: 'vessels', type: 'symbol', source: 'vessels', layout: {
         'icon-image': ['coalesce', ['image', ['concat', 'v-', ['get', 'type']]], ['image', 'v-other']],
         'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
         'icon-size': ['interpolate', ['linear'], ['zoom'], 11, ['*', 0.55, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]], 13, ['*', 0.8, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]], 15, ['*', 1.25, ['get', 'scale'], ['case', ['==', ['get', 'bg'], true], 0.75, 1]]],
         'symbol-sort-key': ['case', ['==', ['get', 'bg'], true], 0, 1],
-      }, paint: { 'icon-opacity': ['case', ['==', ['get', 'bg'], true], 0.4, ['==', ['get', 'stale'], true], 0.5, 1] } },
+      }, paint: { 'icon-opacity': ['case', ['==', ['get', 'bg'], true], 0.4, ['==', ['get', 'stale'], true], 0.5, ['>', ['coalesce', ['get', 'ageSec'], 0], 300], 0.45, 1] } },
       { id: 'vessels-flag', type: 'circle', source: 'vessels', filter: ['in', ['get', 'flag'], ['literal', ['watch', 'anomalous']]], paint: { 'circle-radius': ['interpolate', ['linear'], ['zoom'], 11, 9, 15, 18], 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 1.5, 'circle-stroke-color': ['case', ['==', ['get', 'flag'], 'anomalous'], c.riskSerious, c.riskMedium] } },
       { id: 'vessels-alert', type: 'symbol', source: 'vessels', filter: ['get', 'inZone'], layout: { 'icon-image': 'ring-alert', 'icon-allow-overlap': true, 'icon-size': 0.6 } },
       { id: 'contacts-ring', type: 'symbol', source: 'contacts', filter: ['==', ['get', 'selected'], true], layout: { 'icon-image': 'symbol-ring', 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': 1 } },
@@ -235,6 +257,7 @@ export function ChartMap(props: ChartMapProps) {
   const calloutMarkers = useRef(new Map<string, maplibregl.Marker>());
   const motionStats = useRef<{ frames: number; lastMs: number; contact: number[] | null }>({ frames: 0, lastMs: 0, contact: null });
   const handleMarkers = useRef(new Map<string, maplibregl.Marker>());
+  const tipRef = useRef<HTMLDivElement | null>(null);
   const dragging = useRef<string | null>(null);
 
   useEffect(() => {
@@ -326,10 +349,42 @@ export function ChartMap(props: ChartMapProps) {
       const p = propsRef.current;
       if (p.mode === 'drop') { p.onDrop?.([e.lngLat.lng, e.lngLat.lat]); return; }
       if (p.mode === 'drive') { p.onPointer?.([e.lngLat.lng, e.lngLat.lat]); return; }
-      const hits = map.queryRenderedFeatures(e.point, { layers: ['contacts', 'vessels'].filter((l) => map.getLayer(l)) });
-      const hit = hits[0];
-      if (hit) p.onSelect?.(hit.layer.id === 'contacts' ? 'contact' : 'vessel', String(hit.properties?.id));
+      const box: [maplibregl.PointLike, maplibregl.PointLike] = [[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]];
+      const hits = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((l) => map.getLayer(l)) }).map(hitOf).filter((h): h is ChartHit => h !== null);
+      const hit = hits.find((h) => h.kind === 'contact') ?? hits.find((h) => h.kind === 'vessel') ?? hits.find((h) => h.kind === 'zone') ?? hits.find((h) => h.kind === 'forecast');
+      if (hit) p.onSelect?.(hit.kind === 'forecast' ? 'contact' : hit.kind === 'tick' ? 'contact' : hit.kind, hit.kind === 'tick' ? hit.id.split(':')[0] : hit.id);
     });
+    const tip = document.createElement('div');
+    tip.className = 'chart-tip';
+    tip.hidden = true;
+    el.parentElement?.appendChild(tip);
+    tipRef.current = tip;
+    let tipFrame = 0;
+    map.on('mousemove', (e) => {
+      if (tipFrame) return;
+      tipFrame = requestAnimationFrame(() => {
+        tipFrame = 0;
+        const p = propsRef.current;
+        if (!p.describe || p.mode === 'drive' || p.compact) { tip.hidden = true; return; }
+        const box: [maplibregl.PointLike, maplibregl.PointLike] = [[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]];
+        const hits = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((l) => map.getLayer(l)) }).map(hitOf).filter((h): h is ChartHit => h !== null);
+        const order: ChartHit['kind'][] = ['contact', 'vessel', 'tick', 'zone', 'forecast'];
+        const hit = order.map((k) => hits.find((h) => h.kind === k)).find(Boolean);
+        const text = hit ? p.describe(hit) : null;
+        if (!text) { tip.hidden = true; map.getCanvas().style.cursor = p.mode === 'drop' ? 'crosshair' : ''; return; }
+        if (p.mode !== 'drop') map.getCanvas().style.cursor = 'pointer';
+        tip.replaceChildren();
+        const title = document.createElement('strong');
+        title.textContent = text.title;
+        tip.appendChild(title);
+        for (const line of text.lines) { const s = document.createElement('span'); s.textContent = line; tip.appendChild(s); }
+        const w = el.clientWidth;
+        tip.style.left = `${Math.min(e.point.x + 14, w - 280)}px`;
+        tip.style.top = `${e.point.y + 14}px`;
+        tip.hidden = false;
+      });
+    });
+    map.on('mouseout', () => { tip.hidden = true; });
     const steer = (lng: number, lat: number, force = false) => {
       const p = propsRef.current;
       if (p.mode !== 'drive') return;
@@ -357,7 +412,7 @@ export function ChartMap(props: ChartMapProps) {
     }
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of handleMarkers.current.values()) m.remove(); handleMarkers.current.clear(); for (const m of calloutMarkers.current.values()) m.remove(); calloutMarkers.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of handleMarkers.current.values()) m.remove(); handleMarkers.current.clear(); tipRef.current?.remove(); tipRef.current = null; for (const m of calloutMarkers.current.values()) m.remove(); calloutMarkers.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [props.theme]);
 
   useEffect(() => {
@@ -480,6 +535,21 @@ export function ChartMap(props: ChartMapProps) {
       (el.querySelector('span') as HTMLElement).textContent = `${h.radiusM} m`;
     }
   }, [JSON.stringify(props.handles ?? [])]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const apply = () => {
+      const src = map.getSource('highlight') as GeoJSONSource | undefined;
+      if (!src) return;
+      const h = props.highlight;
+      if (!h) { src.setData(EMPTY); return; }
+      const ring = ringAround(h.lonlat, h.radiusM ?? 120);
+      const coords = (ring.features[0].geometry as GeoJSON.LineString).coordinates;
+      src.setData({ type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'Polygon', coordinates: [coords] } }] });
+    };
+    if (readyRef.current) apply(); else map.once('load', apply);
+  }, [JSON.stringify(props.highlight ?? null)]);
 
   function pushForecast(map: MLMap, data: ChartData): void {
     const key = JSON.stringify(data.forecast);

@@ -60,7 +60,7 @@ export function contactState(c: ContactView): string {
   return c.risk.level.toLowerCase();
 }
 
-const BLANK: ChartData = { zones: EMPTY, paths: EMPTY, routes: EMPTY, vessels: EMPTY, contacts: EMPTY, arrows: EMPTY, you: EMPTY, forecast: EMPTY, ticks: EMPTY };
+const BLANK: ChartData = { zones: EMPTY, paths: EMPTY, routes: EMPTY, vessels: EMPTY, contacts: EMPTY, arrows: EMPTY, you: EMPTY, forecast: EMPTY, ticks: EMPTY, trails: EMPTY };
 
 export function commandChart(s: CommandSnapshot | null, selectedId: string | null, forecasts: ForecastView[] = []): ChartData {
   if (!s) return BLANK;
@@ -89,6 +89,7 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
       id: v.id, type: silhouetteFor(v.type, v.lengthM), heading: v.headingDeg, inZone: !!v.affected && v.inZone, stale: false,
       scale: v.lengthM && v.lengthM > 200 ? 1.5 : v.lengthM && v.lengthM > 80 ? 1.2 : 0.85, source: v.source, bg: !foreground(v),
       flag: v.intel && v.intel.level !== 'normal' ? v.intel.level : 'none',
+      ageSec: v.detail?.lastSeenSec ?? 0,
     },
     geometry: { type: 'Point', coordinates: v.lonlat },
   }));
@@ -109,6 +110,7 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
     you: EMPTY,
     forecast: fc(forecast),
     ticks: fc(ticks),
+    trails: fc(s.vessels.filter((v) => v.trail && v.trail.length > 1).map((v) => ({ type: 'Feature', properties: { id: v.id }, geometry: { type: 'LineString', coordinates: [...(v.trail as LonLat[]), v.lonlat] } }))),
   };
 }
 
@@ -148,6 +150,6 @@ export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number, 
   const paths: F[] = v && extras.spot ? [{ type: 'Feature', properties: { kind: 'track' }, geometry: { type: 'LineString', coordinates: [v.lonlat, extras.spot] } }] : [];
   return {
     zones: fc(zoneFeatures(zones)), paths: fc(paths), routes: fc(routes), vessels: fc(vessels), contacts: fc(contacts),
-    arrows: fc(arrowFeatures(zones)), you: fc(you), forecast: fc(forecast), ticks: fc(ticks),
+    arrows: fc(arrowFeatures(zones)), you: fc(you), forecast: fc(forecast), ticks: fc(ticks), trails: EMPTY,
   };
 }

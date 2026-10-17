@@ -17,6 +17,7 @@ import { boatBox, framePoints } from './frame';
 import { snapshotAt } from './timing';
 import { useLanguage } from './words';
 import '../../styles/captain.css';
+import { ResizableSheet } from './ResizableSheet';
 
 const STALE_MS = 20_000;
 const ALL_CLEAR_SHOW_MS = 60_000;
@@ -183,7 +184,7 @@ export function CaptainView() {
         <MapControls theme={theme} onCenter={center} onTheme={toggleTheme} />
         <span className="cap-attr">© OpenStreetMap contributors</span>
       </div>
-      {sheet ? <div className="cap-sheet" data-testid="captain-sheet">{sheet}</div> : null}
+      {sheet ? <ResizableSheet>{sheet}</ResizableSheet> : null}
       {screen === 'notices' ? <NoticesScreen notices={notices} cleared={snap?.allClear ?? []} lang={lang} onBack={() => setScreen('main')} onOpen={(id) => { setFocusId(id); setScreen('main'); }} /> : null}
       {screen === 'language' ? <LanguageScreen lang={lang} onChoose={setLang} onBack={() => setScreen('main')} /> : null}
       {screen === 'report' ? <ReportFlow snap={snap} theme={theme} onTheme={toggleTheme} stamp={snap?.clock.wallMs} onSend={hub.reportSighting} onClose={() => setScreen('main')} /> : null}

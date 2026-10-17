@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
 import {
-  Binoculars, CaretDown, ClipboardText, Crane, Eye, EyeSlash, Fish, Gauge, Joystick, ListDashes, Moon, Pause, Play, PersonSimpleSwim, Polygon, Prohibit, ProjectorScreen, Stop, Sun, WifiSlash, X,
+  Binoculars, CaretDown, ClipboardText, Crane, DotsSixVertical, Eye, EyeSlash, Fish, Gauge, Joystick, ListDashes, Moon, Pause, Play, PersonSimpleSwim, Polygon, Prohibit, ProjectorScreen, Stop, Sun, WifiSlash, X,
 } from '@phosphor-icons/react';
 import type { CommandEvents, ContactView, Species } from '../../shared/protocol';
 import { Button, Field, Segmented, SelectBox, Simulated } from '../ui';
+import { usePersisted } from './resize';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 export type ZoneKind = 'whale' | 'divers' | 'dredge' | 'closure';
@@ -107,6 +108,29 @@ export function Presenter(props: {
   tool: Tool; setTool: (t: Tool) => void; theme: 'night' | 'day'; onTheme: () => void; onNights: () => void;
 }) {
   const spawn = (payload: CommandEvents['spawn']) => void props.send('spawn', payload);
+  const [pos, setPos] = usePersisted<{ x: number; y: number } | null>('giveway.presenter.pos', null);
+  const startDrag = (e: React.PointerEvent) => {
+    if ((e.target as HTMLElement).closest('button')) return;
+    const panel = (e.currentTarget as HTMLElement).parentElement as HTMLElement;
+    const r = panel.getBoundingClientRect();
+    const dx = e.clientX - r.left;
+    const dy = e.clientY - r.top;
+    const move = (ev: PointerEvent) => {
+      const x = Math.max(0, Math.min(window.innerWidth - r.width, ev.clientX - dx));
+      const y = Math.max(48, Math.min(window.innerHeight - 120, ev.clientY - dy));
+      panel.style.left = `${x}px`;
+      panel.style.top = `${y}px`;
+    };
+    const up = (ev: PointerEvent) => {
+      window.removeEventListener('pointermove', move);
+      window.removeEventListener('pointerup', up);
+      document.body.classList.remove('dragging');
+      setPos({ x: Math.max(0, Math.min(window.innerWidth - r.width, ev.clientX - dx)), y: Math.max(48, Math.min(window.innerHeight - 120, ev.clientY - dy)) });
+    };
+    document.body.classList.add('dragging');
+    window.addEventListener('pointermove', move);
+    window.addEventListener('pointerup', up);
+  };
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && props.open) props.onClose(); };
     window.addEventListener('keydown', onKey);
@@ -114,8 +138,8 @@ export function Presenter(props: {
   }, [props.open]);
   if (!props.open) return null;
   return (
-    <aside className="presenter" data-testid="presenter-panel">
-      <div className="presenter-head"><span className="t-heading">Presenter</span><span className="t-small c-muted">Demo controls, not part of the product</span><button className="icon-btn" onClick={props.onClose} aria-label="Close"><X size={16} /></button></div>
+    <aside className={`presenter${pos ? ' floating' : ''}`} data-testid="presenter-panel" style={pos ? { left: pos.x, top: Math.min(pos.y, window.innerHeight - 200), maxHeight: window.innerHeight - Math.min(pos.y, window.innerHeight - 200) - 16 } : undefined}>
+      <div className="presenter-head" onPointerDown={startDrag} onDoubleClick={() => setPos(null)} title="Drag to move. Double-click to dock."><span className="t-heading"><DotsSixVertical size={16} className="grip-dots" />Presenter</span><span className="t-small c-muted">Demo controls, not part of the product</span><button className="icon-btn" onClick={props.onClose} aria-label="Close"><X size={16} /></button></div>
       <section>
         <span className="sec">Scene</span>
         <div className="row-btns">

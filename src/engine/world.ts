@@ -283,8 +283,8 @@ export class World {
 
   private orders(): Settings['orders'] { return { ...this.settings.orders, ...this.signedOrders.orders } as Settings['orders']; }
 
-  log(actor: string, action: string, detail: string, undo?: () => void): P.AuditEntry {
-    const entry: P.AuditEntry = { id: this.id('a'), atMin: this.simMin, wall: this.wall(), actor, action, detail, undoable: !!undo, undone: false };
+  log(actor: string, action: string, detail: string, undo?: () => void, where?: P.AuditWhere): P.AuditEntry {
+    const entry: P.AuditEntry = { id: this.id('a'), atMin: this.simMin, wall: this.wall(), actor, action, detail, undoable: !!undo, undone: false, where: where ?? this.inferWhere(detail) };
     this.audit.push(entry);
     if (this.audit.length > MAX_AUDIT) this.audit.shift();
     this.effects.audit.push(entry);
@@ -352,7 +352,21 @@ export class World {
     this.cruiseShip = ship;
   }
 
+  private aisTrails = new Map<number, { lonlat: LonLat; at: number }[]>();
+
+  private rememberTrail(v: AisInputVessel): void {
+    const at = v.reportedAtMs ?? this.wallMs;
+    const keepMs = this.settings.ais.trailMinutes * 60_000;
+    const list = this.aisTrails.get(v.mmsi) ?? [];
+    const last = list[list.length - 1];
+    if (!last || (last.at !== at && (Math.abs(last.lonlat[0] - v.lon) > 1e-5 || Math.abs(last.lonlat[1] - v.lat) > 1e-5))) list.push({ lonlat: [v.lon, v.lat], at });
+    while (list.length && (at - list[0].at > keepMs || list.length > 30)) list.shift();
+    this.aisTrails.set(v.mmsi, list);
+  }
+
   setAis(vessels: AisInputVessel[]): void {
+    for (const v of vessels) this.rememberTrail(v);
+    for (const mmsi of [...this.aisTrails.keys()]) if (!vessels.some((v) => v.mmsi === mmsi)) this.aisTrails.delete(mmsi);
     const g = this.h.grid;
     this.ais = vessels.map((v) => {
       const [x, y] = g.toCell(v.lon, v.lat);
@@ -653,7 +667,7 @@ export class World {
     zone.pendingArea = null;
     for (const entry of n.perVessel.values()) { entry.fix = null; entry.fixAreaVersion = -1; }
     this.removeCards((k) => k.key.startsWith(`update:${zone.id}`));
-    this.log(actor, 'Forecast update published', detail);
+    this.log(actor, 'Forecast update published', detail, undefined, this.zoneWhere(zone));
   }
 
   forecastViews(): P.ForecastView[] {
@@ -762,7 +776,7 @@ export class World {
     };
     this.sightings.unshift(sighting);
     const near = this.placeNear(this.cellAt(e.lonlat));
-    this.log(source === 'desk' ? 'officer' : `captain:${reporter}`, 'Sighting reported', `${e.species.charAt(0).toUpperCase()}${e.species.slice(1)} near ${near}, from ${reporter}${sighting.note ? `: ${sighting.note}` : ''}`);
+    this.log(source === 'desk' ? 'officer' : `captain:${reporter}`, 'Sighting reported', `${e.species.charAt(0).toUpperCase()}${e.species.slice(1)} near ${near}, from ${reporter}${sighting.note ? `: ${sighting.note}` : ''}`, undefined, { lonlat: e.lonlat, radiusM: null, zoneId: null, contactId: null, vesselId: null, place: near });
     if (source === 'desk') { if (e.species === 'whale') this.confirmSighting(sighting.id); return sighting; }
     this.raiseCard(`sighting:${sighting.id}`, {
       kind: e.species === 'whale' || e.species === 'dolphin' || e.species === 'sea lion' ? 'animal' : 'info',
@@ -1106,7 +1120,14 @@ export class World {
     for (const n of active) for (const [vid, e] of n.perVessel) if (e.priority !== 'P4' || e.action !== 'none') notified.add(vid);
     const rows = this.onTimeRows();
     const behind = rows.filter((r) => r.status === 'late' || r.status === 'at risk').length;
-    const day = this.night ? 'Night watch' : 'Tuesday';
+    const day = this.mode === 'live' ? 'Live' : this.night ? 'Night watch' : 'Tuesday';
+    if (this.mode === 'live') {
+      const moving = this.ais.filter((v) => v.sogKn >= 0.5).length;
+      const watch = [...this.vesselIntel.values()].filter((v) => v.level !== 'normal').length;
+      const ships = this.ais.length ? `${this.ais.length} ships on AIS, ${moving} under way${watch ? `, ${watch} to watch` : ''}` : 'Waiting for AIS';
+      const quiet = active.length ? `${active.length} zone${active.length === 1 ? '' : 's'} active, ${notified.size} boat${notified.size === 1 ? '' : 's'} notified` : 'no zones';
+      return { text: `Live ${clockLabel(this.simMin)}. ${ships}, ${quiet}.`, tone: watch ? 'watch' : 'calm', contactId: null };
+    }
     const zones = active.length ? `${active.length} zone${active.length === 1 ? '' : 's'} active, ${notified.size} boat${notified.size === 1 ? '' : 's'} notified` : 'Harbor quiet, no zones';
     const onTime = behind ? `${behind} boat${behind === 1 ? '' : 's'} running late` : 'all ships on time';
     return { text: `${day} ${clockLabel(this.simMin)}. ${zones}, ${onTime}.`, tone: 'calm', contactId: null };
@@ -1138,6 +1159,34 @@ export class World {
       const when = offset === 0 ? clockLabel(x.atMin) : offset === -1 ? `Yesterday ${clockLabel(x.atMin)}` : `${-offset} days ago`;
       return { ...x, dayOffset: offset, whenLabel: when };
     });
+  }
+
+  zoneWhere(z: ZoneRec): P.AuditWhere {
+    return { lonlat: this.lonlatOf(z.centerCell), radiusM: z.radiusM, zoneId: z.id, contactId: z.contactId, vesselId: null, place: this.placeNear(z.centerCell) };
+  }
+
+  private inferWhere(detail: string): P.AuditWhere | undefined {
+    const has = (name: string) => new RegExp(`(^|[^A-Za-z0-9-])${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9-])`).test(detail);
+    for (const z of this.zones.values()) {
+      const doc = z.noticeId ? this.notices.get(z.noticeId) : z.draftId ? this.drafts.get(z.draftId) : undefined;
+      if (doc?.label && detail.includes(doc.label)) return this.zoneWhere(z);
+    }
+    for (const c of this.contacts.values()) {
+      if (!has(c.spec.label)) continue;
+      const z = this.zones.get(`z-${c.id}`);
+      return { lonlat: contactLonLat(this.h, c), radiusM: z?.radiusM ?? null, zoneId: z?.id ?? null, contactId: c.id, vesselId: null, place: this.placeNear(c.cell) };
+    }
+    for (const k of this.craft) {
+      if (!detail.startsWith(`${k.name}:`) && !detail.startsWith(`${k.name} `)) continue;
+      return { lonlat: craftLonLat(this.h, k), radiusM: null, zoneId: null, contactId: null, vesselId: k.id, place: null };
+    }
+    const near = /near (?:the )?([A-Z][A-Za-z0-9 ]+?)(?=[.,:;]|$| from| now)/.exec(detail);
+    if (near) {
+      const named = [...this.h.targets.map((t) => ({ name: t.short ?? t.name, cell: t.cell })), ...this.h.gates.map((g) => ({ name: g.name, cell: g.cell })), ...this.h.places.map((p) => ({ name: p.name, cell: p.cell }))];
+      const hit = named.find((p) => p.name.replace(/^the /i, '') === near[1].trim());
+      if (hit) return { lonlat: this.lonlatOf(hit.cell), radiusM: null, zoneId: null, contactId: null, vesselId: null, place: withArticle(hit.name) };
+    }
+    return undefined;
   }
 
   placeNear(cell: number): string {
@@ -1479,7 +1528,8 @@ export class World {
     if (!card.autoAtWall) {
       card.autoAtWall = this.wallMs + o.vetoSeconds * 1000;
       card.autoOrder = `Standing Orders: publish give-way notices up to ${levelName(o.autoPublishUpToLevel)} on my behalf`;
-      this.log('machine', 'Auto-publish armed', `Publishing in ${o.vetoSeconds} s under the Standing Orders unless the officer stops it`);
+      const armedZone = this.zones.get(this.drafts.get(draftId)?.zoneId ?? '');
+      this.log('machine', 'Auto-publish armed', `Publishing in ${o.vetoSeconds} s under the Standing Orders unless the officer stops it`, undefined, armedZone ? this.zoneWhere(armedZone) : undefined);
     }
     card.actions = [{ id: 'publish', label: 'Publish now', primary: true }, { id: 'holdAuto', label: 'Stop' }, { id: 'discard', label: 'Discard' }];
   }
@@ -1493,7 +1543,8 @@ export class World {
       const n = id ? this.notices.get(id) : undefined;
       if (!n) continue;
       n.approvedBy = `Standing Orders of ${this.officer}`;
-      this.log('machine', 'Published under Standing Orders', `No stop from the officer within ${this.orders().vetoSeconds} s. Undo from the log.`);
+      const autoZone = this.zones.get(n.zoneId);
+      this.log('machine', 'Published under Standing Orders', `No stop from the officer within ${this.orders().vetoSeconds} s. Undo from the log.`, undefined, autoZone ? this.zoneWhere(autoZone) : undefined);
     }
   }
 
@@ -1514,7 +1565,7 @@ export class World {
     }
     z.radiusM = r;
     z.geometry = circleZone(this.h.grid, z.centerCell, r);
-    this.log('officer', 'Zone resized', `${n.label ?? n.publicReason} now ${r} m`);
+    this.log('officer', 'Zone resized', `${n.label ?? n.publicReason} now ${r} m`, undefined, this.zoneWhere(z));
   }
 
   private cautionMask(): Uint8Array | null {
@@ -1561,7 +1612,7 @@ export class World {
       this.drafts.set(id, d);
       zone.draftId = id;
       const draftRef = d;
-      this.log('machine', 'Notice drafted', `${label ?? (kind === 'security' ? 'Give-way notice' : `${zone.reason} zone`)} near ${this.placeNear(zone.centerCell)}: ${plan.comparison.chosen}`, () => this.discardDraft(draftRef.id, 'machine'));
+      this.log('machine', 'Notice drafted', `${label ?? (kind === 'security' ? 'Give-way notice' : `${zone.reason} zone`)} near ${this.placeNear(zone.centerCell)}: ${plan.comparison.chosen}`, () => this.discardDraft(draftRef.id, 'machine'), this.zoneWhere(zone));
     }
     d.instruction = d.officerInstruction ?? instruction;
     d.radiusM = zone.radiusM;
@@ -1746,7 +1797,7 @@ export class World {
     z.noticeId = id;
     z.draftId = null;
     this.refreshNotice(notice);
-    this.log(actor, 'Published', `${d.publicReason}: ${d.instructionText}. ${notice.perVessel.size} recipients. ${plan?.comparison.chosen ?? ''}`, () => this.clearNotice(id, 'officer', true, 'All clear', false));
+    this.log(actor, 'Published', `${d.publicReason}: ${d.instructionText}. ${notice.perVessel.size} recipients. ${plan?.comparison.chosen ?? ''}`, () => this.clearNotice(id, 'officer', true, 'All clear', false), this.zoneWhere(z));
     if (notice.wording.source === 'template') this.effects.wording.push({ draftId: id, facts: this.wordingFacts(z.contactId ? this.contacts.get(z.contactId) ?? null : null, z, plan ?? this.slowPlan(z.geometry.mask), null), template: notice.wording, key: 'notice' });
     return id;
   }
@@ -2023,7 +2074,7 @@ export class World {
     const words = allClearWording(this.station, z ? this.placeNear(z.centerCell) : '', this.simMin);
     this.allClearRecent.push({ id: noticeId, publicReason: n.publicReason, atWall: this.wall(), atMin: this.simMin, approvedBy: actor === 'officer' ? this.officer : 'Expired' });
     this.lastAllClearMin = this.simMin;
-    if (logIt || reason === 'Expired') this.log(actor, reason, `${n.publicReason} near ${z ? this.placeNear(z.centerCell) : 'the harbor'}. ${words.vhf}`);
+    if (logIt || reason === 'Expired') this.log(actor, reason, `${n.publicReason} near ${z ? this.placeNear(z.centerCell) : 'the harbor'}. ${words.vhf}`, undefined, z ? this.zoneWhere(z) : undefined);
     for (const [vid, entry] of n.perVessel) {
       const craft = this.craft.find((c) => c.id === vid);
       if (craft?.phone && this.captains.get(vid)?.connected && (entry.priority === 'P1' || entry.priority === 'P2')) {
@@ -2525,6 +2576,7 @@ export class World {
         inZone: v.cell >= 0 && zoneMasks.some((m) => m[v.cell] === 1),
         affected: affected.get(`ais-${v.mmsi}`) ?? null,
         intel: this.vesselIntel.get(`ais-${v.mmsi}`) ?? null,
+        trail: (this.aisTrails.get(v.mmsi) ?? []).map((p) => p.lonlat),
         detail: {
           mmsi: v.mmsi, destination: v.destination?.trim() || null, etaReported: reportedEtaLabel(v.etaReported ?? null), sogKn: v.sogKn, cogDeg: v.cogDeg, headingDeg: v.headingDeg,
           lastSeenSec: v.reportedAtMs !== undefined ? Math.max(0, (this.wallMs - v.reportedAtMs) / 1000) : null,

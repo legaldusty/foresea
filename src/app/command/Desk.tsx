@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { ArrowCounterClockwise, DownloadSimple, Warning } from '@phosphor-icons/react';
-import type { CommandEvents, CommandSnapshot, OnTimeRow } from '../../shared/protocol';
+import { ArrowCounterClockwise, CaretDown, CaretUp, DownloadSimple, MapPin, Warning } from '@phosphor-icons/react';
+import type { AuditWhere, CommandEvents, CommandSnapshot, OnTimeRow } from '../../shared/protocol';
 import { Button, Field, SelectBox, TextBox } from '../ui';
 import { clockOf, signed } from '../format';
 import '../../styles/desk.css';
@@ -120,24 +120,29 @@ function Report(props: { snap: CommandSnapshot }) {
   );
 }
 
-function Log(props: { snap: CommandSnapshot; send: Send }) {
+function Log(props: { snap: CommandSnapshot; send: Send; onPlace: (w: AuditWhere) => void }) {
   return (
     <div className="desk-pane" data-testid="audit-log">
       {props.snap.audit.map((a) => (
-        <div className={`log-row${a.undone ? ' undone' : ''}`} key={a.id}>
-          <span className="mono">{clockOf(a.atMin)}</span>
+        <div className={`log-row${a.undone ? ' undone' : ''}${a.where ? ' placed' : ''}`} key={a.id} onClick={a.where ? () => props.onPlace(a.where as AuditWhere) : undefined}
+          title={a.where ? `Show on the chart${a.where.place ? `: ${a.where.place}` : ''}` : undefined} data-testid={a.where ? `log-place-${a.id}` : undefined}>
+          <span className="mono">{a.where ? <MapPin size={14} className="pin" /> : null}{clockOf(a.atMin)}</span>
           <span className="t-strong">{a.actor === 'machine' ? 'GIVE WAY' : a.actor === 'officer' ? props.snap.officer : a.actor === 'system' ? 'System' : a.actor.replace(/^captain:/, 'Captain, ')}</span>
           <span>{a.action}</span>
           <span className="c-muted">{a.detail}</span>
-          {a.undoable && !a.undone ? <button className="undo" onClick={() => void props.send('undo', { auditId: a.id })}><ArrowCounterClockwise size={16} />Undo</button> : <span />}
+          {a.undoable && !a.undone ? <button className="undo" onClick={(e) => { e.stopPropagation(); void props.send('undo', { auditId: a.id }); }}><ArrowCounterClockwise size={16} />Undo</button> : <span />}
         </div>
       ))}
     </div>
   );
 }
 
-export function DeskRail(props: { snap: CommandSnapshot; send: Send; divePoint: [number, number] | null; onPickDive: () => void }) {
-  const [tab, setTab] = useState<DeskTab>('today');
+export function DeskRail(props: {
+  snap: CommandSnapshot; send: Send; divePoint: [number, number] | null; onPickDive: () => void;
+  tab: string; onTab: (t: string) => void; collapsed: boolean; onCollapse: () => void; onPlace: (w: AuditWhere) => void;
+}) {
+  const tab = props.tab as DeskTab;
+  const setTab = props.onTab;
   const atRisk = props.snap.onTime.filter((r) => r.status === 'late' || r.status === 'at risk').length;
   const tabs: { id: DeskTab; label: string }[] = [
     { id: 'today', label: `Today, ${props.snap.today.filter((r) => r.status === 'active').length} zones` },
@@ -149,13 +154,19 @@ export function DeskRail(props: { snap: CommandSnapshot; send: Send; divePoint: 
   return (
     <div className="desk-rail">
       <div className="desk-tabs" role="tablist">
-        {tabs.map((t) => <button key={t.id} className="tab" role="tab" aria-selected={tab === t.id} onClick={() => setTab(t.id)} data-testid={`desk-${t.id}`}>{t.label}</button>)}
+        {tabs.map((t) => <button key={t.id} className="tab" role="tab" aria-selected={!props.collapsed && tab === t.id} onClick={() => setTab(t.id)} data-testid={`desk-${t.id}`}>{t.label}</button>)}
+        <span className="desk-tabs-fill" />
+        <button className="icon-btn desk-collapse" onClick={props.onCollapse} aria-label={props.collapsed ? 'Open the desk' : 'Collapse the desk'} title={props.collapsed ? 'Open the desk' : 'Collapse the desk'} data-testid="desk-collapse">
+          {props.collapsed ? <CaretUp size={16} /> : <CaretDown size={16} />}
+        </button>
       </div>
+      {props.collapsed ? null : <>
       {tab === 'today' ? <Today snap={props.snap} send={props.send} divePoint={props.divePoint} onPickDive={props.onPickDive} /> : null}
       {tab === 'ontime' ? <OnTime snap={props.snap} /> : null}
       {tab === 'sightings' ? <Sightings snap={props.snap} /> : null}
       {tab === 'report' ? <Report snap={props.snap} /> : null}
-      {tab === 'log' ? <Log snap={props.snap} send={props.send} /> : null}
+      {tab === 'log' ? <Log snap={props.snap} send={props.send} onPlace={props.onPlace} /> : null}
+      </>}
     </div>
   );
 }
