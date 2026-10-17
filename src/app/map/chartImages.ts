@@ -135,8 +135,8 @@ async function svgImage(url: string, recolor: Record<string, string>, el: Elemen
   }
 }
 
-async function vessel(map: MLMap, kind: Silhouette, colors: ChartColors): Promise<void> {
-  const img = await svgImage(`/icons/vessels/${SILHOUETTE_FILES[kind]}.svg`, { currentColor: colors.text });
+async function vessel(map: MLMap, kind: Silhouette, colors: ChartColors, el: Element): Promise<void> {
+  const img = await svgImage(`/icons/vessels/${SILHOUETTE_FILES[kind]}.svg`, { currentColor: colors.text }, el);
   const w = 48, h = 48;
   const [c, ctx] = canvas(w);
   if (img) {
@@ -150,7 +150,7 @@ async function vessel(map: MLMap, kind: Silhouette, colors: ChartColors): Promis
   add(map, `v-${kind}`, c);
 }
 
-export async function loadChartImages(map: MLMap, colors: ChartColors): Promise<void> {
+export async function loadChartImages(map: MLMap, colors: ChartColors, el: Element = document.documentElement): Promise<void> {
   hatch(map, 'hatch-keepout', colors.riskHigh, 0.1, 0.6);
   hatch(map, 'hatch-slow', colors.riskMedium, 0.1, 0.65);
   arrow(map, 'arrow-keepout', colors.riskHigh);
@@ -169,5 +169,5 @@ export async function loadChartImages(map: MLMap, colors: ChartColors): Promise<
   diamond(map, 'diamond-person', colors.riskHigh, null, false, bg);
   you(map, colors.you, colors.bg);
   ring(map, 'ring-alert', colors.riskHigh);
-  await Promise.all(SILHOUETTES.map((k) => vessel(map, k, colors)));
+  await Promise.all(SILHOUETTES.map((k) => vessel(map, k, colors, el)));
 }

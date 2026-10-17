@@ -1,0 +1,42 @@
+.cap { position: fixed; inset: 0; background: var(--bg); color: var(--text); overflow: hidden; }
+.cap .chart-wrap { position: absolute; inset: 0; }
+.cap-strip {
+  position: absolute; top: 0; left: 0; right: 0; z-index: 4; display: flex; align-items: center; justify-content: space-between; gap: var(--space-12);
+  padding: calc(env(safe-area-inset-top, 0px) + var(--space-8)) var(--space-16) var(--space-8); background: var(--panel); border-bottom: 1px solid var(--line);
+}
+.cap-strip .who { display: flex; align-items: baseline; gap: var(--space-8); min-width: 0; }
+.cap-strip .who b { font: var(--type-heading); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cap-strip .live { display: inline-flex; align-items: center; gap: 6px; font: var(--type-small); color: var(--muted); white-space: nowrap; }
+.cap-strip .live.off { color: var(--risk-serious); }
+.cap-banner { position: absolute; left: 0; right: 0; z-index: 5; display: flex; flex-direction: column; background: var(--panel); border-bottom: 1px solid var(--line); cursor: pointer; }
+.cap-banner .body { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-12) var(--space-16); }
+.cap-sheet {
+  position: absolute; left: 0; right: 0; bottom: 0; z-index: 5; background: var(--panel); border-top: 1px solid var(--line);
+  padding: var(--space-16) var(--space-16) calc(env(safe-area-inset-bottom, 0px) + var(--space-16)); display: flex; flex-direction: column; gap: var(--space-12);
+  max-height: 72vh; overflow-y: auto;
+}
+.cap-sheet .row { display: flex; justify-content: space-between; gap: var(--space-12); align-items: baseline; }
+.cap-sheet .nlist { display: flex; flex-direction: column; }
+.cap-sheet .nitem { display: flex; justify-content: space-between; gap: var(--space-12); align-items: center; padding: var(--space-12) 0; border-top: 1px solid var(--line); cursor: pointer; background: transparent; border-left: 0; border-right: 0; border-bottom: 0; color: var(--text); text-align: left; width: 100%; font: inherit; }
+.cap-sheet .nitem .t-data { color: var(--muted); }
+.cap-instruction { font: var(--type-instruction); letter-spacing: var(--type-instruction-tracking); }
+.cap-take { position: absolute; inset: 0; z-index: 10; background: var(--bg); display: flex; flex-direction: column; }
+.cap-take .pband { padding-top: calc(env(safe-area-inset-top, 0px) + var(--space-12)); }
+.cap-take .content { flex: 1; min-height: 0; display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-16); overflow-y: auto; }
+.cap-take .mini { position: relative; height: 38vh; min-height: 220px; border: 1px solid var(--line); flex: none; }
+.cap-take .mini .chart-wrap { position: absolute; inset: 0; }
+.cap-take .nums { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-16); }
+.cap-take .nums .t-data-xl { display: block; }
+.cap-take .foot { padding: var(--space-16) var(--space-16) calc(env(safe-area-inset-bottom, 0px) + var(--space-16)); border-top: 1px solid var(--line); }
+.cap-join { position: absolute; inset: 0; z-index: 12; background: var(--bg); display: flex; flex-direction: column; justify-content: space-between; padding: calc(env(safe-area-inset-top, 0px) + var(--space-32)) var(--space-24) calc(env(safe-area-inset-bottom, 0px) + var(--space-24)); gap: var(--space-24); }
+.cap-join .lockup .mark { width: 32px; height: 32px; }
+.cap-join .lockup .word { font-size: 22px; }
+.cap-join .mid { display: flex; flex-direction: column; gap: var(--space-16); }
+.cap-join .hint { display: flex; gap: var(--space-8); align-items: flex-start; font: var(--type-small); color: var(--muted); }
+.cap-clear { position: absolute; left: 0; right: 0; z-index: 6; background: var(--panel); border-bottom: 1px solid var(--line); padding: var(--space-16); display: flex; flex-direction: column; gap: var(--space-4); }
+.cap-clear .cap-instruction { color: var(--tide); }
+.cap-detail .kv { font: var(--type-body); }
+.cap-detail .tr { display: flex; flex-direction: column; gap: 2px; padding: var(--space-8) 0; border-top: 1px solid var(--line); }
+.cap-detail .tr .t-small { color: var(--muted); }
+.cap-acked { display: inline-flex; align-items: center; gap: var(--space-8); font: var(--type-body-strong); color: var(--tide); }
+.cap-theme { position: absolute; right: var(--space-12); z-index: 4; }

@@ -78,7 +78,7 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'vessels', type: 'symbol', source: 'vessels', layout: {
         'icon-image': ['coalesce', ['image', ['concat', 'v-', ['get', 'type']]], ['image', 'v-other']],
         'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 11, ['*', 0.28, ['get', 'scale']], 15, ['*', 0.9, ['get', 'scale']]],
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 11, ['*', 0.55, ['get', 'scale']], 13, ['*', 0.8, ['get', 'scale']], 15, ['*', 1.25, ['get', 'scale']]],
       }, paint: { 'icon-opacity': ['case', ['get', 'stale'], 0.5, 1] } },
       { id: 'vessels-alert', type: 'symbol', source: 'vessels', filter: ['get', 'inZone'], layout: { 'icon-image': 'ring-alert', 'icon-allow-overlap': true, 'icon-size': 0.6 } },
       { id: 'contacts', type: 'symbol', source: 'contacts', layout: { 'icon-image': ['concat', 'diamond-', ['get', 'state']], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['case', ['get', 'selected'], 0.75, 0.6] } },
@@ -109,7 +109,7 @@ export function ChartMap(props: ChartMapProps) {
       minZoom: 11,
       maxZoom: 16.5,
       maxBounds: [[harborBounds[0] - 0.08, harborBounds[1] - 0.06], [harborBounds[2] + 0.08, harborBounds[3] + 0.06]],
-      attributionControl: { compact: true },
+      attributionControl: false,
       dragRotate: false,
       pitchWithRotate: false,
       interactive: props.interactive !== false,
@@ -117,7 +117,8 @@ export function ChartMap(props: ChartMapProps) {
     map.touchZoomRotate.disableRotation();
     mapRef.current = map;
     map.on('load', async () => {
-      await loadChartImages(map, colors);
+      if (!props.compact) map.fitBounds([[-118.292, 33.700], [-118.150, 33.768]], { padding: 24, duration: 0 });
+      await loadChartImages(map, colors, el);
       readyRef.current = true;
       pushData(map, propsRef.current.data);
       addLabels();
@@ -180,7 +181,7 @@ export function ChartMap(props: ChartMapProps) {
     map.fitBounds(b, { padding: props.padding ?? 60, maxZoom: 15, duration: 700 });
   }, [JSON.stringify(props.fitTo)]);
 
-  return <div className="chart-wrap"><div ref={holder} className="chart-map" /></div>;
+  return <div className="chart-wrap" data-theme={props.theme}><div ref={holder} className="chart-map" /></div>;
 }
 
 function pushData(map: MLMap, data: ChartData): void {

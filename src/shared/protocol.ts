@@ -59,7 +59,7 @@ export interface ContactView {
   hostility: { H: number; items: EvidenceRow[] };
   capability: { K: number; sizeFactor: number; speedFactor: number };
   odds: OddsRow[];
-  call: { targetId: string; name: string; p: number; sinceMin: number } | null;
+  call: { targetId: string; name: string; p: number; sinceMin: number; etaMin: number | null } | null;
   risk: RiskView | null;
   eta: { targetId: string; name: string; minutes: number } | null;
   predicted: LonLat[][];
@@ -259,7 +259,9 @@ export interface CaptainNotice {
   publicReason: PublicReason;
   zone: { rings: LonLat[][][]; centerline: LonLat[]; movingTowardDeg: number | null; movingSpeedMps: number; kind: 'keepOut' | 'slow' };
   validUntilWall: string;
+  validUntilLabel: string;
   publishedAtWall: string;
+  publishedAtLabel: string;
   approvedBy: string;
   detail: string;
   distanceM: number | null;
@@ -272,7 +274,7 @@ export interface CaptainSnapshot {
   vessel: { id: string; name: string; type: string; lonlat: LonLat; headingDeg: number; speedKn: number; route: LonLat[] | null; newRoute: LonLat[] | null } | null;
   notices: CaptainNotice[];
   traffic: { lonlat: LonLat; headingDeg: number; type: string }[];
-  allClear: { id: string; publicReason: string; atWall: string }[];
+  allClear: { id: string; publicReason: string; atWall: string; atLabel: string }[];
   clock: ClockView;
   serverWall: string;
 }

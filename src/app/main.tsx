@@ -2,28 +2,30 @@ import { createRoot } from 'react-dom/client';
 import '@fontsource/ibm-plex-sans/400.css';
 import '@fontsource/ibm-plex-sans/500.css';
 import '@fontsource/ibm-plex-sans/600.css';
+import '@fontsource/ibm-plex-sans/400-italic.css';
 import '@fontsource/ibm-plex-mono/400.css';
 import '@fontsource/ibm-plex-mono/500.css';
 import '../styles/tokens.css';
 import '../styles/base.css';
+import '../styles/ui.css';
 import { ChartMap } from './map/ChartMap';
-import { useCaptainHub, useCommandHub } from './hub/useHub';
-import { captainChart, commandChart } from './map/toChart';
+import { useCaptainHub } from './hub/useHub';
+import { captainChart } from './map/toChart';
+import { CommandView } from './command/CommandView';
+import { setManifest } from './captain/device';
+import { CaptainView } from './captain/CaptainView';
 
 const params = new URLSearchParams(location.search);
-const theme = params.get('theme') === 'day' ? 'day' : 'night';
-document.documentElement.dataset.theme = theme;
-
-function CommandMapCheck() {
-  const hub = useCommandHub();
-  return <ChartMap theme={theme} data={commandChart(hub.snapshot, null)} />;
-}
+const isCaptain = location.pathname.startsWith('/captain');
+document.documentElement.dataset.theme = params.get('theme') === 'day' || isCaptain ? (params.get('theme') === 'night' ? 'night' : 'day') : 'night';
+setManifest(isCaptain ? 'captain' : 'command');
 
 function CaptainMapCheck() {
   const hub = useCaptainHub(params.get('v'));
   const v = hub.snapshot?.vessel;
   if (!hub.vessel && hub.link === 'online') void hub.join(params.get('v') ?? undefined);
+  const theme = document.documentElement.dataset.theme === 'night' ? 'night' : 'day';
   return <ChartMap theme={theme} compact data={captainChart(hub.snapshot, 0)} follow={v?.lonlat ?? null} />;
 }
 
-createRoot(document.getElementById('root') as HTMLElement).render(params.get('view') === 'captain' ? <CaptainMapCheck /> : <CommandMapCheck />);
+createRoot(document.getElementById('root') as HTMLElement).render(isCaptain ? <CaptainView /> : params.get('view') === 'captain' ? <CaptainMapCheck /> : <CommandView />);

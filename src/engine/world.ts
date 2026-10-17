@@ -54,6 +54,7 @@ interface ZoneRec {
 interface DraftRec extends P.NoticeDraft {
   responsePlan: ResponsePlan | null;
   wordingKey: string;
+  factsKey: string;
   wordingInFlight: boolean;
   officerRadius: number | null;
   officerInstruction: string | null;
@@ -82,7 +83,7 @@ interface CardRec extends P.Card {
 
 interface CaptainRec { vesselId: string; connected: boolean; lastSeenWall: string | null }
 
-export interface WordingRequest { draftId: string; facts: WordingFacts; template: P.Wording }
+export interface WordingRequest { draftId: string; facts: WordingFacts; template: P.Wording; key: string }
 export interface PushRequest { vesselId: string; title: string; body: string; tag: string; priority: Priority; url: string }
 
 export interface WorldEffects { audit: P.AuditEntry[]; pushes: PushRequest[]; wording: WordingRequest[]; undone: string[] }
@@ -407,8 +408,10 @@ export class World {
       const meetsOrders = risk.R >= o.draftRiskMin && top.goal >= 0 && top.p >= o.draftOddsMin && plan.withinOrders && plan.kind !== 'watch';
       if (meetsOrders || zone.draftId) this.upsertSecurityDraft(c, zone, plan, risk.level);
     }
+    if (risk.level < HIGH || top.goal < 0) this.removeCards((k) => k.key.startsWith(`hold:${c.id}:`));
     if (risk.level >= HIGH && top.goal >= 0) {
       const tgt = this.h.targets[top.goal];
+      this.removeCards((k) => k.key.startsWith(`hold:${c.id}:`) && k.key !== `hold:${c.id}:${tgt.id}`);
       this.raiseCard(`hold:${c.id}:${tgt.id}`, {
         kind: 'hold', title: `Hold ${tgt.short ?? tgt.name}?`,
         body: `${c.spec.label} is rated ${risk.levelName} (${risk.R}). Hold this one berth until it is identified. Ships due there wait; nothing else closes.`,
@@ -579,7 +582,7 @@ export class World {
         id, kind, contactId: c?.id ?? zone.contactId, zoneId: zone.id, instruction, instructionText: '', radiusM: zone.radiusM, slowKnots,
         recipients: 'all', named: [], publicReason: zone.reason, validForMin: routine ? 120 : 60, approvedBy: this.officer,
         plan: this.planView(plan, zone.radiusM, slowKnots), wording: templateWording(this.blankFacts(zone)), createdAtMin: this.simMin, updatedAtMin: this.simMin,
-        edited: false, routine, responsePlan: plan, wordingKey: '', wordingInFlight: false, officerRadius: null, officerInstruction: null,
+        edited: false, routine, responsePlan: plan, wordingKey: '', factsKey: '', wordingInFlight: false, officerRadius: null, officerInstruction: null,
       };
       this.drafts.set(id, d);
       zone.draftId = id;
@@ -597,22 +600,24 @@ export class World {
     const facts = this.wordingFacts(c, zone, plan, d);
     const template = templateWording(facts);
     const key = [d.instructionText, d.publicReason, plan.affected.length, Math.round(plan.totalAddedMin), facts.contact?.targetName ?? '', facts.contact?.level ?? '', d.recipients].join('|');
-    if (d.wording.source === 'template' || key !== d.wordingKey) {
-      const keepTranslations = d.wording.source === 'granite' && key === d.wordingKey;
-      d.wording = keepTranslations ? d.wording : template;
-    }
+    d.factsKey = key;
+    if (d.wording.source === 'template' || key !== d.wordingKey) d.wording = template;
     if (key !== d.wordingKey && !d.wordingInFlight) {
       d.wordingKey = key;
       d.wordingInFlight = true;
-      this.effects.wording.push({ draftId: d.id, facts, template });
+      this.effects.wording.push({ draftId: d.id, facts, template, key });
     }
     return d.id;
   }
 
-  applyWording(draftId: string, wording: P.Wording): void {
+  applyWording(draftId: string, wording: P.Wording, key?: string): void {
     const d = this.drafts.get(draftId) ?? this.notices.get(draftId);
     if (!d) return;
-    if ('wordingInFlight' in d) (d as DraftRec).wordingInFlight = false;
+    if ('wordingInFlight' in d) {
+      const draft = d as DraftRec;
+      draft.wordingInFlight = false;
+      if (key !== undefined && key !== draft.factsKey) { draft.wordingKey = ''; return; }
+    }
     d.wording = wording;
     const card = this.cards.find((k) => k.draftId === draftId && k.kind === 'publish');
     if (card) card.body = wording.why;
@@ -746,7 +751,7 @@ export class World {
     z.draftId = null;
     this.refreshNotice(notice);
     this.log('officer', 'Published', `${d.publicReason}: ${d.instructionText}. ${notice.perVessel.size} recipients. ${plan?.comparison.chosen ?? ''}`, () => this.clearNotice(id, 'officer', true));
-    if (notice.wording.source === 'template') this.effects.wording.push({ draftId: id, facts: this.wordingFacts(z.contactId ? this.contacts.get(z.contactId) ?? null : null, z, plan ?? this.slowPlan(z.geometry.mask), null), template: notice.wording });
+    if (notice.wording.source === 'template') this.effects.wording.push({ draftId: id, facts: this.wordingFacts(z.contactId ? this.contacts.get(z.contactId) ?? null : null, z, plan ?? this.slowPlan(z.geometry.mask), null), template: notice.wording, key: 'notice' });
     return id;
   }
 
@@ -1191,7 +1196,7 @@ export class World {
       },
       capability: { K: c.K, sizeFactor: f.sizeFactor, speedFactor: f.speedFactor },
       odds: oddsRows(c).map((o) => ({ ...o, name: o.kind === 'target' ? tgtName(o.id) : o.name })),
-      call: c.tell.call && c.callSinceMin !== null ? { targetId: this.h.targets[c.tell.call.goal].id, name: tgtName(this.h.targets[c.tell.call.goal].id), p: c.tell.post[c.tell.call.goal], sinceMin: c.callSinceMin } : null,
+      call: c.tell.call && c.callSinceMin !== null ? { targetId: this.h.targets[c.tell.call.goal].id, name: tgtName(this.h.targets[c.tell.call.goal].id), p: c.tell.post[c.tell.call.goal], sinceMin: c.callSinceMin, etaMin: etaToGoal(this.h, c, c.tell.call.goal) } : null,
       risk: risk ? {
         score: risk.R, level: risk.levelName, rawLevel: risk.rawLevelName, rung: risk.rung, L: risk.best.L, S: risk.best.S,
         targetId: risk.best.id, targetName: tgtName(risk.best.id), urgent: risk.urgent, notes: risk.rules.map((r) => r.label),
@@ -1272,8 +1277,8 @@ export class World {
   }
 
   private publicDraft(d: DraftRec): P.NoticeDraft {
-    const { responsePlan, wordingKey, wordingInFlight, officerRadius, officerInstruction, ...rest } = d;
-    void responsePlan; void wordingKey; void wordingInFlight; void officerRadius; void officerInstruction;
+    const { responsePlan, wordingKey, factsKey, wordingInFlight, officerRadius, officerInstruction, ...rest } = d;
+    void responsePlan; void wordingKey; void factsKey; void wordingInFlight; void officerRadius; void officerInstruction;
     return rest;
   }
 
@@ -1281,7 +1286,7 @@ export class World {
     const { perVessel, responsePlan, ...rest } = n;
     void perVessel; void responsePlan;
     const clean = { ...rest } as P.Notice & Partial<DraftRec>;
-    delete clean.wordingKey; delete clean.wordingInFlight; delete clean.officerRadius; delete clean.officerInstruction; delete clean.responsePlan;
+    delete clean.wordingKey; delete clean.factsKey; delete clean.wordingInFlight; delete clean.officerRadius; delete clean.officerInstruction; delete clean.responsePlan;
     return clean;
   }
 
@@ -1319,7 +1324,7 @@ export class World {
           id: n.id, kind: n.kind, priority: entry.priority, instructionText: entry.instructionText, publicReason: n.publicReason,
           zone: { rings: z.geometry.rings, centerline: this.zoneView(z).centerline, movingTowardDeg: z.movingSpeedMps > 0 ? z.movingTowardDeg : null, movingSpeedMps: z.movingSpeedMps, kind: z.kind },
           validUntilWall: new Date(this.wallMs + ((n.expiresAtMin - this.simMin) * 60_000) / Math.max(1, this.timeScale)).toISOString(),
-          publishedAtWall: n.publishedAtWall, approvedBy: n.approvedBy,
+          validUntilLabel: clockLabel(n.expiresAtMin), publishedAtWall: n.publishedAtWall, publishedAtLabel: clockLabel(n.publishedAtMin), approvedBy: n.approvedBy,
           detail: inside ? 'You are inside the zone.' : entry.minutesToZone !== null ? `Your route reaches it in ${minutesLabel(entry.minutesToZone)}.` : 'Not on your route.',
           distanceM: inside ? 0 : isFinite(nearest) ? nearest : null, minutesToZone: entry.minutesToZone,
           acknowledged: rec?.states.acknowledged !== undefined, translations: n.wording.translations,
@@ -1341,7 +1346,7 @@ export class World {
         ...this.craft.filter((k) => k.id !== vesselId).map((k) => ({ lonlat: craftLonLat(this.h, k), headingDeg: k.headingDeg, type: k.type })),
         ...this.ais.map((v) => ({ lonlat: [v.lon, v.lat] as LonLat, headingDeg: v.headingDeg ?? v.cogDeg, type: v.typeLabel })),
       ],
-      allClear: this.allClearRecent.map(({ id, publicReason, atWall }) => ({ id, publicReason, atWall })),
+      allClear: this.allClearRecent.map(({ id, publicReason, atWall, atMin }) => ({ id, publicReason, atWall, atLabel: clockLabel(atMin) })),
       clock: this.clockView(),
       serverWall: this.wall(),
     };

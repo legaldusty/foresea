@@ -163,7 +163,7 @@ function flushEffects(): void {
     });
   }
   for (const w of fx.wording) {
-    void language.word(w.facts, w.template).then((wording) => { world.applyWording(w.draftId, wording); emitCommand(); }).catch(() => undefined);
+    void language.word(w.facts, w.template).then((wording) => { world.applyWording(w.draftId, wording, w.key === 'notice' ? undefined : w.key); emitCommand(); }).catch(() => undefined);
   }
   world.setSources({ language: language.status() });
 }
