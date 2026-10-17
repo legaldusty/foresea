@@ -318,6 +318,12 @@ export interface SourceStatus {
 
 export interface CaptainLink { vesselId: string; vesselName: string; connected: boolean; lastSeenWall: string | null }
 
+export type StepKey = 'detect' | 'predict' | 'assess' | 'warn' | 'confirm';
+
+export interface StepView { key: StepKey; label: string; fact: string | null; reached: boolean; current: boolean }
+
+export interface Headline { text: string; tone: 'calm' | 'watch' | 'act' | 'alert'; contactId: string | null }
+
 export interface CommandSnapshot {
   clock: ClockView;
   contacts: ContactView[];
@@ -340,6 +346,8 @@ export interface CommandSnapshot {
   sightings: Sighting[];
   today: TodayRow[];
   report: DailyReport;
+  headline: Headline;
+  steps: StepView[] | null;
 }
 
 export interface CaptainNotice {
@@ -369,9 +377,12 @@ export interface CaptainNotice {
   area: AreaView | null;
 }
 
+export interface CaptainTodayRow { id: string; label: string; reason: PublicReason; timesLabel: string; instructionText: string; onRoute: boolean; simulated: boolean }
+
 export interface CaptainSnapshot {
   vessel: { id: string; name: string; type: string; lonlat: LonLat; headingDeg: number; speedKn: number; route: LonLat[] | null; newRoute: LonLat[] | null } | null;
   notices: CaptainNotice[];
+  today: CaptainTodayRow[];
   traffic: { lonlat: LonLat; headingDeg: number; type: string }[];
   allClear: { id: string; publicReason: string; atWall: string; atLabel: string; approvedBy: string }[];
   lastAllClearLabel: string | null;

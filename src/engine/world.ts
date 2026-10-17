@@ -892,6 +892,102 @@ export class World {
     });
   }
 
+  private focusContact(): ContactSim | null {
+    let best: ContactSim | null = null;
+    for (const c of this.contacts.values()) {
+      if (!c.classification.threatScored || c.spec.reply === 'friendly') continue;
+      if (!best || (c.lastRisk?.R ?? 0) > (best.lastRisk?.R ?? 0)) best = c;
+    }
+    return best;
+  }
+
+  private contactNoun(c: ContactSim): string {
+    return c.classification.kind === 'powered' ? 'drone' : 'contact';
+  }
+
+  private securityStatus(c: ContactSim): { draft: DraftRec | null; notice: NoticeRec | null; boats: number; acked: number; silent: string[] } {
+    const z = this.zones.get(`z-${c.id}`);
+    const draft = z?.draftId ? this.drafts.get(z.draftId) ?? null : null;
+    const notice = z?.noticeId ? this.notices.get(z.noticeId) ?? null : null;
+    let boats = 0;
+    let acked = 0;
+    const silent: string[] = [];
+    if (notice && notice.status === 'active') {
+      for (const [vid, e] of notice.perVessel) {
+        if (e.action === 'none' && e.priority === 'P4') continue;
+        if (vid.startsWith('ais-')) continue;
+        boats++;
+        const rec = this.deliveries.get(`${notice.id}:${vid}`);
+        if (rec?.states.acknowledged !== undefined) acked++;
+        if (rec?.notResponding) silent.push(rec.vesselName);
+      }
+    } else if (draft) {
+      boats = draft.plan.boats.filter((b) => !b.vesselId.startsWith('ais-')).length;
+    }
+    return { draft, notice: notice && notice.status === 'active' ? notice : null, boats, acked, silent };
+  }
+
+  headline(): P.Headline {
+    const silentCard = this.cards.find((k) => k.kind === 'notResponding');
+    if (silentCard) {
+      const rec = [...this.deliveries.values()].find((d) => d.notResponding && silentCard.key.endsWith(`:${d.vesselId}`));
+      const waited = rec ? Math.round(this.simMin - (rec.urgentSinceMin ?? rec.states.sent ?? this.simMin)) : this.settings.delivery.vhfCardMinutes;
+      return { text: `${silentCard.title.replace(/ not responding$/, '')} has not answered for ${waited} minutes. Call it on VHF.`, tone: 'alert', contactId: silentCard.contactId };
+    }
+    const c = this.focusContact();
+    if (c) {
+      const noun = this.contactNoun(c);
+      const place = this.placeNear(c.cell).replace(/^the /, 'the ');
+      const fs = this.forecastSummary(c);
+      const st = this.securityStatus(c);
+      const confident = fs && fs.topName && fs.topP >= this.orders().draftOddsMin;
+      const update = this.cards.find((k) => k.kind === 'update' && k.contactId === c.id);
+      if (update) return { text: `${update.title.replace(/^Forecast update: now /, `The ${noun} now heads for `)}. Publish the forecast update so captains see it.`, tone: 'act', contactId: c.id };
+      if (!confident || !fs) return { text: `Unknown ${noun} at ${place.charAt(0).toUpperCase()}${place.slice(1)}. Not sure where it is going yet. Watching.`, tone: 'watch', contactId: c.id };
+      const arrive = fs.arrival ? `, arrives ${fs.arrival.earlyLabel}` : '';
+      const head = `Unknown ${noun} heading to the ${fs.topName} (${Math.round(fs.topP * 100)}%)${arrive}.`;
+      if (st.notice) {
+        const tail = st.boats ? `${st.boats} boat${st.boats === 1 ? '' : 's'} warned, ${st.acked} acknowledged.` : 'Notice out; no boat is in its path.';
+        return { text: `${head} ${tail}`, tone: st.acked < st.boats ? 'act' : 'watch', contactId: c.id };
+      }
+      if (st.draft) return { text: `${head} ${st.boats} boat${st.boats === 1 ? '' : 's'} cross its path. Notice ready to publish.`, tone: 'act', contactId: c.id };
+      return { text: `${head} No boat crosses its path. Watching.`, tone: 'watch', contactId: c.id };
+    }
+    const lost = this.cards.find((k) => k.kind === 'lost');
+    if (lost && lost.contactId) {
+      const g = this.contacts.get(lost.contactId);
+      if (g) return { text: `${g.spec.label} stopped reporting. Its drift forecast is the search area.`, tone: 'watch', contactId: g.id };
+    }
+    const active = [...this.notices.values()].filter((n) => n.status === 'active');
+    const notified = new Set<string>();
+    for (const n of active) for (const [vid, e] of n.perVessel) if (e.priority !== 'P4' || e.action !== 'none') notified.add(vid);
+    const rows = this.onTimeRows();
+    const behind = rows.filter((r) => r.status === 'late' || r.status === 'at risk').length;
+    const day = this.night ? 'Night watch' : 'Tuesday';
+    const zones = active.length ? `${active.length} zone${active.length === 1 ? '' : 's'} active, ${notified.size} boat${notified.size === 1 ? '' : 's'} notified` : 'Harbor quiet, no zones';
+    const onTime = behind ? `${behind} boat${behind === 1 ? '' : 's'} running late` : 'all ships on time';
+    return { text: `${day} ${clockLabel(this.simMin)}. ${zones}, ${onTime}.`, tone: 'calm', contactId: null };
+  }
+
+  steps(): P.StepView[] | null {
+    const c = this.focusContact();
+    if (!c) return null;
+    const fs = this.forecastSummary(c);
+    const st = this.securityStatus(c);
+    const risk = c.lastRisk;
+    const confident = !!fs?.topName && (fs?.topP ?? 0) >= this.orders().draftOddsMin;
+    const steps: P.StepView[] = [
+      { key: 'detect', label: 'Detect', fact: `Unknown ${this.contactNoun(c)}, ${clockLabel(c.spec.firstSeenMin)}`, reached: true, current: false },
+      { key: 'predict', label: 'Predict', fact: fs?.topName ? `${fs.topName} ${Math.round(fs.topP * 100)}%` : 'Learning', reached: confident, current: false },
+      { key: 'assess', label: 'Assess', fact: risk ? `${risk.levelName}` : null, reached: !!risk, current: false },
+      { key: 'warn', label: 'Warn', fact: st.notice ? `${st.boats} boat${st.boats === 1 ? '' : 's'}, ${st.acked} acknowledged` : st.draft ? `${st.boats} boat${st.boats === 1 ? '' : 's'}, ready` : null, reached: !!st.notice, current: false },
+      { key: 'confirm', label: 'Confirm', fact: st.silent.length ? `${st.silent[0]} no reply` : st.notice && st.boats ? `${st.acked} of ${st.boats}` : null, reached: !!st.notice && st.boats > 0 && st.acked >= st.boats, current: false },
+    ];
+    const currentKey: P.StepKey = st.silent.length || st.notice ? 'confirm' : st.draft ? 'warn' : risk && confident ? 'assess' : fs ? 'predict' : 'detect';
+    for (const step of steps) step.current = step.key === currentKey;
+    return steps;
+  }
+
   private sightingViews(): P.Sighting[] {
     const day = this.dayStartMin();
     return this.sightings.slice(0, 200).map((x) => {
@@ -2103,6 +2199,8 @@ export class World {
       sightings: this.sightingViews(),
       today: this.todayRows(),
       report: this.dailyReport(),
+      headline: this.headline(),
+      steps: this.steps(),
     };
   }
 
@@ -2184,6 +2282,22 @@ export class World {
     }
     const order: Record<Priority, number> = { P1: 0, P2: 1, P3: 2, P4: 3 };
     notices.sort((a, b) => order[a.priority] - order[b.priority]);
+    const today: P.CaptainTodayRow[] = [];
+    if (c) {
+      const route = remainingRoute(c);
+      for (const n of this.notices.values()) {
+        if (n.status !== 'active' || n.kind === 'security') continue;
+        const z = this.zones.get(n.zoneId);
+        if (!z) continue;
+        const onRoute = routeEntersMask(route, z.geometry.mask);
+        today.push({
+          id: n.id, label: n.label ?? `${n.publicReason} near ${this.placeNear(z.centerCell).replace(/^the /, '')}`, reason: n.publicReason,
+          timesLabel: `${clockLabel(n.startsAtMin ?? n.publishedAtMin)} to ${clockLabel(n.expiresAtMin)}`, instructionText: n.perVessel.get(c.id)?.instructionText ?? n.instructionText,
+          onRoute, simulated: !!n.simulated,
+        });
+      }
+      today.sort((a, b) => Number(b.onRoute) - Number(a.onRoute));
+    }
     const rerouted = !!c?.rerouteNoticeId;
     const proposal = !rerouted && c ? this.proposedRoute(c) : null;
     return {
@@ -2193,6 +2307,7 @@ export class World {
         newRoute: rerouted ? this.routeLonLat(remainingRoute(c), 3) : proposal ? this.routeLonLat(proposal, 3) : null,
       } : null,
       notices,
+      today,
       traffic: [
         ...this.craft.filter((k) => k.id !== vesselId).map((k) => ({ lonlat: craftLonLat(this.h, k), headingDeg: k.headingDeg, type: k.type })),
         ...this.ais.map((v) => ({ lonlat: this.aisLonLat(v), headingDeg: v.headingDeg ?? v.cogDeg, type: v.typeLabel })),
