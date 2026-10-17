@@ -62,6 +62,7 @@ function modeWord(c: ContactView): string {
   if (c.mode === 'driven') return 'Driven from the desk';
   if (c.mode === 'bot') return 'Scripted track';
   if (c.mode === 'drift') return 'Drifting with the current';
+  if (c.mode === 'external') return c.sensor.source;
   return c.scenarioKey ? `Scenario ${c.scenarioKey}` : 'Scenario';
 }
 
@@ -101,7 +102,7 @@ function SensorSection(props: { c: ContactView }) {
   const [lon, lat] = s.lonlat;
   const conf = s.confidence <= 1 ? s.confidence * 100 : s.confidence;
   return (
-    <Section title="Sensor" aside={s.simulated ? <Simulated /> : 'Live sensor'} testId="dossier-sensor">
+    <Section title="Sensor" aside={s.simulated ? <Simulated /> : s.source} testId="dossier-sensor">
       <dl className="dsr-readout">
         <div className="wide">
           <dt>Position</dt>

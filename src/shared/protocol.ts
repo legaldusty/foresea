@@ -88,6 +88,7 @@ export interface SensorView {
   trackKm: number;
   confidence: number;
   simulated: boolean;
+  source: string;
 }
 
 export interface ConsequenceView { targetId: string; name: string; C: number; people: number; hazard: number; economy: number; environment: number; odds: number; etaMin: number | null }
@@ -115,7 +116,7 @@ export interface TimelineEntry { atMin: number; label: string; detail: string; a
 export interface ContactView {
   id: string;
   label: string;
-  mode: 'driven' | 'bot' | 'scenario' | 'drift';
+  mode: 'driven' | 'bot' | 'scenario' | 'drift' | 'external';
   scenarioKey: string | null;
   lonlat: LonLat;
   headingDeg: number;
@@ -633,4 +634,37 @@ export interface CaptainEvents {
   gotIt: { noticeId: string; vesselId?: string };
   pushSubscription: { subscription: unknown; vesselId?: string };
   reportSighting: { species: Species; lonlat: LonLat; note?: string; vesselId?: string };
+}
+
+export interface SensorDetection {
+  sensorId: string;
+  trackId: string;
+  time: string;
+  lat: number;
+  lon: number;
+  depthM?: number;
+  speedMps?: number;
+  headingDeg?: number;
+  sizeM?: number;
+  heat?: 'hot' | 'warm' | 'cold';
+  acousticDb?: number;
+  pingReply?: 'none' | 'correct' | 'wrong';
+  confidence?: number;
+}
+
+export interface SensorIngestResult { sensorId: string; trackId: string; contactId: string | null; status: 'new' | 'updated' | 'stale' | 'full' | 'land' }
+
+export interface PilotEvents {
+  launch: Record<string, never>;
+  steer: { lonlat: LonLat };
+  surface: Record<string, never>;
+}
+
+export interface PilotSnapshot {
+  mode: OperatingMode;
+  clock: ClockView;
+  drone: { id: string; label: string; lonlat: LonLat; headingDeg: number; speedKn: number; steerTo: LonLat | null; track: LonLat[] } | null;
+  targets: { id: string; name: string; lonlat: LonLat }[];
+  launch: { name: string; lonlat: LonLat };
+  serverWall: string;
 }
