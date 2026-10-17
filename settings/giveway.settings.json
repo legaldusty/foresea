@@ -27,8 +27,14 @@
               "zoneGrowWhenUnsure": 2.0, "realertMinutes": 2, "backupOfficerMinutes": 4,
               "zonePathMinutes": 10, "zoneTopTargets": 2, "unsureBelowOdds": 0.40,
               "animalSlowMeters": 500, "animalSlowKnots": 10, "animalCoreFraction": 0.5, "animalMaxBendMin": 3, "routineZoneMeters": 300,
-              "speedAdvisoryKnots": 5, "speedAdvisoryMaxDelayMin": 2, "zoneMaxMeters": 1500,
-              "noticeValidMinutes": 240, "routineValidMinutes": 240 },
+              "speedAdvisoryKnots": 5, "speedAdvisoryMaxDelayMin": 2,
+              "noticeValidMinutes": 240, "routineValidMinutes": 240,
+              "autoPublishForecastUpdates": 0 },
+  "forecast": { "samples": 600, "beta": 3, "lostBeta": 0.6, "driftSharpness": 3, "speedSpread": 0.15, "horizonMinutes": 90,
+                "radiusCells": 2, "radiusGrowMinutes": 15, "radiusMaxCells": 6, "likelyShare": 0.5, "likelyMaxRadiusCells": 9,
+                "carefulShare": 0.125, "tickMinutes": 10, "seed": 11, "everySeconds": 1,
+                "noticeHorizonMinutes": 30, "padMinutes": 3, "exitMinutesMax": 5, "updateOverlapMin": 0.6,
+                "minSlowKnots": 3, "stepAsideMaxMeters": 1500, "searchStepMinutes": 0.5 },
   "priority": { "p1Minutes": 5, "p2Minutes": 15, "criticalFloor": "P2", "routineCeiling": "P2" },
 
   "evidenceRules": {

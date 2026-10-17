@@ -1,21 +1,26 @@
 import type { Harbor } from './harbor';
 import type { Settings } from './settings';
 import { nearestWater, walkLine } from './grid';
-import { topGoal, LOST, DRIFT, type CurrentVector } from './tell';
+import { topGoal, targetOdds, lostOnlyOdds, driftOdds, LOST, DRIFT, type CurrentVector } from './tell';
 import { HIGH, CRITICAL, SERIOUS, levelName, rungName } from './risk';
 import { INCIDENTS } from './scenarios';
 import {
-  createContact, moveContact, evaluateContact, contactLonLat, predictedPaths, oddsRows, setPointer, factors, etaToGoal, recordOdds,
+  createContact, moveContact, evaluateContact, contactLonLat, oddsRows, setPointer, factors, etaToGoal, recordOdds,
   type ContactSim, type ContactSpec,
 } from './contact';
 import {
-  createCraft, moveCraft, craftLonLat, remainingRoute, applyRoute, restoreRoute, currentCell, plannedArrivalMin, ourArrivalMin, fleetSeeds,
+  createCraft, moveCraft, craftLonLat, remainingRoute, applyRoute, restoreRoute, currentCell, plannedArrivalMin, ourArrivalMin, fleetSeeds, clearFix,
   type CraftSim,
 } from './craft';
-import { securityZone, circleZone, type ZoneGeometry } from './zones';
-import { chooseResponse, instructionText, type Boat, type ResponsePlan, type Instruction } from './response';
+import { circleZone, type ZoneGeometry } from './zones';
+import { forecastPaths, forecastShapes, type Forecast, type ForecastShapes, type ForecastOptions } from './forecast';
+import {
+  buildNoticeArea, noticeAreaShapes, overlapShare, planConflicts, planBoat, boatCrossing, priorityForCrossing, fixInstruction,
+  type NoticeArea, type PlannerBoat, type PlannerRules, type BoatPlan, type ConflictPlan, type PricedFix, type Crossing,
+} from './conflicts';
+import { chooseResponse, instructionText, type Boat, type BoatImpact, type ResponsePlan, type Instruction } from './response';
 import { dilate, rerouteAround, routeEntersMask } from './routing';
-import { minutesUntilZone, priorityFor, lessUrgent, type Priority } from './priority';
+import { minutesUntilZone, priorityFor, lessUrgent, moreUrgent, type Priority } from './priority';
 import { templateWording, allClearWording, damagePhrase, reasonAt, type WordingFacts } from './wording';
 import { rng } from './bench';
 import { clockLabel, isNight, minutesLabel, signedMinutes } from './eta';
@@ -49,6 +54,28 @@ interface ZoneRec {
   movingTowardDeg: number | null;
   movingSpeedMps: number;
   centerCell: number;
+  area?: AreaRec | null;
+  changedAtMin?: number | null;
+  pendingArea?: AreaRec | null;
+}
+
+interface ForecastRec {
+  forecast: Forecast;
+  shapes: ForecastShapes;
+  version: number;
+  madeAtMin: number;
+  madeAtWall: number;
+  cell: number;
+  key: string;
+  ticks: P.ForecastTickView[];
+}
+
+interface AreaRec {
+  area: NoticeArea;
+  shapes: ForecastShapes;
+  ticks: P.ForecastTickView[];
+  version: number;
+  key: string;
 }
 
 interface DraftRec extends P.NoticeDraft {
@@ -60,7 +87,21 @@ interface DraftRec extends P.NoticeDraft {
   officerInstruction: string | null;
 }
 
-interface VesselPlanEntry { priority: Priority; instruction: Instruction; instructionText: string; addedMin: number; minutesToZone: number | null; action: string; newRoute: number[] | null }
+interface VesselPlanEntry {
+  priority: Priority;
+  instruction: Instruction;
+  instructionText: string;
+  addedMin: number;
+  minutesToZone: number | null;
+  action: string;
+  newRoute: number[] | null;
+  untilMin?: number | null;
+  crossing?: { layer: Crossing['layer']; atMin: number; droneEarlyMin: number; droneLateMin: number } | null;
+  fix?: PricedFix | null;
+  fixAtMin?: number;
+  fixAreaVersion?: number;
+  noGentle?: boolean;
+}
 
 interface NoticeRec extends P.Notice {
   perVessel: Map<string, VesselPlanEntry>;
@@ -73,6 +114,7 @@ interface DeliveryRec extends P.DeliveryRow {
   plannedAck: number | null;
   plannedDelivered: number | null;
   vhfCalled: boolean;
+  urgentSinceMin: number | null;
 }
 
 interface CardRec extends P.Card {
@@ -98,7 +140,9 @@ export interface WorldOptions {
   seed?: number;
 }
 
-const CARD_RANK: Record<P.Card['kind'], number> = { person: 0, publish: 1, handoff: 2, notResponding: 3, hold: 4, animal: 5, lost: 6, info: 7 };
+const CARD_RANK: Record<P.Card['kind'], number> = { person: 0, publish: 1, handoff: 2, notResponding: 3, update: 4, hold: 5, animal: 6, lost: 7, info: 8 };
+const KNOT_MPS = 0.514444;
+const FIX_LABEL: Record<PricedFix['kind'], string> = { hold: 'Wait', slow: 'Slow down', stepAside: 'Step aside', reroute: 'Short reroute' };
 const STATION = 'Los Angeles Harbor Watch';
 const NO_ARTICLE = /^(Angels Gate|Queens Gate|Pier \d+|the )/;
 const withArticle = (name: string): string => (NO_ARTICLE.test(name) ? name : `the ${name}`);
@@ -147,6 +191,9 @@ export class World {
   private contactSeq = 13;
   private rand: () => number;
   private lastResponseMin = new Map<string, number>();
+  forecasts = new Map<string, ForecastRec>();
+  private forecastSeq = 0;
+  private areaSeq = 0;
 
   constructor(o: WorldOptions) {
     this.h = o.harbor;
@@ -185,6 +232,7 @@ export class World {
 
   resetHarbor(mode: 'tuesday' | 'night' | 'empty'): void {
     this.contacts.clear();
+    this.forecasts.clear();
     this.zones.clear();
     this.drafts.clear();
     this.notices.clear();
@@ -328,6 +376,192 @@ export class World {
     });
   }
 
+  private needsForecast(c: ContactSim): boolean {
+    if (c.spec.reply === 'friendly') return false;
+    if (c.classification.threatScored) return true;
+    return !!c.spec.registryId && c.classification.kind === 'debris';
+  }
+
+  private forecastOptions(): Partial<ForecastOptions> {
+    const f = this.settings.forecast;
+    return {
+      samples: f.samples, beta: f.beta, lostBeta: f.lostBeta, driftSharpness: f.driftSharpness, speedSpread: f.speedSpread, horizonMinutes: f.horizonMinutes,
+      radiusCells: f.radiusCells, radiusGrowMinutes: f.radiusGrowMinutes, radiusMaxCells: f.radiusMaxCells, likelyShare: f.likelyShare,
+      likelyMaxRadiusCells: f.likelyMaxRadiusCells, carefulShare: f.carefulShare, tickMinutes: f.tickMinutes, seed: f.seed,
+    };
+  }
+
+  private forecastCurrent(c: ContactSim): { eastMps: number; northMps: number } | null {
+    const cur = c.spec.currentOverride !== undefined ? c.spec.currentOverride : this.current;
+    return cur ? { eastMps: cur.currentU, northMps: cur.currentV } : null;
+  }
+
+  updateForecast(c: ContactSim, force = false): ForecastRec | null {
+    if (!this.needsForecast(c)) { this.forecasts.delete(c.id); return null; }
+    const prev = this.forecasts.get(c.id);
+    if (prev && c.silent) return prev;
+    const drifting = c.classification.kind === 'debris';
+    const odds = drifting ? this.h.targets.map(() => 0) : targetOdds(c.tell);
+    const lost = drifting ? 0 : lostOnlyOdds(c.tell);
+    const drift = drifting ? 1 : driftOdds(c.tell);
+    const key = `${c.cell}|${odds.map((p) => p.toFixed(2)).join(',')}|${lost.toFixed(2)}|${drift.toFixed(2)}`;
+    if (prev && prev.key === key) return prev;
+    if (prev && !force && this.wallMs - prev.madeAtWall < this.settings.forecast.everySeconds * 1000) return prev;
+    const speedMps = drifting ? Math.max(0.05, this.currentSpeedMps || c.spec.speedMps) : c.spec.speedMps;
+    const forecast = forecastPaths(this.h.grid, this.h.fields, { cell: c.cell, speedMps, targetOdds: odds, lost, drift, current: this.forecastCurrent(c) }, this.forecastOptions());
+    const shapes = forecastShapes(this.h.grid, forecast, this.settings.forecast.carefulShare);
+    const madeAtMin = this.simMin;
+    const rec: ForecastRec = {
+      forecast, shapes, version: ++this.forecastSeq, madeAtMin, madeAtWall: this.wallMs, cell: c.cell, key,
+      ticks: forecast.ticks.map((tk) => ({ lonlat: this.lonlatOf(tk.cell), label: clockLabel(madeAtMin + tk.minutes), minutes: tk.minutes })),
+    };
+    this.forecasts.set(c.id, rec);
+    return rec;
+  }
+
+  private areaFor(c: ContactSim, rec: ForecastRec, zoneMeters: number): AreaRec {
+    const zone = this.zones.get(`z-${c.id}`);
+    const f = this.settings.forecast;
+    const silentFor = c.silent && c.silentSinceMin !== null ? Math.floor(this.simMin - c.silentSinceMin) : 0;
+    const horizon = Math.min(f.horizonMinutes, f.noticeHorizonMinutes + silentFor);
+    const key = `${rec.version}|${zoneMeters}|${horizon}`;
+    const cached = zone?.status === 'draft' && zone.area?.key === key ? zone.area : null;
+    if (cached) return cached;
+    const area = buildNoticeArea(this.h.grid, rec.forecast, rec.cell, c.spec.speedMps, { horizonMinutes: horizon, zoneMeters, carefulShare: f.carefulShare, exitMinutesMax: f.exitMinutesMax }, rec.madeAtMin);
+    return { area, shapes: noticeAreaShapes(this.h.grid, area), ticks: rec.ticks.filter((tk) => tk.minutes <= horizon), version: ++this.areaSeq, key };
+  }
+
+  private areaGeometry(a: AreaRec): ZoneGeometry {
+    const cells: number[] = [];
+    for (let j = 0; j < a.area.careful.length; j++) if (a.area.careful[j]) cells.push(j);
+    return { centerline: [a.area.contactCell], radiusCells: 0, cells, mask: a.area.careful, rings: a.shapes.careful };
+  }
+
+  private plannerRules(): PlannerRules {
+    const f = this.settings.forecast;
+    const pr = this.settings.priority;
+    return {
+      padMinutes: f.padMinutes, p1Minutes: pr.p1Minutes, p2Minutes: pr.p2Minutes, maxDelayPerBoatMin: this.orders().maxDelayPerBoatMin,
+      minSlowKnots: f.minSlowKnots, stepAsideMaxMeters: f.stepAsideMaxMeters, searchStepMinutes: f.searchStepMinutes,
+    };
+  }
+
+  private plannerBoat(c: CraftSim): PlannerBoat {
+    const t = this.simMin;
+    const alongside = c.dwellUntilMin !== null;
+    const waiting = c.waitUntilMin !== null && c.waitUntilMin > t;
+    const waitIndex = alongside ? 0 : waiting ? Math.max(0, c.waitAtIdx - c.routeIdx) : c.held ? 0 : -1;
+    const waitUntilMin = alongside ? (c.dwellUntilMin as number) - t : waiting ? (c.waitUntilMin as number) - t : c.held ? 60 : 0;
+    const slowing = c.slowMps !== null && c.slowUntilMin !== null && c.slowUntilMin > t;
+    let slowUntilIndex = -1;
+    if (slowing) {
+      const cellsAhead = (((c.slowUntilMin as number) - t) * 60 * (c.slowMps as number)) / this.h.grid.cellMeters;
+      slowUntilIndex = Math.ceil(cellsAhead);
+    }
+    return {
+      id: c.id, name: c.name, route: remainingRoute(c), speedMps: c.speedMps, waitIndex, waitUntilMin, slowUntilIndex,
+      slowMps: slowing ? (c.slowMps as number) : c.speedMps, movable: !c.ignoresNotices || true, alongside,
+    };
+  }
+
+  private aisPlannerBoat(v: AisInputVessel & { cell: number }): PlannerBoat {
+    const route = this.aisProjectedRoute(v);
+    const speed = Math.max(0.3, v.sogKn * KNOT_MPS);
+    return { id: `ais-${v.mmsi}`, name: v.name || `MMSI ${v.mmsi}`, route, speedMps: speed, waitIndex: v.sogKn < 0.5 ? 0 : -1, waitUntilMin: v.sogKn < 0.5 ? 120 : 0, slowUntilIndex: -1, slowMps: speed, movable: false, alongside: v.sogKn < 0.5 };
+  }
+
+  private impactOf(b: BoatPlan): BoatImpact {
+    return {
+      id: b.id, name: b.name, onRoute: !!b.crossing, nearPath: false, insideNow: !!b.crossing && b.crossing.boatMin <= 0, minutesToZone: b.crossing?.boatMin ?? null,
+      priority: b.priority, action: b.action, instruction: 'KEEP CLEAR', addedMin: b.addedMin, reroute: null,
+      text: fixInstruction(b.fix, b.action), crossing: b.crossing, untilMin: b.untilMin, fix: b.fix, options: b.options, noGentle: b.noGentleOption,
+    };
+  }
+
+  private securityPlan(a: AreaRec): ResponsePlan {
+    const conflict: ConflictPlan = planConflicts(this.h.grid, a.area, this.craft.map((k) => this.plannerBoat(k)), this.simMin, this.plannerRules());
+    const affected = conflict.affected.map((b) => this.impactOf(b));
+    const everyone = conflict.boats.map((b) => this.impactOf(b));
+    const moving = conflict.affected.filter((b) => b.fix);
+    const total = conflict.totalAddedMin;
+    const reasons = [
+      conflict.affected.length ? `${conflict.affected.length} boat${conflict.affected.length === 1 ? '' : 's'} meet the forecast in place and time; everyone else is told on the map.` : 'No boat meets the forecast in place and time.',
+      ...conflict.noGentle.map((b) => `No gentle option for ${b.name} within ${this.orders().maxDelayPerBoatMin} min.`),
+    ];
+    return {
+      kind: 'giveWay', affected, everyone, totalAddedMin: total, maxAddedMin: conflict.maxAddedMin, clears: conflict.noGentle.length === 0,
+      withinOrders: conflict.noGentle.length === 0, blockedBerth: null, reasons,
+      nextStepUp: { kind: 'hold', text: 'Hold one berth: ships due there wait' },
+      comparison: {
+        chosen: moving.length ? `Giving way: ${moving.length} boat${moving.length === 1 ? '' : 's'} act, +${Math.round(total)} boat-min, no gate closed` : `Heads-up only: ${conflict.affected.length} boat${conflict.affected.length === 1 ? '' : 's'}, no delay`,
+        closeHarbor: 'Closing the harbor: every ship delayed',
+      },
+    };
+  }
+
+  private checkForecastUpdate(c: ContactSim, zone: ZoneRec, fresh: AreaRec, confident: boolean): void {
+    const published = zone.area;
+    const n = zone.noticeId ? this.notices.get(zone.noticeId) : undefined;
+    if (!published || !n || n.status !== 'active') return;
+    const newTarget = confident && fresh.area.topTarget !== published.area.topTarget;
+    const moved = overlapShare(fresh.area.likely, published.area.likely) < this.settings.forecast.updateOverlapMin;
+    const left = !published.area.careful[c.cell];
+    if (!newTarget && !moved && !left) { zone.pendingArea = null; this.removeCards((k) => k.key.startsWith(`update:${zone.id}`)); return; }
+    zone.pendingArea = fresh;
+    const target = this.h.targets[fresh.area.topTarget];
+    const targetName = target?.short ?? target?.name ?? 'a new target';
+    const why = newTarget ? `The forecast now points at ${targetName}.` : left ? `${c.spec.label} has left the published area.` : 'The likely path has moved away from the published area.';
+    if (!newTarget && this.orders().autoPublishForecastUpdates >= 1) {
+      this.applyAreaUpdate(zone, n, fresh, 'machine', `${why} Same target; published under Standing Orders.`);
+      return;
+    }
+    const key = `update:${zone.id}:${newTarget ? fresh.area.topTarget : 'shape'}`;
+    this.removeCards((k) => k.key.startsWith(`update:${zone.id}`) && k.key !== key);
+    this.raiseCard(key, {
+      kind: 'update', title: newTarget ? `Forecast update: now ${targetName}` : 'Forecast update',
+      body: `${why} Publish the new area so captains see where it is going now.`,
+      facts: [newTarget ? 'New target: needs your tap' : 'Same target', `Overlap with the published area ${Math.round(overlapShare(fresh.area.likely, published.area.likely) * 100)}%`],
+      actions: [{ id: 'publishUpdate', label: 'Publish update', primary: true }, { id: 'notNow', label: 'Not now' }],
+      contactId: c.id, noticeId: n.id, draftId: null, script: null,
+    });
+  }
+
+  private applyAreaUpdate(zone: ZoneRec, n: NoticeRec, fresh: AreaRec, actor: string, detail: string): void {
+    zone.area = fresh;
+    zone.geometry = this.areaGeometry(fresh);
+    zone.centerCell = fresh.area.contactCell;
+    zone.changedAtMin = this.simMin;
+    zone.pendingArea = null;
+    for (const entry of n.perVessel.values()) { entry.fix = null; entry.fixAreaVersion = -1; }
+    this.removeCards((k) => k.key.startsWith(`update:${zone.id}`));
+    this.log(actor, 'Forecast update published', detail);
+  }
+
+  forecastViews(): P.ForecastView[] {
+    const out: P.ForecastView[] = [];
+    for (const [id, rec] of this.forecasts) {
+      if (!this.contacts.has(id)) continue;
+      out.push({ contactId: id, version: rec.version, likely: rec.shapes.likely, careful: rec.shapes.careful, ticks: rec.ticks });
+    }
+    return out;
+  }
+
+  private forecastSummary(c: ContactSim): P.ForecastSummary | null {
+    const rec = this.forecasts.get(c.id);
+    if (!rec) return null;
+    const f = rec.forecast;
+    const drifting = c.classification.kind === 'debris';
+    const tgt = drifting ? null : this.h.targets[f.topTarget];
+    const p = drifting ? 0 : targetOdds(c.tell)[f.topTarget] ?? 0;
+    const name = tgt ? (tgt.short ?? tgt.name) : null;
+    const arrival = !drifting && f.arrival && tgt ? { name: name as string, share: f.arrival.share, earlyLabel: clockLabel(rec.madeAtMin + f.arrival.early), lateLabel: clockLabel(rec.madeAtMin + f.arrival.late) } : null;
+    const words = drifting
+      ? `Drifting with the current. The yellow area is where to search.`
+      : arrival ? `${name} ${Math.round(p * 100)}%, arrives ${arrival.earlyLabel} to ${arrival.lateLabel}.`
+      : name ? `${name} ${Math.round(p * 100)}%, not sure when.` : 'No clear target yet.';
+    return { version: rec.version, madeAtLabel: clockLabel(rec.madeAtMin), topId: tgt?.id ?? null, topName: name, topP: p, arrival, words, drifting };
+  }
+
   placeNear(cell: number): string {
     const [x, y] = this.h.grid.xy(cell);
     let best = 'the harbor', bd = Infinity;
@@ -348,8 +582,11 @@ export class World {
       if (!stepped && t - c.lastEvalMin >= 0.25) this.evaluate(c);
       if (c.pings < 2 && t - c.spec.firstSeenMin >= 1 && c.spec.reply !== 'friendly') { c.pings = 2; this.log('machine', 'ID ping sent', `${c.spec.label}: second ping, no reply`); }
       const last = this.lastResponseMin.get(c.id) ?? -Infinity;
-      if (stepped || t - last >= 0.5) { this.lastResponseMin.set(c.id, t); this.respondTo(c); }
+      const before = this.forecasts.get(c.id)?.version;
+      const rec = this.updateForecast(c);
+      if (stepped || t - last >= 0.5 || (rec && rec.version !== before)) { this.lastResponseMin.set(c.id, t); this.respondTo(c); }
     }
+    for (const id of [...this.forecasts.keys()]) if (!this.contacts.has(id)) this.forecasts.delete(id);
     for (const craft of this.craft) moveCraft(this.h, craft, dtSec, t, null);
     this.updateNotices();
     this.updateCards();
@@ -394,40 +631,38 @@ export class World {
     if (!existing && this.stillDismissed(zoneId, risk.level)) return;
     const o = this.orders();
     const top = topGoal(c.tell);
-    const unsure = top.goal < 0 || top.p < o.unsureBelowOdds;
-    const silentFor = c.silent && c.silentSinceMin !== null ? this.simMin - c.silentSinceMin : 0;
-    const geom = securityZone(this.h.grid, {
-      contactCell: c.cell, predictedPaths: predictedPaths(this.h, c, o.zoneTopTargets), speedMps: c.spec.speedMps,
-      zoneMeters: o.zoneMeters, pathMinutes: o.zonePathMinutes, unsure, growWhenUnsure: o.zoneGrowWhenUnsure,
-      silentMinutes: silentFor, topSpeedMps: c.spec.speedMps, maxRadiusM: o.zoneMaxMeters,
-    });
+    const rec = this.forecasts.get(c.id) ?? this.updateForecast(c, true);
+    if (!rec) return;
     const draft = existing?.draftId ? this.drafts.get(existing.draftId) : undefined;
-    const notice = existing?.noticeId ? this.notices.get(existing.noticeId) : undefined;
-    const pinnedRadius = draft?.officerRadius ?? (notice?.status === 'active' ? notice.radiusM : null);
-    const radiusM = pinnedRadius ?? geom.radiusM;
-    const g2 = pinnedRadius ? securityZone(this.h.grid, {
-      contactCell: c.cell, predictedPaths: predictedPaths(this.h, c, o.zoneTopTargets), speedMps: c.spec.speedMps,
-      zoneMeters: pinnedRadius, pathMinutes: o.zonePathMinutes, unsure: false, growWhenUnsure: 1, silentMinutes: silentFor, topSpeedMps: c.spec.speedMps, maxRadiusM: o.zoneMaxMeters,
-    }) : geom;
+    const activeNotice = existing?.noticeId ? this.notices.get(existing.noticeId) : undefined;
+    const zoneMeters = draft?.officerRadius ?? (activeNotice?.status === 'active' ? activeNotice.radiusM : o.zoneMeters);
+    const fresh = this.areaFor(c, rec, zoneMeters);
     const zone: ZoneRec = existing ?? {
-      id: zoneId, kind: 'keepOut', reason: 'Security zone', status: 'draft', geometry: g2, radiusM, contactId: c.id, noticeId: null, draftId: null,
-      movingTowardDeg: c.headingDeg, movingSpeedMps: c.spec.speedMps, centerCell: c.cell,
+      id: zoneId, kind: 'keepOut', reason: 'Security zone', status: 'draft', geometry: this.areaGeometry(fresh), radiusM: zoneMeters, contactId: c.id, noticeId: null, draftId: null,
+      movingTowardDeg: c.headingDeg, movingSpeedMps: c.spec.speedMps, centerCell: c.cell, area: fresh, changedAtMin: null, pendingArea: null,
     };
-    zone.geometry = g2;
-    zone.radiusM = radiusM;
     zone.movingTowardDeg = c.headingDeg;
     zone.movingSpeedMps = c.silent ? 0 : c.spec.speedMps;
-    zone.centerCell = c.cell;
-    this.zones.set(zoneId, zone);
-    const targetName = top.goal >= 0 ? (this.h.targets[top.goal].short ?? this.h.targets[top.goal].name) : null;
-    const plan = chooseResponse(this.h.grid, g2.mask, this.boats(), this.h.places.map((p) => ({ id: p.id, name: p.name, cell: p.cell })), this.responseRules(risk.level, false), targetName);
+    let plan: ResponsePlan;
     if (zone.status === 'published' && zone.noticeId) {
+      plan = this.securityPlan(zone.area ?? fresh);
       const n = this.notices.get(zone.noticeId);
       if (n) { n.responsePlan = plan; n.plan = this.planView(plan, n.radiusM, n.slowKnots); }
+      this.checkForecastUpdate(c, zone, fresh, top.p >= o.draftOddsMin);
     } else {
-      const meetsOrders = risk.R >= o.draftRiskMin && top.goal >= 0 && top.p >= o.draftOddsMin && plan.withinOrders && plan.kind !== 'watch';
-      if (meetsOrders || zone.draftId) this.upsertSecurityDraft(c, zone, plan, risk.level);
+      zone.area = fresh;
+      zone.geometry = this.areaGeometry(fresh);
+      zone.radiusM = zoneMeters;
+      zone.centerCell = c.cell;
+      plan = this.securityPlan(fresh);
+      const crossing = plan.affected.length > 0;
+      const meetsOrders = risk.R >= o.draftRiskMin && top.goal >= 0 && top.p >= o.draftOddsMin && crossing;
+      if (meetsOrders || zone.draftId) {
+        this.zones.set(zoneId, zone);
+        this.upsertSecurityDraft(c, zone, plan, risk.level);
+      }
     }
+    const targetName = top.goal >= 0 ? (this.h.targets[top.goal].short ?? this.h.targets[top.goal].name) : null;
     const confident = top.goal >= 0 && top.p >= o.draftOddsMin;
     if (risk.level < HIGH || !confident) this.removeCards((k) => k.key.startsWith(`hold:${c.id}:`));
     if (risk.level >= HIGH && confident) {
@@ -573,8 +808,12 @@ export class World {
     return {
       kind: plan.kind,
       boats: plan.affected.map((a) => ({
-        vesselId: a.id, name: a.name, priority: a.priority, instruction: instructionText(a.instruction, radiusM, slowKnots),
+        vesselId: a.id, name: a.name, priority: a.priority, instruction: a.text ?? instructionText(a.instruction, radiusM, slowKnots),
         addedMin: a.addedMin, action: a.action, minutesToZone: a.minutesToZone, simulated: !craftById.get(a.id)?.phone,
+        crossingLabel: a.crossing ? `${clockLabel(this.simMin + a.crossing.boatMin)}` : null,
+        untilLabel: a.untilMin !== undefined && a.untilMin !== null ? clockLabel(this.simMin + a.untilMin) : null,
+        noGentle: !!a.noGentle,
+        options: (a.options ?? []).map((op) => ({ kind: op.kind, label: FIX_LABEL[op.kind], addedMin: op.feasible ? Math.round(op.addedMin * 10) / 10 : null, why: op.why })),
       })),
       totalAddedMin: plan.totalAddedMin, maxAddedMin: plan.maxAddedMin, clears: plan.clears, withinOrders: plan.withinOrders,
       reasons: plan.reasons, nextStepUp: plan.nextStepUp.text, comparison: plan.comparison,
@@ -586,12 +825,15 @@ export class World {
     if (!draftId) return;
     const d = this.drafts.get(draftId);
     if (!d) return;
+    const stuck = plan.affected.filter((a) => a.noGentle).map((a) => a.name);
+    const actions: P.CardAction[] = [{ id: 'publish', label: 'Publish', primary: true }, { id: 'discard', label: 'Discard' }];
+    if (stuck.length) actions.splice(1, 0, { id: 'send', label: 'Hand off' });
     this.raiseCard(`publish:${draftId}`, {
-      kind: 'publish', title: 'Give-way notice drafted',
+      kind: 'publish', title: stuck.length ? `No gentle option for ${stuck.join(' and ')}` : 'Give-way notice drafted',
       body: d.wording.why,
       facts: [plan.comparison.chosen, plan.comparison.closeHarbor, `Risk ${c.lastRisk?.R ?? ''} ${levelName(level)}`],
-      actions: [{ id: 'publish', label: 'Publish', primary: true }, { id: 'discard', label: 'Discard' }],
-      contactId: c.id, noticeId: null, draftId, script: null,
+      actions,
+      contactId: c.id, noticeId: null, draftId, script: stuck.length ? templateWording(this.wordingFacts(c, zone, plan, d)).brief : null,
     });
   }
 
@@ -662,7 +904,7 @@ export class World {
     const facts: WordingFacts = {
       kind: d?.kind ?? 'security', instruction, instructionText: instructionText(instruction as Instruction, radiusM, slowKnots), publicReason: d?.publicReason ?? zone.reason,
       radiusM, slowKnots, nearPlace: this.placeNear(zone.centerCell), validUntilMin: this.simMin + (d?.validForMin ?? this.orders().noticeValidMinutes), approvedBy: this.officer,
-      boats: plan.affected.map((a) => ({ name: a.name, instructionText: instructionText(a.instruction, radiusM, slowKnots), addedMin: a.addedMin })),
+      boats: plan.affected.map((a) => ({ name: a.name, instructionText: a.text ?? instructionText(a.instruction, radiusM, slowKnots), addedMin: a.addedMin })),
       totalAddedMin: plan.totalAddedMin, station: this.station, link: this.link,
     };
     if (c && c.lastRisk && c.hostility) {
@@ -817,9 +1059,88 @@ export class World {
     return [v.cell, ...walkLine(this.h.grid, v.cell, end)];
   }
 
+  private refreshSecurityNotice(n: NoticeRec, a: AreaRec): void {
+    const rules = this.plannerRules();
+    const t = this.simMin;
+    for (const r of this.recipientsFor(n)) {
+      const prev = n.perVessel.get(r.id);
+      const rec = this.deliveries.get(`${n.id}:${r.id}`);
+      const acknowledged = rec?.states.acknowledged !== undefined;
+      let entry: VesselPlanEntry;
+      if (r.craft && prev && acknowledged && r.craft.rerouteNoticeId === n.id) {
+        entry = prev;
+      } else {
+        const boat = r.craft ? this.plannerBoat(r.craft) : this.aisPlannerBoat(r.ais as AisInputVessel & { cell: number });
+        const crossing = boatCrossing(this.h.grid, a.area, boat, t, rules.padMinutes);
+        let priority = priorityForCrossing(crossing, rules);
+        if (prev && !acknowledged) priority = moreUrgent(prev.priority, priority);
+        const sameArea = prev?.fixAreaVersion === a.version;
+        let fix = sameArea ? prev?.fix ?? null : null;
+        let fixAtMin = sameArea ? prev?.fixAtMin ?? t : t;
+        let noGentle = sameArea ? !!prev?.noGentle : false;
+        const urgent = priority === 'P1' || priority === 'P2';
+        const retry = !sameArea || (noGentle && t - fixAtMin >= 1);
+        if (crossing && crossing.layer === 'likely' && urgent && boat.movable && !fix && retry) {
+          const bp = planBoat(this.h.grid, a.area, boat, t, rules);
+          fix = bp.fix;
+          fixAtMin = t;
+          noGentle = bp.noGentleOption;
+        }
+        const action = fix ? fix.kind : crossing || (prev && prev.action !== 'none') ? 'headsUp' : 'none';
+        const text = fix ? fixInstruction(fix, fix.kind) : action === 'headsUp' ? (urgent ? 'KEEP CLEAR AND STAND BY' : 'NO ACTION NEEDED YET') : n.instructionText;
+        const crossingAbs = crossing
+          ? { layer: crossing.layer, atMin: t + crossing.boatMin, droneEarlyMin: t + crossing.droneEarlyMin, droneLateMin: t + crossing.droneLateMin }
+          : prev?.crossing ?? null;
+        entry = {
+          priority, instruction: 'KEEP CLEAR', instructionText: text, addedMin: fix?.addedMin ?? 0, minutesToZone: crossing?.boatMin ?? null, action,
+          newRoute: fix && (fix.kind === 'reroute' || fix.kind === 'stepAside') ? fix.cells : null,
+          untilMin: fix && fix.untilMin !== null ? fixAtMin + fix.untilMin : crossingAbs ? crossingAbs.droneLateMin + rules.padMinutes : null,
+          crossing: crossingAbs, fix, fixAtMin, fixAreaVersion: a.version, noGentle,
+        };
+      }
+      n.perVessel.set(r.id, entry);
+      const key = `${n.id}:${r.id}`;
+      if (!this.deliveries.has(key)) this.createDelivery(n, r, entry);
+      else this.updateDeliveryPriority(this.deliveries.get(key)!, r.craft, entry);
+    }
+  }
+
+  private applyFix(n: NoticeRec, craft: CraftSim, entry: VesselPlanEntry, actor: string): void {
+    if (craft.ignoresNotices) return;
+    const a = this.zones.get(n.zoneId)?.area;
+    if (!a) return;
+    const t = this.simMin;
+    const fresh = planBoat(this.h.grid, a.area, this.plannerBoat(craft), t, this.plannerRules());
+    const fix = (entry.fix ? fresh.options.find((o) => o.kind === entry.fix?.kind && o.feasible) : undefined) ?? fresh.fix;
+    if (!fix) return;
+    craft.rerouteNoticeId = n.id;
+    craft.addedMin = fix.addedMin;
+    const until = fix.untilMin !== null ? t + fix.untilMin : null;
+    if (fix.kind === 'hold') {
+      if (craft.dwellUntilMin !== null) craft.dwellUntilMin = Math.max(craft.dwellUntilMin, until ?? t);
+      else { craft.waitAtIdx = craft.routeIdx; craft.waitUntilMin = until; }
+    } else if (fix.kind === 'slow') {
+      craft.slowMps = (fix.slowKnots ?? this.settings.forecast.minSlowKnots) * KNOT_MPS;
+      craft.slowUntilMin = until;
+    } else if (fix.cells) {
+      const aside = fix.kind === 'stepAside' ? fix.cells[fix.waitIndex] : -1;
+      applyRoute(this.h, craft, fix.cells, n.id, fix.addedMin);
+      if (fix.kind === 'stepAside') { craft.waitAtIdx = craft.route.indexOf(aside); craft.waitUntilMin = until; }
+    }
+    entry.fix = fix;
+    entry.fixAtMin = t;
+    entry.action = fix.kind;
+    entry.instructionText = fixInstruction(fix, fix.kind);
+    entry.untilMin = until ?? entry.untilMin ?? null;
+    entry.addedMin = fix.addedMin;
+    entry.newRoute = fix.kind === 'reroute' || fix.kind === 'stepAside' ? fix.cells : null;
+    if (actor !== 'simulated') this.log(actor, 'Giving way', `${craft.name}: ${entry.instructionText}${entry.untilMin ? ` until ${clockLabel(entry.untilMin)}` : ''} (${signedMinutes(fix.addedMin)})`);
+  }
+
   private refreshNotice(n: NoticeRec): void {
     const z = this.zones.get(n.zoneId);
     if (!z) return;
+    if (n.kind === 'security' && z.area) { this.refreshSecurityNotice(n, z.area); return; }
     const mask = z.geometry.mask;
     const plan = n.responsePlan;
     const pr = this.settings.priority;
@@ -857,6 +1178,7 @@ export class World {
 
   private updateDeliveryPriority(rec: DeliveryRec, craft: CraftSim | null, entry: VesselPlanEntry): void {
     rec.priority = entry.priority;
+    if ((entry.priority === 'P1' || entry.priority === 'P2') && rec.urgentSinceMin === null) rec.urgentSinceMin = this.simMin;
     const relevant = entry.priority === 'P1' || entry.priority === 'P2' || entry.action !== 'none';
     if (!craft || !rec.simulated || craft.ignoresNotices || !relevant || rec.states.acknowledged !== undefined || rec.plannedAck !== null) return;
     const t = this.simMin;
@@ -874,6 +1196,7 @@ export class World {
       noticeId: n.id, vesselId: r.id, vesselName: r.name, simulated: r.simulated, channel: r.channel, priority: entry.priority,
       states: { sent: t }, resends: 0, notResponding: false, ackAtMin: null, vhfCalled: false,
       plannedDelivered: null, plannedSeen: null, plannedAck: null,
+      urgentSinceMin: entry.priority === 'P1' || entry.priority === 'P2' ? t : null,
     };
     if (r.craft && !isPhone) {
       rec.plannedDelivered = t + 0.05 + this.rand() * 0.15;
@@ -915,7 +1238,8 @@ export class World {
         if (rec.plannedAck !== null && t >= rec.plannedAck && rec.states.acknowledged === undefined) { rec.states.acknowledged = rec.plannedAck; this.onAcknowledged(n, vid, entry, 'simulated'); }
         const inside = craft ? !!mask && mask[currentCell(craft)] === 1 : false;
         if (craft && rec.states.acknowledged !== undefined && rec.states.complying === undefined) {
-          const avoiding = !inside && (!mask || !routeEntersMask(remainingRoute(craft), mask) || craft.held || entry.action === 'slow');
+          const givingWay = n.kind === 'security' && entry.fixAreaVersion !== undefined && (craft.rerouteNoticeId === n.id || !entry.fix);
+          const avoiding = givingWay || (!inside && (!mask || !routeEntersMask(remainingRoute(craft), mask) || craft.held || entry.action === 'slow'));
           if (avoiding) rec.states.complying = t;
         }
         if (!craft && rec.states.complying === undefined) {
@@ -924,7 +1248,7 @@ export class World {
         }
         const relevant = entry.priority === 'P1' || entry.priority === 'P2';
         if (craft && relevant && rec.states.acknowledged === undefined) {
-          const waited = t - (rec.states.sent ?? t);
+          const waited = t - (rec.urgentSinceMin ?? rec.states.sent ?? t);
           if (waited >= ds.resendMinutes && rec.resends === 0) {
             rec.resends = 1;
             const phone = craft.phone && (this.captains.get(vid)?.connected ?? false);
@@ -956,6 +1280,10 @@ export class World {
   private onAcknowledged(n: NoticeRec, vesselId: string, entry: VesselPlanEntry, actor: string): void {
     const craft = this.craft.find((c) => c.id === vesselId);
     if (!craft) return;
+    if (n.kind === 'security' && entry.fixAreaVersion !== undefined) {
+      if (entry.fix) this.applyFix(n, craft, entry, actor);
+      return;
+    }
     if (entry.action === 'wait') { craft.held = true; return; }
     if ((entry.action === 'reroute' || entry.action === 'leave') && entry.newRoute && craft.rerouteNoticeId !== n.id && !craft.ignoresNotices) {
       const z = this.zones.get(n.zoneId);
@@ -1003,7 +1331,7 @@ export class World {
   private raiseCard(key: string, card: Omit<P.Card, 'id' | 'createdAtMin' | 'realerts' | 'backupCalled'>): void {
     if (this.dismissed.has(key)) return;
     const existing = this.cards.find((k) => k.key === key);
-    if (existing) { existing.body = card.body; existing.facts = card.facts; existing.script = card.script ?? existing.script; existing.title = card.title; return; }
+    if (existing) { existing.body = card.body; existing.facts = card.facts; existing.script = card.script ?? existing.script; existing.title = card.title; existing.actions = card.actions; return; }
     this.cards.push({ ...card, id: this.id('card'), key, createdAtMin: this.simMin, realerts: 0, backupCalled: false, lastAlertMin: this.simMin, rank: CARD_RANK[card.kind] });
     this.cards.sort((a, b) => a.rank - b.rank || a.createdAtMin - b.createdAtMin);
     this.log('machine', 'Card raised', card.title);
@@ -1045,6 +1373,13 @@ export class World {
         if (card.draftId) this.discardDraft(card.draftId);
         done();
         return;
+      case 'publishUpdate': {
+        const n = card.noticeId ? this.notices.get(card.noticeId) : undefined;
+        const z = n ? this.zones.get(n.zoneId) : undefined;
+        if (z && n && z.pendingArea) this.applyAreaUpdate(z, n, z.pendingArea, 'officer', `${card.title}. Approved by ${this.officer}.`);
+        this.removeCards((k) => k.id === cardId);
+        return;
+      }
       case 'approve': {
         const c = card.contactId ? this.contacts.get(card.contactId) : undefined;
         const tgtId = card.key.split(':')[2];
@@ -1189,6 +1524,7 @@ export class World {
       rec.plannedDelivered = rec.plannedSeen = rec.plannedAck = null;
       rec.resends = 0;
       rec.notResponding = false;
+      rec.urgentSinceMin = entry.priority === 'P1' || entry.priority === 'P2' ? t : null;
       this.removeCards((k) => k.key === `vhf:${n.id}:${craft.id}`);
       this.queueAlertPush(n, craft.id, entry);
     }
@@ -1245,8 +1581,13 @@ export class World {
       id: z.id, kind: z.kind, reason: z.reason, status: z.status, rings: z.geometry.rings,
       centerline: z.geometry.centerline.filter((_, i) => i % 2 === 0).map((c) => this.lonlatOf(c)),
       radiusM: z.radiusM, movingTowardDeg: z.movingSpeedMps > 0 ? z.movingTowardDeg : null, movingSpeedMps: z.movingSpeedMps,
-      contactId: z.contactId, noticeId: z.noticeId,
+      contactId: z.contactId, noticeId: z.noticeId, area: this.areaView(z),
     };
+  }
+
+  private areaView(z: ZoneRec): P.AreaView | null {
+    if (!z.area) return null;
+    return { version: z.area.version, likely: z.area.shapes.likely, careful: z.area.shapes.careful, ticks: z.area.ticks, changedAtLabel: z.changedAtMin ? clockLabel(z.changedAtMin) : null };
   }
 
   private routeLonLat(cells: number[] | null, every = 2): LonLat[] | null {
@@ -1288,7 +1629,7 @@ export class World {
         perTarget: risk.perTarget.map((p) => ({ id: p.id, name: tgtName(p.id), p: p.odds, L: p.L, S: p.S, R: p.R })),
       } : null,
       eta,
-      predicted: c.classification.threatScored ? predictedPaths(this.h, c, 2).map((p) => this.routeLonLat(p, 3) ?? []) : [],
+      forecast: this.forecastSummary(c),
       track: c.track.filter((_, i) => i % 2 === 0).map((cell) => this.lonlatOf(cell)),
       zoneId: this.zones.has(`z-${c.id}`) ? `z-${c.id}` : null,
       why: this.contactWhy(c),
@@ -1393,6 +1734,17 @@ export class World {
     return null;
   }
 
+  private captainDetail(n: NoticeRec, entry: VesselPlanEntry, inside: boolean): string {
+    if (n.kind === 'security' && entry.fixAreaVersion !== undefined) {
+      const c = entry.crossing;
+      if (!c) return 'Not on your route. Keep a lookout.';
+      const window = `${clockLabel(c.droneEarlyMin)} to ${clockLabel(c.droneLateMin)}`;
+      if (entry.priority === 'P3' || entry.priority === 'P4') return `Unknown vessel expected near your route ${window}. No action needed yet.`;
+      return `Unknown vessel crosses your route ${window}.`;
+    }
+    return inside ? 'You are inside the zone.' : entry.minutesToZone !== null ? `Your route reaches it in ${minutesLabel(entry.minutesToZone)}.` : 'Not on your route.';
+  }
+
   captainSnapshot(vesselId: string): P.CaptainSnapshot {
     const c = this.craft.find((k) => k.id === vesselId);
     const notices: P.CaptainNotice[] = [];
@@ -1417,11 +1769,14 @@ export class World {
           zone: { rings: z.geometry.rings, centerline: this.zoneView(z).centerline, movingTowardDeg: z.movingSpeedMps > 0 ? z.movingTowardDeg : null, movingSpeedMps: z.movingSpeedMps, kind: z.kind },
           validUntilWall: new Date(this.wallMs + ((n.expiresAtMin - this.simMin) * 60_000) / Math.max(1, this.timeScale)).toISOString(),
           validUntilLabel: clockLabel(n.expiresAtMin), publishedAtWall: n.publishedAtWall, publishedAtLabel: clockLabel(n.publishedAtMin), approvedBy: n.approvedBy,
-          detail: inside ? 'You are inside the zone.' : entry.minutesToZone !== null ? `Your route reaches it in ${minutesLabel(entry.minutesToZone)}.` : 'Not on your route.',
+          detail: this.captainDetail(n, entry, inside),
           place: this.placeNear(z.centerCell), relative, acknowledgedAtLabel: ackAt !== undefined ? clockLabel(ackAt) : null,
           addedMin: entry.addedMin, rerouted: !!entry.newRoute || c.rerouteNoticeId === n.id,
           distanceM: inside ? 0 : isFinite(nearest) ? nearest : null, minutesToZone: entry.minutesToZone,
           acknowledged: rec?.states.acknowledged !== undefined, translations: n.wording.translations,
+          untilLabel: entry.untilMin !== undefined && entry.untilMin !== null ? clockLabel(entry.untilMin) : null,
+          crossingLabel: entry.crossing ? `${clockLabel(entry.crossing.droneEarlyMin)} to ${clockLabel(entry.crossing.droneLateMin)}` : null,
+          area: this.areaView(z),
         });
       }
     }

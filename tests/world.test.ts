@@ -95,6 +95,52 @@ describe('night demo path', () => {
   });
 });
 
+describe('incident A at night: warn only the boats that meet it, gently', () => {
+  function incidentA(publishAfterMin: number) {
+    const w = freshWorld('night');
+    w.captainJoin('launch1');
+    const start = w.simMin;
+    w.spawn({ preset: 'scenario', scenarioKey: 'A' });
+    let wall = 1_800_000_000_000;
+    const tick = () => { wall += 250; w.tick(250, wall); };
+    while (w.simMin - start < publishAfterMin) tick();
+    const draft = [...w.drafts.values()][0];
+    expect(draft).toBeDefined();
+    const noticeId = w.publish(draft.id)!;
+    return { w, noticeId, tick };
+  }
+
+  for (const publishAfterMin of [7, 9, 11]) {
+    it(`publishing ${publishAfterMin} min after detection costs at most 10 boat-minutes and gives the judge's phone P1 with an action and a countdown`, () => {
+      const { w, noticeId, tick } = incidentA(publishAfterMin);
+      const n = w.notices.get(noticeId)!;
+      let total = 0;
+      for (const e of n.perVessel.values()) if (e.fix) { total += e.addedMin; expect(e.addedMin).toBeLessThanOrEqual(8); }
+      expect(total).toBeLessThanOrEqual(10);
+      let judge = w.captainSnapshot('launch1').notices[0];
+      for (let i = 0; i < 40 && judge.priority !== 'P1'; i++) { tick(); judge = w.captainSnapshot('launch1').notices[0]; }
+      expect(judge.priority).toBe('P1');
+      expect(judge.instructionText).toMatch(/^(HOLD POSITION|SLOW TO \d+ KNOTS|STEP ASIDE [A-Z]+ \d+ m|ALTER COURSE [A-Z]+ \d+ m)$/);
+      expect(judge.untilLabel).toMatch(/^\d\d:\d\d$/);
+    });
+  }
+
+  it('Pilot Boat 2 ignores the notice and escalates to the VHF card; the Water Taxi never gets an action', () => {
+    const { w, noticeId, tick } = incidentA(9);
+    const taxiActions = new Set<string>();
+    for (let i = 0; i < 300 && !w.cards.some((k) => k.kind === 'notResponding' && k.title.startsWith('Pilot Boat 2')); i++) {
+      tick();
+      const e = w.notices.get(noticeId)!.perVessel.get('water1');
+      if (e) taxiActions.add(e.action);
+    }
+    expect(w.cards.some((k) => k.kind === 'notResponding' && k.title.startsWith('Pilot Boat 2'))).toBe(true);
+    for (const a of taxiActions) expect(['none', 'headsUp']).toContain(a);
+    const taxi = w.notices.get(noticeId)!.perVessel.get('water1');
+    expect(['P3', 'P4']).toContain(taxi?.priority ?? 'P4');
+  });
+
+});
+
 describe('officer decisions hold', () => {
   it('the radius the officer sets stays after Publish', () => {
     const w = freshWorld('night');
@@ -145,16 +191,18 @@ describe('officer decisions hold', () => {
     expect([...w.notices.values()].filter((n) => n.status === 'active').length).toBe(1);
   });
 
-  it('a zone that grows after the sensor loses the contact stops at the signed maximum', () => {
+  it('after the sensor loses the contact the draft area stretches along the last forecast, never past it', () => {
     const w = freshWorld('night');
     const id = driveToFuel(w);
     runUntil(w, () => w.drafts.size > 0);
+    const before = w.zones.get(`z-${id}`)!.geometry.cells.length;
+    const forecast = w.forecasts.get(id)!.forecast;
     w.sensorLoss(id, true);
-    runUntil(w, () => false, 400);
+    runUntil(w, () => false, 200);
     const zone = w.zones.get(`z-${id}`)!;
-    const grown = (zone.geometry as unknown as { radiusM: number }).radiusM;
-    expect(grown).toBeGreaterThan(defaultSettings.orders.zoneMeters);
-    expect(grown).toBeLessThanOrEqual(defaultSettings.orders.zoneMaxMeters);
+    expect(zone.geometry.cells.length).toBeGreaterThan(before);
+    for (const cell of zone.geometry.cells) expect(forecast.passShare[cell] > 0 || forecast.likely[cell] === 1 || zone.area!.area.early[cell] === 0).toBe(true);
+    expect(w.forecasts.get(id)!.forecast).toBe(forecast);
   });
 
   it('Empty harbor keeps the phones connected for the next scene', () => {

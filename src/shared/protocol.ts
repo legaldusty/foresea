@@ -41,6 +41,35 @@ export interface RiskView {
   perTarget: PerTargetRisk[];
 }
 
+export interface ForecastTickView { lonlat: LonLat; label: string; minutes: number }
+
+export interface ForecastSummary {
+  version: number;
+  madeAtLabel: string;
+  topId: string | null;
+  topName: string | null;
+  topP: number;
+  arrival: { name: string; share: number; earlyLabel: string; lateLabel: string } | null;
+  words: string;
+  drifting: boolean;
+}
+
+export interface ForecastView {
+  contactId: string;
+  version: number;
+  likely: LonLat[][][];
+  careful: LonLat[][][];
+  ticks: ForecastTickView[];
+}
+
+export interface AreaView {
+  version: number;
+  likely: LonLat[][][];
+  careful: LonLat[][][];
+  ticks: ForecastTickView[];
+  changedAtLabel: string | null;
+}
+
 export interface ContactView {
   id: string;
   label: string;
@@ -62,7 +91,7 @@ export interface ContactView {
   call: { targetId: string; name: string; p: number; sinceMin: number; etaMin: number | null } | null;
   risk: RiskView | null;
   eta: { targetId: string; name: string; minutes: number } | null;
-  predicted: LonLat[][];
+  forecast: ForecastSummary | null;
   track: LonLat[];
   zoneId: string | null;
   why: string;
@@ -97,7 +126,10 @@ export interface ZoneView {
   movingSpeedMps: number;
   contactId: string | null;
   noticeId: string | null;
+  area: AreaView | null;
 }
+
+export interface FixOptionView { kind: string; label: string; addedMin: number | null; why: string }
 
 export interface BoatImpactView {
   vesselId: string;
@@ -108,10 +140,14 @@ export interface BoatImpactView {
   action: string;
   minutesToZone: number | null;
   simulated: boolean;
+  crossingLabel: string | null;
+  untilLabel: string | null;
+  noGentle: boolean;
+  options: FixOptionView[];
 }
 
 export interface PlanView {
-  kind: 'watch' | 'speedAdvisory' | 'reroute' | 'hold' | 'closeChannel';
+  kind: 'watch' | 'speedAdvisory' | 'reroute' | 'hold' | 'closeChannel' | 'giveWay';
   boats: BoatImpactView[];
   totalAddedMin: number;
   maxAddedMin: number;
@@ -179,7 +215,7 @@ export interface CardAction { id: string; label: string; primary?: boolean }
 
 export interface Card {
   id: string;
-  kind: 'publish' | 'hold' | 'handoff' | 'notResponding' | 'lost' | 'animal' | 'person' | 'info';
+  kind: 'publish' | 'update' | 'hold' | 'handoff' | 'notResponding' | 'lost' | 'animal' | 'person' | 'info';
   title: string;
   body: string;
   facts: string[];
@@ -275,6 +311,9 @@ export interface CaptainNotice {
   minutesToZone: number | null;
   acknowledged: boolean;
   translations: Record<string, string>;
+  untilLabel: string | null;
+  crossingLabel: string | null;
+  area: AreaView | null;
 }
 
 export interface CaptainSnapshot {

@@ -52,7 +52,6 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
   const paths: F[] = [];
   for (const c of s.contacts) {
     if (c.track.length > 1) paths.push({ type: 'Feature', properties: { kind: 'track', rank: 9 }, geometry: { type: 'LineString', coordinates: c.track } });
-    c.predicted.forEach((p, rank) => paths.push(...lineWithHead(p, { kind: 'predicted', rank, contact: c.id })));
   }
   const routes: F[] = [];
   for (const v of s.vessels) {

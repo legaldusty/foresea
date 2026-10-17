@@ -27,6 +27,10 @@ export interface CraftSim {
   slackMin: number;
   held: boolean;
   dwellUntilMin: number | null;
+  waitAtIdx: number;
+  waitUntilMin: number | null;
+  slowMps: number | null;
+  slowUntilMin: number | null;
 }
 
 export interface CraftSeed {
@@ -64,6 +68,7 @@ export function createCraft(h: Harbor, seed: CraftSeed, t: number): CraftSim | n
     tripStartMin: t - elapsedMin, naturalMin,
     slackMin: Math.max(3, seed.scheduledMin - naturalMin),
     held: false, dwellUntilMin: null,
+    waitAtIdx: -1, waitUntilMin: null, slowMps: null, slowUntilMin: null,
   };
 }
 
@@ -92,11 +97,28 @@ export function applyRoute(h: Harbor, c: CraftSim, cells: number[], noticeId: st
   c.addedMin = addedMin;
 }
 
+export function clearFix(c: CraftSim): void {
+  c.waitAtIdx = -1;
+  c.waitUntilMin = null;
+  c.slowMps = null;
+  c.slowUntilMin = null;
+}
+
 export function restoreRoute(h: Harbor, c: CraftSim): void {
   const here = currentCell(c);
   const back = findPath(h.grid, here, c.toCell);
   if (back) { c.route = back; c.routeIdx = 0; }
   c.rerouteNoticeId = null;
+  clearFix(c);
+}
+
+export function effectiveSpeed(c: CraftSim, t: number): number {
+  if (c.slowMps !== null && c.slowUntilMin !== null && t < c.slowUntilMin) return c.slowMps;
+  return c.speedMps;
+}
+
+export function isWaiting(c: CraftSim, t: number): boolean {
+  return c.waitUntilMin !== null && t < c.waitUntilMin && (c.waitAtIdx < 0 || c.routeIdx >= c.waitAtIdx);
 }
 
 function startTrip(h: Harbor, c: CraftSim, t: number): void {
@@ -112,6 +134,7 @@ function startTrip(h: Harbor, c: CraftSim, t: number): void {
   c.naturalMin = routeMinutes(h, route, c.speedMps);
   c.addedMin = 0;
   c.rerouteNoticeId = null;
+  clearFix(c);
 }
 
 export function moveCraft(h: Harbor, c: CraftSim, dtSec: number, t: number, blocked: Uint8Array | null): void {
@@ -122,7 +145,10 @@ export function moveCraft(h: Harbor, c: CraftSim, dtSec: number, t: number, bloc
     return;
   }
   if (c.held) return;
-  c.progressM += c.speedMps * dtSec;
+  if (c.waitUntilMin !== null && t >= c.waitUntilMin) { c.waitUntilMin = null; c.waitAtIdx = -1; }
+  if (c.slowUntilMin !== null && t >= c.slowUntilMin) { c.slowUntilMin = null; c.slowMps = null; }
+  if (isWaiting(c, t)) { c.progressM = 0; return; }
+  c.progressM += effectiveSpeed(c, t) * dtSec;
   let guard = 0;
   while (c.progressM >= h.grid.cellMeters && guard++ < 100) {
     const nextCell = c.route[c.routeIdx + 1];
@@ -132,6 +158,7 @@ export function moveCraft(h: Harbor, c: CraftSim, dtSec: number, t: number, bloc
     c.headingDeg = bearingDeg(h.grid.toLonLat(...h.grid.xy(from)) as LonLat, h.grid.toLonLat(...h.grid.xy(nextCell)) as LonLat);
     c.routeIdx++;
     c.progressM -= h.grid.cellMeters;
+    if (isWaiting(c, t)) { c.progressM = 0; return; }
   }
 }
 

@@ -1,8 +1,9 @@
 import type { GridLike } from './zones';
 import { dilate, passesNear, rerouteAround, routeEntersMask, type RerouteResult } from './routing';
 import { minutesUntilZone, priorityFor, type Priority } from './priority';
+import type { Crossing, PricedFix } from './conflicts';
 
-export type ResponseKind = 'watch' | 'speedAdvisory' | 'reroute' | 'hold' | 'closeChannel';
+export type ResponseKind = 'watch' | 'speedAdvisory' | 'reroute' | 'hold' | 'closeChannel' | 'giveWay';
 
 export type Instruction = 'KEEP CLEAR' | 'SLOW' | 'USE EAST CHANNEL' | 'USE MAIN CHANNEL' | 'WAIT' | 'LEAVE ZONE' | 'ALL CLEAR';
 
@@ -28,10 +29,16 @@ export interface BoatImpact {
   insideNow: boolean;
   minutesToZone: number | null;
   priority: Priority;
-  action: 'none' | 'slow' | 'reroute' | 'leave' | 'wait';
+  action: 'none' | 'slow' | 'reroute' | 'leave' | 'wait' | 'hold' | 'stepAside' | 'headsUp';
   instruction: Instruction;
   addedMin: number;
   reroute: RerouteResult | null;
+  text?: string;
+  crossing?: Crossing | null;
+  untilMin?: number | null;
+  fix?: PricedFix | null;
+  options?: PricedFix[];
+  noGentle?: boolean;
 }
 
 export interface ResponseRules {
