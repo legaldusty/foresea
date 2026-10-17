@@ -435,3 +435,5 @@ body.dragging { user-select: none; cursor: grabbing; }
   .ir * { color: #000 !important; border-color: #bbb !important; }
   .ir-actions { display: none; }
 }
+.keys > div { display: grid; grid-template-columns: 96px 1fr; gap: var(--space-16); padding: var(--space-8) 0; border-top: 1px solid var(--line); font: var(--type-body); align-items: baseline; }
+.keys .key-cap { color: var(--text); }

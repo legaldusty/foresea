@@ -1,4 +1,4 @@
-import { Broadcast, Cpu, FileText, QrCode, Scroll, UserCircle, Waves, WifiSlash } from '@phosphor-icons/react';
+import { BellRinging, BellSlash, Broadcast, Cpu, FileText, Keyboard, QrCode, Scroll, UserCircle, Waves, WifiSlash } from '@phosphor-icons/react';
 import type { CommandSnapshot } from '../../shared/protocol';
 import { Button, Segmented } from '../ui';
 import type { Link } from '../hub/useHub';
@@ -8,7 +8,7 @@ export function Lockup() {
   return <span className="lockup"><span className="mark" /><span className="word">GIVE WAY</span></span>;
 }
 
-export function TopBar(props: { snap: CommandSnapshot; link: Link; onOrders: () => void; onJoin: () => void; onModels: () => void; onMode: (mode: 'live' | 'sim') => void }) {
+export function TopBar(props: { snap: CommandSnapshot; link: Link; onOrders: () => void; onJoin: () => void; onModels: () => void; onMode: (mode: 'live' | 'sim') => void; muted: boolean; onMute: () => void; onKeys: () => void }) {
   const { snap } = props;
   const ais = snap.sources.ais;
   const noaa = snap.sources.noaa;
@@ -30,6 +30,8 @@ export function TopBar(props: { snap: CommandSnapshot; link: Link; onOrders: () 
         <span className="src lang" title={lang.detail}><FileText size={16} />{lang.source === 'granite' ? 'Granite, on device' : 'Template wording'}</span>
       </div>
       <span style={{ flex: 1 }} />
+      <button className="icon-btn" onClick={props.onMute} aria-label={props.muted ? 'Turn alert sounds on' : 'Mute alert sounds'} title={props.muted ? 'Alert sounds off (S)' : 'Alert sounds on (S)'} data-testid="sound">{props.muted ? <BellSlash size={20} /> : <BellRinging size={20} />}</button>
+      <button className="icon-btn" onClick={props.onKeys} aria-label="Keyboard shortcuts" title="Keyboard shortcuts (?)" data-testid="keys"><Keyboard size={20} /></button>
       <span className="top-officer" title={snap.officer}><UserCircle size={20} /><span className="who">{snap.officer}</span></span>
       <span className="vdiv" />
       <div className="top-actions">

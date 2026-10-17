@@ -8,6 +8,8 @@ import { ChartMap, type CalloutSide, type ChartCallout, type ChartData, type Cha
 import type { AuditWhere } from '../../shared/protocol';
 import { ZoneInspector } from './ZoneInspector';
 import { IncidentSheet } from './Incident';
+import { ShortcutsSheet } from './Shortcuts';
+import { wakeAudio, useCardChime } from './alerts';
 import { describeHit } from './describe';
 import { commandChart } from '../map/toChart';
 import { TopBar } from './TopBar';
@@ -82,12 +84,18 @@ export function CommandView() {
   const snap = hub.snapshot;
   const [selected, setSelected] = useState<string | null>(null);
   const [tool, setTool] = useState<Tool>('select');
-  const [sheet, setSheet] = useState<'nights' | 'orders' | 'join' | 'models' | null>(null);
+  const [sheet, setSheet] = useState<'nights' | 'orders' | 'join' | 'models' | 'keys' | null>(null);
+  const [muted, setMuted] = usePersisted<boolean>('giveway.sound.muted', false);
+  const mutedRef = useRef(muted);
+  mutedRef.current = muted;
+  const focusRef = useRef<string | null>(null);
   const [inspect, setInspect] = useState<{ kind: 'vessel' | 'contact' | 'zone'; id: string } | null>(null);
   const [highlight, setHighlight] = useState<{ lonlat: [number, number]; radiusM: number | null } | null>(null);
   const [deskCollapsed, setDeskCollapsed] = usePersisted<boolean>('giveway.desk.collapsed', false);
   const [deskTab, setDeskTab] = useState<string>('today');
   const [reportId, setReportId] = useState<string | null>(null);
+  const deskCollapsedRef = useRef(deskCollapsed);
+  deskCollapsedRef.current = deskCollapsed;
   const [hiddenList, setHiddenList] = usePersisted<LayerKey[]>('giveway.layers.hidden', []);
   const hidden = useMemo(() => new Set(hiddenList), [hiddenList.join(',')]);
   const toggleLayer = (k: LayerKey) => setHiddenList(hidden.has(k) ? hiddenList.filter((x) => x !== k) : [...hiddenList, k]);
@@ -107,11 +115,27 @@ export function CommandView() {
     const onKey = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement | null;
       if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
       if (e.key === 'p' || e.key === 'P') setPresenter((v) => !v);
+      if (e.key === 'm' || e.key === 'M') setSheet((v) => (v === 'models' ? null : 'models'));
+      if (e.key === 'o' || e.key === 'O') setSheet((v) => (v === 'orders' ? null : 'orders'));
+      if (e.key === 'j' || e.key === 'J') setSheet((v) => (v === 'join' ? null : 'join'));
+      if (e.key === '?') setSheet((v) => (v === 'keys' ? null : 'keys'));
+      if (e.key === 'd' || e.key === 'D') setDeskCollapsed(!deskCollapsedRef.current);
+      if (e.key === 's' || e.key === 'S') setMuted(!mutedRef.current);
+      if (e.key === 'r' || e.key === 'R') { const id = focusRef.current; if (id) setReportId(id); }
+      const tabs = ['today', 'ontime', 'sightings', 'report', 'log'];
+      if (/^[1-5]$/.test(e.key)) { setDeskTab(tabs[Number(e.key) - 1]); setDeskCollapsed(false); }
       if (e.key === 'Escape') { setWhy(false); setTool('select'); setInspect(null); setHighlight(null); }
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
+  }, []);
+  useCardChime(snap?.card ?? null, muted);
+  useEffect(() => {
+    const wake = () => { wakeAudio(); window.removeEventListener('pointerdown', wake); };
+    window.addEventListener('pointerdown', wake);
+    return () => window.removeEventListener('pointerdown', wake);
   }, []);
   const incidentOn = !!snap?.steps;
   useEffect(() => { if (incidentOn) setDeskCollapsed(true); }, [incidentOn]);
@@ -135,6 +159,7 @@ export function CommandView() {
 
   const watched = snap.contacts.filter((c) => c.classification.kind !== 'friendly');
   const focus = pickContact(watched, selected) ?? pickContact(snap.contacts, selected);
+  focusRef.current = focus?.id ?? null;
   const driven = snap.contacts.find((c) => c.mode === 'driven') ?? null;
   const incident = !!snap.steps;
   const draft = snap.card?.draftId ? snap.drafts.find((d) => d.id === snap.card?.draftId) ?? null : snap.drafts.find((d) => d.contactId && d.contactId === focus?.id) ?? null;
@@ -188,7 +213,7 @@ export function CommandView() {
 
   return (
     <div className={`cmd${incident ? ' incident' : ''}`} data-theme={theme} style={{ ['--rail-w' as string]: `${rail.size}px` }}>
-      <TopBar snap={snap} link={hub.link} onOrders={() => setSheet('orders')} onJoin={() => setSheet('join')} onModels={() => setSheet('models')} onMode={onMode} />
+      <TopBar snap={snap} link={hub.link} onOrders={() => setSheet('orders')} onJoin={() => setSheet('join')} onModels={() => setSheet('models')} onMode={onMode} muted={muted} onMute={() => { setMuted(!muted); if (muted && 'Notification' in window && Notification.permission === 'default') void Notification.requestPermission(); }} onKeys={() => setSheet('keys')} />
       <div className="cmd-main">
         <Headline h={snap.headline} level={focus?.risk?.level ?? null} />
         {snap.steps ? <StepStrip steps={snap.steps} /> : null}
@@ -293,6 +318,7 @@ export function CommandView() {
       {sheet === 'join' ? <JoinSheet snap={snap} onClose={() => setSheet(null)} /> : null}
       {sheet === 'models' ? <ModelsPanel models={snap.models} onClose={() => setSheet(null)} /> : null}
       {reportId ? <IncidentSheet contactId={reportId} onClose={() => setReportId(null)} /> : null}
+      {sheet === 'keys' ? <ShortcutsSheet onClose={() => setSheet(null)} /> : null}
     </div>
   );
 }
