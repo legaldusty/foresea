@@ -49,7 +49,7 @@ export function NightsSheet(props: { onClose: () => void }) {
   const top = styles.length ? Math.ceil(Math.max(...styles.map((x) => Math.max(x.s.tellWarnMin, x.s.baseWarnMin))) / AXIS_STEP) * AXIS_STEP : 80;
   const ticks = Array.from({ length: top / AXIS_STEP + 1 }, (_, i) => i * AXIS_STEP);
   const meta = result
-    ? <><span className="t-mono-small">{(result.nights * 2).toLocaleString()}</span> simulated nights in <span className="t-mono-small">{(result.ms / 1000).toFixed(1)}</span> s, in this browser. TELL against the nearest-dock guess.</>
+    ? <><span className="t-mono-small">{result.nights.toLocaleString()}</span> nights detected at the gates and <span className="t-mono-small">{result.nights.toLocaleString()}</span> close in, in <span className="t-mono-small">{(result.ms / 1000).toFixed(1)}</span> s in this browser. TELL against the nearest-dock guess.</>
     : 'Running in a Web Worker in this browser.';
   return (
     <Sheet title={<span className="sheet-title">Run 1,000 nights <Simulated /></span>} meta={meta} onClose={props.onClose} testId="nights-sheet" width={848}>
