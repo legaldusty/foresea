@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+<path d="M24 11.6064C26.7085 13.5422 28.5 16.794 28.5 20.5V35.5C28.5 36.0239 28.0239 36.5 27.5 36.5H20.5C19.9761 36.5 19.5 36.0239 19.5 35.5V20.5C19.5 16.794 21.2915 13.5422 24 11.6064Z" stroke-linejoin="round" style="fill:var(--vessel,#8FA3B3);stroke:var(--vessel-edge,#E8EEF2)"/>
+<path fill="none" d="M20.8 18.5H27.2001V31.5H20.8V18.5Z" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M20.8 21.5H27.2001" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M19 34H29" style="stroke:var(--vessel-detail,#0C1A25)"/>
+</svg>

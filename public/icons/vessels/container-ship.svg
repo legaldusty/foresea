@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+<path d="M24 2.12109C26.6327 4.11815 29.5 7.89279 29.5 13V44.5C29.5 45.6239 28.6239 46.5 27.5 46.5H20.5C19.3761 46.5 18.5 45.6239 18.5 44.5V13C18.5 7.89279 21.3673 4.11815 24 2.12109Z" stroke-linejoin="round" style="fill:var(--vessel,#8FA3B3);stroke:var(--vessel-edge,#E8EEF2)"/>
+<path fill="none" d="M19 9.5H29" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M19 14.5H29" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M19 19.5H29" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M19 24.5H29" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M19 29.5H29" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M19 34.5H29" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M24 9.5V34.5" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path d="M19 38H29V41.5H19V38Z" style="fill:var(--vessel-detail,#0C1A25)"/>
+</svg>

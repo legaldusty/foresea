@@ -5,7 +5,7 @@
   "type": "module",
   "description": "GIVE WAY: predicts where an unknown underwater drone is heading and moves only the boats in its path.",
   "scripts": {
-    "dev": "tsx watch server/main.ts --dev",
+    "dev": "tsx watch --exclude \"./vite.config.ts.timestamp-*\" --exclude \"./src/app/**\" --exclude \"./data/**\" server/main.ts --dev",
     "build": "vite build",
     "start": "tsx server/main.ts",
     "demo": "tsx scripts/demo.ts",

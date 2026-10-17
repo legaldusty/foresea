@@ -1,7 +1,7 @@
 import { chromium } from '@playwright/test';
-const [,, url, out, w = '1440', h = '900'] = process.argv;
+const [,, url, out, w = '1440', h = '900', dpr = '1'] = process.argv;
 const browser = await chromium.launch();
-const page = await browser.newPage({ viewport: { width: +w, height: +h }, deviceScaleFactor: 1 });
+const page = await browser.newPage({ viewport: { width: +w, height: +h }, deviceScaleFactor: +dpr });
 const errors = [];
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
 page.on('pageerror', (e) => errors.push(String(e)));

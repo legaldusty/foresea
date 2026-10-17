@@ -116,7 +116,7 @@
            "berthRadiusMeters": 450, "berthedMaxKnots": 0.5, "staleMinutes": 20, "onTimeLateMinutes": 15,
            "onTimeMinKnots": 2, "onTimeStaleEtaHours": 12,
            "breakwaterLonLat": [[-118.2800, 33.7080], [-118.2520, 33.7080], [-118.2360, 33.7135], [-118.1900, 33.7232], [-118.1360, 33.7232]],
-           "recording": "ais-fri-night.jsonl", "replaySpeed": 1, "replayMaxGapSeconds": 30, "replayLoopPauseSeconds": 2, "replayWarmStartMinutes": 4,
+           "recording": "demo-sanpedro-fri-night.jsonl", "replaySpeed": 1, "replayMaxGapSeconds": 30, "replayLoopPauseSeconds": 2, "replayWarmStartMinutes": 4,
            "connectTimeoutSeconds": 10, "liveFirstVesselSeconds": 20, "reconnectBaseSeconds": 2, "reconnectMaxSeconds": 60,
            "emitMaxPerSecond": 2, "berthMinLengthM": 150, "displayTimeZone": "America/Los_Angeles" },
   "noaa": { "waterLevelStation": "9410660", "currentStations": ["lb0101"], "cacheMinutes": 30,

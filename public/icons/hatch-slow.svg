@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+<g clip-path="url(#hatch-slow-clip)">
+<path fill="none" d="M-16 0L0 16M0 0L16 16M16 0L32 16" stroke="#E0A100"/>
+</g>
+<defs>
+<clipPath id="hatch-slow-clip">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
+</svg>

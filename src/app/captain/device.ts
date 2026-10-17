@@ -5,7 +5,7 @@ export function setManifest(view: 'command' | 'captain'): void {
   link.href = href;
   let icon = document.querySelector<HTMLLinkElement>('link[rel="apple-touch-icon"]');
   if (!icon) { icon = document.createElement('link'); icon.rel = 'apple-touch-icon'; document.head.appendChild(icon); }
-  icon.href = '/icons/app-192.png';
+  icon.href = '/icons/icon-192.png';
   let fav = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
   if (!fav) { fav = document.createElement('link'); fav.rel = 'icon'; document.head.appendChild(fav); }
   fav.href = '/icons/mark.svg';

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" fill="none">
+<g clip-path="url(#hatch-keep-out-clip)">
+<path fill="none" d="M0 0L-16 16M8 0L-8 16M16 0L0 16M24 0L8 16M32 0L16 16" stroke="#D83A34"/>
+</g>
+<defs>
+<clipPath id="hatch-keep-out-clip">
+<rect width="16" height="16" fill="white"/>
+</clipPath>
+</defs>
+</svg>

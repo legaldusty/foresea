@@ -4,6 +4,11 @@ import { withAlpha, type ChartColors } from './chartTheme';
 const RATIO = 2;
 
 export const SILHOUETTES = ['container', 'tanker', 'cruise', 'ferry', 'tug', 'pilot', 'dive', 'taxi', 'robot', 'other'] as const;
+
+const SILHOUETTE_FILES: Record<(typeof SILHOUETTES)[number], string> = {
+  container: 'container-ship', tanker: 'tanker', cruise: 'cruise-ship', ferry: 'ferry', tug: 'tug',
+  pilot: 'pilot-boat', dive: 'dive-tender', taxi: 'water-taxi', robot: 'research-glider', other: 'water-taxi',
+};
 export type Silhouette = (typeof SILHOUETTES)[number];
 
 export function silhouetteFor(type: string, lengthM: number | null): Silhouette {
@@ -110,11 +115,16 @@ function ring(map: MLMap, id: string, color: string): void {
   add(map, id, c);
 }
 
-async function svgImage(url: string, recolor: Record<string, string>): Promise<HTMLImageElement | null> {
+function resolveCssVars(text: string, el: Element): string {
+  const style = getComputedStyle(el);
+  return text.replace(/var\((--[a-z0-9-]+)\s*,\s*([^)]+)\)/gi, (_, name: string, fallback: string) => style.getPropertyValue(name).trim() || fallback.trim());
+}
+
+async function svgImage(url: string, recolor: Record<string, string>, el: Element = document.documentElement): Promise<HTMLImageElement | null> {
   try {
     const res = await fetch(url);
     if (!res.ok) return null;
-    let text = await res.text();
+    let text = resolveCssVars(await res.text(), el);
     for (const [from, to] of Object.entries(recolor)) text = text.split(from).join(to);
     const img = new Image();
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(text)}`;
@@ -126,7 +136,7 @@ async function svgImage(url: string, recolor: Record<string, string>): Promise<H
 }
 
 async function vessel(map: MLMap, kind: Silhouette, colors: ChartColors): Promise<void> {
-  const img = await svgImage(`/icons/vessels/${kind}.svg`, { currentColor: colors.text });
+  const img = await svgImage(`/icons/vessels/${SILHOUETTE_FILES[kind]}.svg`, { currentColor: colors.text });
   const w = 48, h = 48;
   const [c, ctx] = canvas(w);
   if (img) {

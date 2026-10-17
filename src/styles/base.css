@@ -1,7 +1,7 @@
 html, body, #root { margin: 0; height: 100%; }
-body { background: var(--bg, #0A1621); color: var(--text, #E8EEF2); font-family: 'IBM Plex Sans', system-ui, sans-serif; -webkit-font-smoothing: antialiased; }
+body { background: var(--bg); color: var(--text); font-family: var(--font-sans); -webkit-font-smoothing: antialiased; }
 .chart-wrap { position: absolute; inset: 0; }
 .chart-map { width: 100%; height: 100%; }
-.chart-label { font: 500 12px/1 'IBM Plex Sans', sans-serif; color: var(--text, #E8EEF2); white-space: nowrap; pointer-events: none; letter-spacing: 0.01em; }
-.chart-label-water { font-style: italic; font-weight: 400; color: var(--muted, #8FA3B3); letter-spacing: 0.08em; }
-.chart-label-gate, .chart-label-channel { font-weight: 400; color: var(--muted, #8FA3B3); }
+.chart-label { font: 500 12px/1 var(--font-sans); color: var(--text); white-space: nowrap; pointer-events: none; letter-spacing: 0.01em; }
+.chart-label-water { font-style: italic; font-weight: 400; color: var(--muted); letter-spacing: 0.08em; }
+.chart-label-gate, .chart-label-channel { font-weight: 400; color: var(--muted); }

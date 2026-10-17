@@ -95,8 +95,7 @@ self.addEventListener('push', (event) => {
     renotify: true,
     requireInteraction: urgent || msg.requireInteraction,
     vibrate: urgent ? [400, 120, 400, 120, 400] : [200],
-    icon: '/icons/app-192.png',
-    badge: '/icons/badge-72.png',
+    icon: '/icons/icon-192.png',
     data: { url: msg.url },
   }));
 });

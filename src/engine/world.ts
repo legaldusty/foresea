@@ -1289,6 +1289,18 @@ export class World {
     return { simMin: this.simMin, label: clockLabel(this.simMin), timeScale: this.timeScale, paused: this.paused, night: this.night };
   }
 
+  private proposedRoute(c: CraftSim): number[] | null {
+    const here = currentCell(c);
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active') continue;
+      const entry = n.perVessel.get(c.id);
+      if (!entry?.newRoute) continue;
+      const start = entry.newRoute.indexOf(here);
+      return start >= 0 ? entry.newRoute.slice(start) : entry.newRoute;
+    }
+    return null;
+  }
+
   captainSnapshot(vesselId: string): P.CaptainSnapshot {
     const c = this.craft.find((k) => k.id === vesselId);
     const notices: P.CaptainNotice[] = [];
@@ -1317,10 +1329,12 @@ export class World {
     const order: Record<Priority, number> = { P1: 0, P2: 1, P3: 2, P4: 3 };
     notices.sort((a, b) => order[a.priority] - order[b.priority]);
     const rerouted = !!c?.rerouteNoticeId;
+    const proposal = !rerouted && c ? this.proposedRoute(c) : null;
     return {
       vessel: c ? {
         id: c.id, name: c.name, type: c.type, lonlat: craftLonLat(this.h, c), headingDeg: c.headingDeg, speedKn: c.held ? 0 : mpsToKnots(c.speedMps),
-        route: rerouted ? null : this.routeLonLat(remainingRoute(c), 3), newRoute: rerouted ? this.routeLonLat(remainingRoute(c), 3) : null,
+        route: rerouted ? null : this.routeLonLat(remainingRoute(c), 3),
+        newRoute: rerouted ? this.routeLonLat(remainingRoute(c), 3) : proposal ? this.routeLonLat(proposal, 3) : null,
       } : null,
       notices,
       traffic: [
