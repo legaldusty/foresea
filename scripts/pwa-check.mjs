@@ -1,0 +1,24 @@
+import { chromium } from '@playwright/test';
+const base = process.env.BASE || 'http://localhost:5170';
+const browser = await chromium.launch();
+const ctx = await browser.newContext();
+const page = await ctx.newPage();
+await page.goto(`${base}/captain?v=tug1`);
+await page.getByTestId('join').click();
+await page.waitForTimeout(3000);
+await page.reload();
+await page.waitForTimeout(4000);
+const r = await page.evaluate(async () => {
+  const link = document.querySelector('link[rel="manifest"]');
+  const manifest = link ? await (await fetch(link.href)).json() : null;
+  const reg = await navigator.serviceWorker.getRegistration();
+  const cacheNames = await caches.keys();
+  const tiles = await caches.open('giveway-tiles-v1').then((c) => c.match('/tiles/harbor.pmtiles')).then((m) => !!m);
+  return { manifest: manifest?.name, icons: manifest?.icons?.length, sw: !!reg?.active, controlled: !!navigator.serviceWorker.controller, cacheNames, tilesCached: tiles };
+});
+console.log(JSON.stringify(r));
+await ctx.setOffline(true);
+await page.reload().catch((e) => console.log('reload offline failed', String(e).slice(0, 80)));
+await page.waitForTimeout(3000);
+console.log('offline page has captain view:', await page.getByTestId('captain').count() > 0, 'stale line:', await page.getByTestId('stale').textContent().catch(() => null));
+await browser.close();
