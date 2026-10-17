@@ -414,6 +414,31 @@ export interface IncidentReport {
   timeline: { atLabel: string; actor: string; action: string; detail: string }[];
 }
 
+export interface BoardNotice {
+  id: string;
+  publicReason: string;
+  label: string | null;
+  instructionText: string;
+  place: string;
+  fromLabel: string;
+  untilLabel: string;
+  kind: 'keepOut' | 'slow';
+  largeShipsOnly: boolean;
+  rings: LonLat[][][];
+  center: LonLat;
+}
+
+export interface PublicBoard {
+  station: string;
+  mode: OperatingMode;
+  clockLabel: string;
+  updatedWall: string;
+  notices: BoardNotice[];
+  allClear: { publicReason: string; atLabel: string }[];
+  ships: { id: string; lonlat: LonLat; headingDeg: number; type: string }[];
+  link: string;
+}
+
 export interface IncidentSummary { contactId: string; label: string; status: IncidentReport['status']; detectedLabel: string; simulated: boolean }
 
 export interface AuditWhere { lonlat: LonLat; radiusM: number | null; zoneId: string | null; contactId: string | null; vesselId: string | null; place: string | null }

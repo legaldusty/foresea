@@ -14,6 +14,7 @@ import { captainChart } from './map/toChart';
 import { CommandView } from './command/CommandView';
 import { setManifest } from './captain/device';
 import { CaptainView } from './captain/CaptainView';
+import { BoardView } from './board/BoardView';
 
 const params = new URLSearchParams(location.search);
 const isCaptain = location.pathname.startsWith('/captain');
@@ -28,4 +29,4 @@ function CaptainMapCheck() {
   return <ChartMap theme={theme} compact data={captainChart(hub.snapshot, 0)} follow={v?.lonlat ?? null} />;
 }
 
-createRoot(document.getElementById('root') as HTMLElement).render(isCaptain ? <CaptainView /> : params.get('view') === 'captain' ? <CaptainMapCheck /> : <CommandView />);
+createRoot(document.getElementById('root') as HTMLElement).render(location.pathname.startsWith('/board') ? <BoardView /> : isCaptain ? <CaptainView /> : params.get('view') === 'captain' ? <CaptainMapCheck /> : <CommandView />);

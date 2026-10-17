@@ -399,6 +399,26 @@ export class World {
     }
   }
 
+  publicBoard(): P.PublicBoard {
+    const notices: P.BoardNotice[] = [];
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active' || n.publishedAtMin > this.simMin) continue;
+      const z = this.zones.get(n.zoneId);
+      if (!z) continue;
+      notices.push({
+        id: n.id, publicReason: n.publicReason, label: n.kind === 'security' ? null : n.label ?? null, instructionText: n.instructionText,
+        place: this.placeNear(z.centerCell), fromLabel: clockLabel(n.publishedAtMin), untilLabel: clockLabel(n.expiresAtMin),
+        kind: z.kind, largeShipsOnly: !!n.largeShipsOnly, rings: z.geometry.rings, center: this.lonlatOf(z.centerCell),
+      });
+    }
+    return {
+      station: this.station, mode: this.mode, clockLabel: clockLabel(this.simMin), updatedWall: this.wall(), notices,
+      allClear: this.allClearRecent.map((a) => ({ publicReason: a.publicReason, atLabel: clockLabel(a.atMin) })),
+      ships: this.ais.map((v) => ({ id: `ais-${v.mmsi}`, lonlat: this.aisLonLat(v), headingDeg: v.headingDeg ?? v.cogDeg, type: v.typeLabel })),
+      link: this.link,
+    };
+  }
+
   incidentList(): P.IncidentSummary[] {
     return [...this.incidents.values()].map((r) => ({ contactId: r.contactId, label: r.label, status: r.closedMin !== null ? 'closed' : r.clearedMin !== null ? 'all clear' : 'open', detectedLabel: clockLabel(r.firstSeenMin), simulated: r.simulated }));
   }

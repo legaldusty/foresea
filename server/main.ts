@@ -166,6 +166,11 @@ app.get('/api/report.csv', (_req, res) => {
   res.setHeader('Content-Disposition', 'attachment; filename="giveway-daily-report.csv"');
   res.send(rows.map((row) => row.map((v) => (/[",]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v))).join(',')).join('\n'));
 });
+app.get('/api/board.json', (_req, res) => {
+  res.setHeader('Cache-Control', 'no-store');
+  res.json(world.publicBoard());
+});
+
 app.get('/api/incident/:id', (req, res) => {
   const report = world.incidentReport(String(req.params.id));
   if (!report) { res.status(404).json({ error: 'No incident with that id' }); return; }
