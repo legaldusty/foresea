@@ -2,14 +2,14 @@ import type { Harbor } from './harbor';
 import type { Settings } from './settings';
 import { nearestWater, walkLine } from './grid';
 import { topGoal, targetOdds, lostOnlyOdds, driftOdds, LOST, DRIFT, type CurrentVector } from './tell';
-import { HIGH, CRITICAL, SERIOUS, levelName, rungName } from './risk';
+import { HIGH, CRITICAL, SERIOUS, levelName, rungName, consequence } from './risk';
 import { INCIDENTS } from './scenarios';
 import {
   createContact, moveContact, evaluateContact, contactLonLat, oddsRows, setPointer, factors, etaToGoal, recordOdds,
   type ContactSim, type ContactSpec,
 } from './contact';
 import {
-  createCraft, moveCraft, craftLonLat, remainingRoute, applyRoute, restoreRoute, currentCell, plannedArrivalMin, ourArrivalMin, fleetSeeds, clearFix,
+  createCraft, moveCraft, craftLonLat, remainingRoute, applyRoute, restoreRoute, currentCell, plannedArrivalMin, ourArrivalMin, fleetSeeds, clearFix, effectiveSpeed, isWaiting,
   type CraftSim,
 } from './craft';
 import { circleZone, type ZoneGeometry } from './zones';
@@ -41,6 +41,27 @@ export interface AisInputVessel {
   aisClass: 'A' | 'B';
   source: 'live' | 'replay' | string;
   reportedAtMs?: number;
+  destination?: string;
+  etaReported?: string | null;
+  navStatus?: string | number;
+}
+
+export interface ModelFacts {
+  calibration?: { honestEce: number; decoyEce: number; insideCareful: number; insideLikely: number; timeRight: number; nights: number };
+  traffic?: { reports: number; vessels: number; hours: number; falseAlarm: number | null };
+}
+
+function reportedEtaLabel(iso: string | null): string | null {
+  if (!iso) return null;
+  const t = Date.parse(iso);
+  if (!Number.isFinite(t)) return iso;
+  return new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(t));
+}
+
+function laMinutesOfDay(wallMs: number): number {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone: 'America/Los_Angeles', hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23' }).formatToParts(new Date(wallMs));
+  const get = (type: string) => Number(parts.find((x) => x.type === type)?.value ?? 0);
+  return get('hour') * 60 + get('minute') + get('second') / 60;
 }
 
 interface AisShown { lonlat: LonLat; reportedAtMs: number; correction: [number, number]; correctionAtMs: number }
@@ -224,6 +245,13 @@ export class World {
   private rand: () => number;
   private lastResponseMin = new Map<string, number>();
   forecasts = new Map<string, ForecastRec>();
+  mode: P.OperatingMode = 'sim';
+  modelFacts: ModelFacts = {};
+  vesselIntel = new Map<string, P.VesselIntel>();
+  private stuckSince = new Map<string, number>();
+  private forecastRuns: { at: number; ms: number }[] = [];
+  private wordingCounts = { granite: 0, template: 0 };
+  private autoHeld = new Set<string>();
   private aisShown = new Map<number, AisShown>();
   sightings: P.Sighting[] = [];
   scheduled: ScheduledZone[] = [];
@@ -267,7 +295,9 @@ export class World {
     return out;
   }
 
-  resetHarbor(mode: 'tuesday' | 'night' | 'empty'): void {
+  resetHarbor(mode: 'tuesday' | 'night' | 'empty' | 'live'): void {
+    this.mode = mode === 'live' ? 'live' : 'sim';
+    if (mode === 'live') { this.timeScale = 1; this.paused = false; }
     this.contacts.clear();
     this.forecasts.clear();
     this.zones.clear();
@@ -278,7 +308,7 @@ export class World {
     this.dismissed.clear();
     this.discardedAtLevel.clear();
     this.allClearRecent = [];
-    this.simMin = mode === 'night' ? 2 * 60 : mode === 'tuesday' ? Math.round(this.settings.tuesday.openHour * 60) : 9 * 60;
+    this.simMin = mode === 'live' ? laMinutesOfDay(this.wallMs) : mode === 'night' ? 2 * 60 : mode === 'tuesday' ? Math.round(this.settings.tuesday.openHour * 60) : 9 * 60;
     this.sightings = [];
     this.scheduled = [];
     this.tuesdayOpen = false;
@@ -295,14 +325,15 @@ export class World {
         }, t);
         if (c) this.craft.push(c);
       }
-      for (const seed of fleetSeeds(this.h, this.settings.delivery.simulatedFleetSize, 23)) {
+      const fleetSize = mode === 'live' ? 0 : this.settings.delivery.simulatedFleetSize;
+      for (const seed of fleetSeeds(this.h, fleetSize, 23)) {
         const c = createCraft(this.h, seed, t);
         if (c) this.craft.push(c);
       }
     }
     const presetIds = new Set(this.h.craft.map((spec) => spec.id));
     for (const cap of this.captains.values()) if (!presetIds.has(cap.vesselId)) this.captains.delete(cap.vesselId);
-    this.log('officer', 'Reset harbor', mode === 'night' ? 'Night watch, 02:00' : mode === 'tuesday' ? `Tuesday operations, ${clockLabel(this.simMin)}` : 'Empty harbor');
+    this.log('officer', mode === 'live' ? 'Live operations' : 'Simulation scene', mode === 'live' ? `Live: real time ${clockLabel(this.simMin)}, AIS and NOAA as they arrive. Boats with phones and any sensor contact are simulated.` : mode === 'night' ? 'Night watch, 02:00' : mode === 'tuesday' ? `Tuesday operations, ${clockLabel(this.simMin)}` : 'Empty harbor');
     if (mode === 'tuesday') this.openTuesday();
   }
 
@@ -480,8 +511,11 @@ export class World {
     if (prev && prev.key === key) return prev;
     if (prev && !force && this.wallMs - prev.madeAtWall < this.settings.forecast.everySeconds * 1000) return prev;
     const speedMps = drifting ? Math.max(0.05, this.currentSpeedMps || c.spec.speedMps) : c.spec.speedMps;
+    const started = performance.now();
     const forecast = forecastPaths(this.h.grid, this.h.fields, { cell: c.cell, speedMps, targetOdds: odds, lost, drift, current: this.forecastCurrent(c) }, this.forecastOptions());
     const shapes = forecastShapes(this.h.grid, forecast, this.settings.forecast.carefulShare);
+    this.forecastRuns.push({ at: this.wallMs, ms: performance.now() - started });
+    if (this.forecastRuns.length > 120) this.forecastRuns.shift();
     const madeAtMin = this.simMin;
     const rec: ForecastRec = {
       forecast, shapes, version: ++this.forecastSeq, madeAtMin, madeAtWall: this.wallMs, cell: c.cell, key,
@@ -550,8 +584,18 @@ export class World {
     };
   }
 
+  private confirmStuck(conflict: ConflictPlan): ConflictPlan {
+    const confirmMs = this.settings.sim.stuckConfirmSeconds * 1000;
+    const now = new Set(conflict.noGentle.map((b) => b.id));
+    for (const id of [...this.stuckSince.keys()]) if (!now.has(id)) this.stuckSince.delete(id);
+    for (const id of now) if (!this.stuckSince.has(id)) this.stuckSince.set(id, this.wallMs);
+    const confirmed = (b: BoatPlan) => this.wallMs - (this.stuckSince.get(b.id) ?? this.wallMs) >= confirmMs;
+    const relax = (b: BoatPlan): BoatPlan => (b.noGentleOption && !confirmed(b) ? { ...b, noGentleOption: false } : b);
+    return { ...conflict, boats: conflict.boats.map(relax), affected: conflict.affected.map(relax), noGentle: conflict.noGentle.filter(confirmed) };
+  }
+
   private securityPlan(a: AreaRec): ResponsePlan {
-    const conflict: ConflictPlan = planConflicts(this.h.grid, a.area, this.craft.map((k) => this.plannerBoat(k)), this.simMin, this.plannerRules());
+    const conflict: ConflictPlan = this.confirmStuck(planConflicts(this.h.grid, a.area, this.craft.map((k) => this.plannerBoat(k)), this.simMin, this.plannerRules()));
     const affected = conflict.affected.map((b) => this.impactOf(b));
     const everyone = conflict.boats.map((b) => this.impactOf(b));
     const moving = conflict.affected.filter((b) => b.fix);
@@ -884,6 +928,98 @@ export class World {
     };
   }
 
+  private craftSpeedKn(c: CraftSim): number {
+    if (c.dwellUntilMin !== null || c.held || isWaiting(c, this.simMin)) return 0;
+    return mpsToKnots(effectiveSpeed(c, this.simMin));
+  }
+
+  private craftActivity(c: CraftSim): string {
+    const t = this.simMin;
+    if (c.dwellUntilMin !== null) return 'Alongside';
+    if (c.held) return 'Holding: the berth is held';
+    if (c.waitUntilMin !== null && c.waitUntilMin > t) return c.waitAtIdx >= 0 && c.routeIdx < c.waitAtIdx ? `Stepping aside, then holding until ${clockLabel(c.waitUntilMin)}` : `Holding until ${clockLabel(c.waitUntilMin)}`;
+    if (c.slowMps !== null && c.slowUntilMin !== null && c.slowUntilMin > t) return `Slowed to ${Math.round(c.slowMps / KNOT_MPS)} kn`;
+    if (c.rerouteNoticeId) return 'On a new route around the area';
+    return `Under way to ${this.placeNear(c.toCell).replace(/^the /, '')}`;
+  }
+
+  modelCards(): P.ModelCard[] {
+    const now = this.wallMs;
+    const runs = this.forecastRuns.filter((r) => now - r.at < 60_000);
+    const lastForecast = this.forecastRuns[this.forecastRuns.length - 1];
+    const tell = this.settings.tell;
+    const f = this.settings.forecast;
+    const cal = this.modelFacts.calibration;
+    const traffic = this.modelFacts.traffic;
+    const pct = (v: number) => `${Math.round(v * 100)}%`;
+    const top = this.focusContact();
+    const lang = this.sources.language;
+    return [
+      {
+        id: 'tell', name: 'TELL intent model', kind: 'Bayesian inverse planning over every harbor target', role: 'Infers which target a contact is heading for from each move it makes, with a lost and a drifting hypothesis',
+        decides: false, trainedOn: 'Rationality fit to real AIS tracks from San Pedro Bay; checked on 1,000 simulated nights',
+        metrics: [
+          { label: 'Rationality (beta)', value: String(tell.beta) },
+          { label: 'Calls a target at', value: `${pct(tell.callAt)} for ${tell.callSteps} moves` },
+          { label: 'Calibration error, direct and sloppy', value: cal ? pct(cal.honestEce) : 'run Run 1,000 nights' },
+          { label: 'Calibration error, decoys', value: cal ? pct(cal.decoyEce) : 'run Run 1,000 nights' },
+          { label: 'Contacts tracked now', value: String([...this.contacts.values()].filter((c) => c.classification.threatScored).length) },
+        ],
+        lastRunMs: null, runsPerMinute: null,
+      },
+      {
+        id: 'forecast', name: 'Trajectory forecast', kind: `Monte Carlo, ${f.samples} futures per update`, role: 'Draws where the contact can be, and when, as the red and yellow layers with time marks',
+        decides: false, trainedOn: 'Uses TELL odds, the NOAA current and the harbor water grid built from the chart',
+        metrics: [
+          { label: 'Horizon', value: `${f.horizonMinutes} min` },
+          { label: 'Real path inside yellow', value: cal ? pct(cal.insideCareful) : 'run Run 1,000 nights' },
+          { label: 'Real path inside red', value: cal ? pct(cal.insideLikely) : 'run Run 1,000 nights' },
+          { label: 'Time window right (plus or minus 3 min)', value: cal ? pct(cal.timeRight) : 'run Run 1,000 nights' },
+        ],
+        lastRunMs: lastForecast ? Math.round(lastForecast.ms) : null, runsPerMinute: runs.length,
+      },
+      {
+        id: 'risk', name: 'Risk model', kind: 'Likelihood times severity on a 5 by 5 matrix, modeled on MSRAM, with 5 field-tested rules', role: 'Scores each contact and sets its rung: log, ask, give way, hold, hand off',
+        decides: true, trainedOn: 'Rules tuned on five acceptance scenarios with and without the current',
+        metrics: [
+          { label: 'Top contact now', value: top?.lastRisk ? `${top.spec.label}: ${top.lastRisk.levelName} ${top.lastRisk.R}` : 'none' },
+          { label: 'Auto-publish up to', value: ['never', 'Low', 'Medium', 'Serious', 'High', 'Critical'][this.orders().autoPublishUpToLevel + 1] ?? 'never' },
+          { label: 'Hold and hand off', value: 'always a person' },
+        ],
+        lastRunMs: null, runsPerMinute: null,
+      },
+      {
+        id: 'planner', name: 'Give-way planner', kind: 'Time-aware conflict search: wait, slow down, step aside, short reroute', role: 'Finds the cheapest fix for each boat that meets the forecast in place and time',
+        decides: true, trainedOn: 'Boat routes and speeds on the chart-matched grid',
+        metrics: [
+          { label: 'Signed delay limit per boat', value: `${this.orders().maxDelayPerBoatMin} min` },
+          { label: 'Boats acting now', value: String([...this.notices.values()].filter((n) => n.status === 'active').reduce((s, n) => s + [...n.perVessel.values()].filter((e) => e.fix).length, 0)) },
+        ],
+        lastRunMs: null, runsPerMinute: null,
+      },
+      {
+        id: 'traffic', name: 'Traffic behavior model', kind: 'Lane model learned from real AIS', role: 'Flags real ships that move unlike the harbor\'s normal traffic: off the lanes, against the flow, odd speed, loitering, AIS gaps',
+        decides: false, trainedOn: traffic ? `${traffic.reports.toLocaleString()} real AIS reports from ${traffic.vessels} ships over ${traffic.hours.toFixed(1)} h` : 'Not loaded',
+        metrics: [
+          { label: 'Ships scored now', value: String(this.vesselIntel.size) },
+          { label: 'Flagged now', value: String([...this.vesselIntel.values()].filter((v) => v.level !== 'normal').length) },
+          { label: 'False alarms on held-out real traffic', value: traffic?.falseAlarm !== null && traffic?.falseAlarm !== undefined ? pct(traffic.falseAlarm) : 'not measured' },
+        ],
+        lastRunMs: null, runsPerMinute: null,
+      },
+      {
+        id: 'language', name: lang.model ? `IBM Granite (${lang.model})` : 'IBM Granite', kind: 'Local language model through Ollama, on this laptop', role: 'Writes notice wording, radio scripts, the Coast Guard brief and translations from checked facts; never decides',
+        decides: false, trainedOn: 'Pretrained by IBM; every field it writes is checked against the facts or replaced by a template',
+        metrics: [
+          { label: 'Status', value: lang.detail },
+          { label: 'Wording by Granite', value: String(this.wordingCounts.granite) },
+          { label: 'Wording by templates', value: String(this.wordingCounts.template) },
+        ],
+        lastRunMs: null, runsPerMinute: null,
+      },
+    ];
+  }
+
   private withZoneDelays(rows: P.OnTimeRow[]): P.OnTimeRow[] {
     const delays = this.aisZoneDelays();
     if (!delays.size) return rows;
@@ -1025,11 +1161,20 @@ export class World {
       if (stepped || t - last >= 0.5 || (rec && rec.version !== before)) { this.lastResponseMin.set(c.id, t); this.respondTo(c); }
     }
     for (const id of [...this.forecasts.keys()]) if (!this.contacts.has(id)) this.forecasts.delete(id);
-    for (const craft of this.craft) moveCraft(this.h, craft, dtSec, t, null);
+    const caution = this.cautionMask();
+    const avoid = this.avoidMask();
+    const cautionMps = this.orders().speedAdvisoryKnots * KNOT_MPS;
+    for (const craft of this.craft) {
+      const inArea = caution !== null && caution[currentCell(craft)] === 1;
+      const slowing = craft.slowMps !== null && craft.slowUntilMin !== null && craft.slowUntilMin > t;
+      if (inArea && !craft.ignoresNotices && !slowing && craft.speedMps > cautionMps) { craft.slowMps = cautionMps; craft.slowUntilMin = t + 0.5; }
+      moveCraft(this.h, craft, dtSec, t, avoid);
+    }
     this.moveWorkZones(dtSec);
     this.runSchedule();
     this.updateNotices();
     this.updateCards();
+    this.runAutoPublish();
     const showMs = this.settings.sim.allClearShowSeconds * 1000;
     this.allClearRecent = this.allClearRecent.filter((a) => wallMs - Date.parse(a.atWall) < showMs);
   }
@@ -1317,6 +1462,78 @@ export class World {
       actions,
       contactId: c.id, noticeId: null, draftId, script: stuck.length ? templateWording(this.wordingFacts(c, zone, plan, d)).brief : null,
     });
+    this.armAutoPublish(draftId, level, stuck.length === 0);
+  }
+
+  private armAutoPublish(draftId: string, level: number, gentle: boolean): void {
+    const card = this.cards.find((k) => k.key === `publish:${draftId}`);
+    if (!card) return;
+    const o = this.orders();
+    const eligible = gentle && o.autoPublishUpToLevel >= 0 && level <= o.autoPublishUpToLevel && !this.autoHeld.has(draftId);
+    if (!eligible) { card.autoAtWall = null; card.autoOrder = null; return; }
+    if (!card.autoAtWall) {
+      card.autoAtWall = this.wallMs + o.vetoSeconds * 1000;
+      card.autoOrder = `Standing Orders: publish give-way notices up to ${levelName(o.autoPublishUpToLevel)} on my behalf`;
+      this.log('machine', 'Auto-publish armed', `Publishing in ${o.vetoSeconds} s under the Standing Orders unless the officer stops it`);
+    }
+    card.actions = [{ id: 'publish', label: 'Publish now', primary: true }, { id: 'holdAuto', label: 'Stop' }, { id: 'discard', label: 'Discard' }];
+  }
+
+  private runAutoPublish(): void {
+    for (const card of [...this.cards]) {
+      if (!card.autoAtWall || this.wallMs < card.autoAtWall || !card.draftId) continue;
+      const draftId = card.draftId;
+      card.autoAtWall = null;
+      const id = this.publish(draftId, 'machine');
+      const n = id ? this.notices.get(id) : undefined;
+      if (!n) continue;
+      n.approvedBy = `Standing Orders of ${this.officer}`;
+      this.log('machine', 'Published under Standing Orders', `No stop from the officer within ${this.orders().vetoSeconds} s. Undo from the log.`);
+    }
+  }
+
+  resizeZone(zoneId: string, radiusM: number): void {
+    const z = this.zones.get(zoneId);
+    if (!z) return;
+    const r = Math.max(50, Math.min(3000, Math.round(radiusM / 10) * 10));
+    if (z.draftId) { this.editDraft({ draftId: z.draftId, edits: { radiusM: r } }); return; }
+    const n = z.noticeId ? this.notices.get(z.noticeId) : undefined;
+    if (!n || n.status !== 'active') return;
+    n.radiusM = r;
+    n.instructionText = instructionText(n.instruction as Instruction, r, n.slowKnots);
+    const c = z.contactId ? this.contacts.get(z.contactId) : undefined;
+    const rec = c ? this.forecasts.get(c.id) : undefined;
+    if (z.area && c && rec) {
+      this.applyAreaUpdate(z, n, this.areaFor(c, rec, r), 'officer', `Keep-clear radius set to ${r} m`);
+      return;
+    }
+    z.radiusM = r;
+    z.geometry = circleZone(this.h.grid, z.centerCell, r);
+    this.log('officer', 'Zone resized', `${n.label ?? n.publicReason} now ${r} m`);
+  }
+
+  private cautionMask(): Uint8Array | null {
+    let out: Uint8Array | null = null;
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active' || n.kind !== 'security') continue;
+      const a = this.zones.get(n.zoneId)?.area;
+      if (!a) continue;
+      if (!out) out = new Uint8Array(a.area.careful.length);
+      for (let j = 0; j < out.length; j++) if (a.area.careful[j]) out[j] = 1;
+    }
+    return out;
+  }
+
+  private avoidMask(): Uint8Array | null {
+    let out: Uint8Array | null = null;
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active' || n.kind === 'security' || n.kind === 'whale' || n.kind === 'divers') continue;
+      const z = this.zones.get(n.zoneId);
+      if (!z || z.kind !== 'keepOut') continue;
+      if (!out) out = new Uint8Array(z.geometry.mask.length);
+      for (let j = 0; j < out.length; j++) if (z.geometry.mask[j]) out[j] = 1;
+    }
+    return out;
   }
 
   private upsertDraft(zone: ZoneRec, plan: ResponsePlan, kind: P.NoticeKind, instruction: Instruction, routine: boolean, c: ContactSim | null, label: string | null): string | null {
@@ -1371,6 +1588,7 @@ export class World {
       if (key !== undefined && key !== draft.factsKey) { draft.wordingKey = ''; return; }
     }
     d.wording = wording;
+    this.wordingCounts[wording.source === 'granite' ? 'granite' : 'template']++;
     const card = this.cards.find((k) => k.draftId === draftId && k.kind === 'publish');
     if (card) card.body = wording.why;
     if (wording.source === 'granite') this.log('machine', 'Wording by Granite', `${d.publicReason}: notice, radio script and translations written from the facts. Nothing decided.`);
@@ -1871,6 +2089,13 @@ export class World {
         if (card.draftId) this.discardDraft(card.draftId);
         done();
         return;
+      case 'holdAuto':
+        if (card.draftId) this.autoHeld.add(card.draftId);
+        card.autoAtWall = null;
+        card.autoOrder = null;
+        card.actions = [{ id: 'publish', label: 'Publish', primary: true }, { id: 'discard', label: 'Discard' }];
+        this.log('officer', 'Automatic publish stopped', `${card.title}. Waiting for the officer.`);
+        return;
       case 'publishUpdate': {
         const n = card.noticeId ? this.notices.get(card.noticeId) : undefined;
         const z = n ? this.zones.get(n.zoneId) : undefined;
@@ -1992,6 +2217,7 @@ export class World {
   }
 
   setClock(e: P.CommandEvents['clock']): void {
+    if (this.mode === 'live') return;
     if (e.timeScale !== undefined) this.timeScale = Math.max(0, Math.min(240, e.timeScale));
     if (e.paused !== undefined) this.paused = e.paused;
     if (e.setHour !== undefined) this.simMin = Math.floor(this.simMin / 1440) * 1440 + e.setHour * 60;
@@ -2086,7 +2312,7 @@ export class World {
       id: z.id, kind: z.kind, reason: z.reason, status: z.status, rings: z.geometry.rings,
       centerline: z.geometry.centerline.filter((_, i) => i % 2 === 0).map((c) => this.lonlatOf(c)),
       radiusM: z.radiusM, movingTowardDeg: z.movingSpeedMps > 0 ? z.movingTowardDeg : null, movingSpeedMps: z.movingSpeedMps,
-      contactId: z.contactId, noticeId: z.noticeId, area: this.areaView(z),
+      contactId: z.contactId, noticeId: z.noticeId, area: this.areaView(z), center: this.lonlatOf(z.centerCell),
     };
   }
 
@@ -2140,7 +2366,85 @@ export class World {
       why: this.contactWhy(c),
       history: c.history,
       historyIds: [...this.h.targets.map((t) => t.id), 'lost'],
+      sensor: this.sensorView(c, kind),
+      classificationWhy: this.classificationWhy(c),
+      consequences: this.consequenceViews(c),
+      riskMath: this.riskMath(c),
+      timeline: this.timelineFor(c),
+      analystNote: this.analystNote(c),
     };
+  }
+
+  private sensorView(c: ContactSim, kind: P.ContactKind): P.SensorView {
+    const sc = this.settings.sensor;
+    const t = this.simMin;
+    const depthTable = sc.depthM as Record<string, number>;
+    const depthM = Math.max(0, (depthTable[kind] ?? sc.depthM.unknown) + Math.sin((t + c.spec.seed) / 3) * 0.4);
+    const heatDeltaC = sc.heatDeltaC[c.spec.heat] + Math.sin((t + c.spec.seed) / 5) * 0.2;
+    const heatLabel = c.spec.heat === 'hot' ? 'Hot spot: a running motor' : c.spec.heat === 'warm' ? 'Warm body' : 'No heat above the water';
+    const speedKn = c.spec.speedMps / KNOT_MPS;
+    const base = kind === 'powered' || kind === 'unknown' ? sc.acousticBaseDb.powered : kind === 'animal' ? sc.acousticBaseDb.animal : kind === 'person' ? sc.acousticBaseDb.person : sc.acousticBaseDb.other;
+    const acousticDb = base + (kind === 'powered' || kind === 'unknown' ? speedKn * sc.acousticPerKnDb + c.spec.sizeM * sc.acousticPerMeterDb : 0);
+    const silentMin = c.silent && c.silentSinceMin !== null ? t - c.silentSinceMin : 0;
+    return {
+      lonlat: contactLonLat(this.h, c), depthM, headingDeg: c.headingDeg, speedMps: c.spec.speedMps, speedKn, sizeM: c.spec.sizeM,
+      heatDeltaC, heatLabel, acousticDb, observedMin: t - c.spec.firstSeenMin, lastFixSec: c.silent ? silentMin * 60 : sc.fixIntervalSec,
+      trackKm: (c.steps * this.h.grid.cellMeters) / 1000, confidence: sc.confidenceTracking * Math.pow(0.5, silentMin / sc.confidenceHalfLifeMin), simulated: true,
+    };
+  }
+
+  private classificationWhy(c: ContactSim): string[] {
+    const k = this.settings.classify;
+    const sp = c.spec;
+    const kind = c.classification.kind;
+    const heat = sp.heat === 'hot' ? 'a hot spot, a running motor' : sp.heat === 'warm' ? 'a warm body' : 'no heat above the water';
+    const out = [`Heat: ${heat}.`, `Moving ${sp.speedMps.toFixed(1)} m/s (${(sp.speedMps / KNOT_MPS).toFixed(1)} kn), ${sp.sizeM.toFixed(1)} m long${sp.erratic ? ', on an erratic track' : ''}.`];
+    if (kind === 'powered') out.push(`Powered: hot, between ${k.powered.minMps} and ${k.powered.maxMps} m/s and between ${k.powered.minSizeM} and ${k.powered.maxSizeM} m.`);
+    if (kind === 'debris') out.push(`Drifting: no heat, moving within ${k.debris.currentToleranceMps} m/s of the current (${this.currentSpeedMps.toFixed(2)} m/s from NOAA).`);
+    if (kind === 'animal') out.push(`Animal: warm, between ${k.animal.minSizeM} and ${k.animal.maxSizeM} m, between ${k.animal.minMps} and ${k.animal.maxMps} m/s, erratic.`);
+    if (kind === 'person') out.push(`Person: warm, between ${k.person.minSizeM} and ${k.person.maxSizeM} m, slower than ${k.person.maxMps} m/s.`);
+    if (kind === 'unknown') out.push('Fits no class cleanly, so it is treated as powered until proven otherwise.');
+    const reg = sp.registryId ? this.h.registry.find((r) => r.id === sp.registryId) : null;
+    out.push(reg
+      ? `Registry: ${reg.name}, ${reg.owner}. ${sp.reply === 'friendly' ? 'Correct reply to the ID ping.' : 'No reply to the ID ping.'}`
+      : `Registry: no match and no dive plan. ${c.pings} ID ping${c.pings === 1 ? '' : 's'}, ${sp.reply === 'friendly' ? 'correct reply' : sp.reply === 'spoof' ? 'answered with an unregistered ID' : 'no reply'}.`);
+    return out;
+  }
+
+  private consequenceViews(c: ContactSim): P.ConsequenceView[] {
+    const table = this.settings.consequence as Record<string, { people: number; hazard: number; economy: number; environment: number }>;
+    return this.h.targets.map((t, g) => {
+      const empty = (t as { emptyId?: string }).emptyId;
+      const parts = table[!this.cruiseDocked && empty ? empty : t.id] ?? { people: 0, hazard: 0, economy: 0, environment: 0 };
+      return { targetId: t.id, name: t.short ?? t.name, C: consequence(t.id, this.cruiseDocked, this.settings), ...parts, odds: c.tell.post[g], etaMin: etaToGoal(this.h, c, g) };
+    }).sort((a, b) => b.odds - a.odds);
+  }
+
+  private riskMath(c: ContactSim): P.RiskMathView | null {
+    const r = c.lastRisk;
+    if (!r) return null;
+    const rs = this.settings.risk;
+    const f = factors(this.settings, c);
+    const C = consequence(r.best.id, this.cruiseDocked, this.settings);
+    const P = Math.min(1, r.best.odds);
+    return {
+      H: r.H, P, K: r.K, C, likelihood: r.H * P, severity: r.K * C, L: r.best.L, S: r.best.S, R: r.best.R,
+      likelihoodBands: [...rs.likelihoodBands], severityBands: [...rs.severityBands], levelMaxScores: [...rs.levelMaxScores],
+      sizeFactor: f.sizeFactor, speedFactor: f.speedFactor, weights: { ...rs.consequenceWeights },
+    };
+  }
+
+  private timelineFor(c: ContactSim): P.TimelineEntry[] {
+    const names = [c.spec.label, c.id].map((n) => new RegExp(`(^|[^A-Za-z0-9-])${n.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}(?![A-Za-z0-9-])`));
+    return this.audit.filter((a) => names.some((r) => r.test(a.detail))).slice(-30)
+      .map((a) => ({ atMin: a.atMin, label: a.action, detail: a.detail, actor: a.actor }));
+  }
+
+  private analystNote(c: ContactSim): P.ContactView['analystNote'] {
+    const z = this.zones.get(`z-${c.id}`);
+    const doc = z?.draftId ? this.drafts.get(z.draftId) : z?.noticeId ? this.notices.get(z.noticeId) : undefined;
+    if (doc?.wording.why) return { text: doc.wording.why, source: doc.wording.source };
+    return { text: this.contactWhy(c), source: 'template' };
   }
 
   private contactWhy(c: ContactSim): string {
@@ -2193,13 +2497,19 @@ export class World {
       const cell = currentCell(c);
       const cap = this.captains.get(c.id);
       vessels.push({
-        id: c.id, name: c.name, type: c.type, lonlat: craftLonLat(this.h, c), headingDeg: c.headingDeg, speedKn: c.held || c.dwellUntilMin !== null ? 0 : mpsToKnots(c.speedMps),
+        id: c.id, name: c.name, type: c.type, lonlat: craftLonLat(this.h, c), headingDeg: c.headingDeg, speedKn: this.craftSpeedKn(c),
         source: 'simulated', lengthM: null,
         route: rerouted ? null : this.routeLonLat(remainingRoute(c), 3),
         newRoute: rerouted ? this.routeLonLat(remainingRoute(c), 3) : null,
         phone: c.phone ? { joined: cap?.connected ?? false, captain: cap?.connected ? 'Phone' : null } : null,
         inZone: zoneMasks.some((m) => m[cell] === 1),
         affected: affected.get(c.id) ?? null,
+        intel: null,
+        detail: {
+          mmsi: null, destination: this.placeNear(c.toCell).replace(/^the /, ''), etaReported: clockLabel(plannedArrivalMin(c)),
+          sogKn: this.craftSpeedKn(c), cogDeg: c.headingDeg, headingDeg: c.headingDeg, lastSeenSec: null,
+          status: c.phone ? (cap?.connected ? 'Captain phone joined' : 'Phone boat, not joined. Simulated') : 'Simulated boat', activity: this.craftActivity(c),
+        },
       });
     }
     for (const v of this.ais) {
@@ -2208,6 +2518,13 @@ export class World {
         source: v.source === 'live' ? 'ais-live' : 'ais-replay', lengthM: v.lengthM, route: null, newRoute: null, phone: null,
         inZone: v.cell >= 0 && zoneMasks.some((m) => m[v.cell] === 1),
         affected: affected.get(`ais-${v.mmsi}`) ?? null,
+        intel: this.vesselIntel.get(`ais-${v.mmsi}`) ?? null,
+        detail: {
+          mmsi: v.mmsi, destination: v.destination?.trim() || null, etaReported: reportedEtaLabel(v.etaReported ?? null), sogKn: v.sogKn, cogDeg: v.cogDeg, headingDeg: v.headingDeg,
+          lastSeenSec: v.reportedAtMs !== undefined ? Math.max(0, (this.wallMs - v.reportedAtMs) / 1000) : null,
+          status: v.navStatus !== undefined && v.navStatus !== '' && !/not defined/i.test(String(v.navStatus)) ? String(v.navStatus) : `AIS Class ${v.aisClass}`,
+          activity: v.sogKn < AIS_MOVING_KN ? 'Stopped' : `Under way at ${v.sogKn.toFixed(1)} kn`,
+        },
       });
     }
     const top = this.cards[0];
@@ -2222,7 +2539,7 @@ export class World {
         noticeId: d.noticeId, vesselId: d.vesselId, vesselName: d.vesselName, simulated: d.simulated, channel: d.channel, priority: d.priority,
         states: d.states, resends: d.resends, notResponding: d.notResponding,
       })),
-      card: top ? { id: top.id, kind: top.kind, title: top.title, body: top.body, facts: top.facts, actions: top.actions, createdAtMin: top.createdAtMin, realerts: top.realerts, backupCalled: top.backupCalled, contactId: top.contactId, noticeId: top.noticeId, draftId: top.draftId, script: top.script } : null,
+      card: top ? { id: top.id, kind: top.kind, title: top.title, body: top.body, facts: top.facts, actions: top.actions, createdAtMin: top.createdAtMin, realerts: top.realerts, backupCalled: top.backupCalled, autoAtWall: top.autoAtWall ?? null, autoOrder: top.autoOrder ?? null, contactId: top.contactId, noticeId: top.noticeId, draftId: top.draftId, script: top.script } : null,
       cardsWaiting: Math.max(0, this.cards.length - 1),
       onTime: [...this.onTimeRows(), ...this.withZoneDelays(extra.aisOnTime ?? [])],
       audit: this.audit.slice(-80).reverse(),
@@ -2238,6 +2555,8 @@ export class World {
       report: this.dailyReport(),
       headline: this.headline(),
       steps: this.steps(),
+      mode: this.mode,
+      models: this.modelCards(),
     };
   }
 
@@ -2346,8 +2665,8 @@ export class World {
       notices,
       today,
       traffic: [
-        ...this.craft.filter((k) => k.id !== vesselId).map((k) => ({ lonlat: craftLonLat(this.h, k), headingDeg: k.headingDeg, type: k.type })),
-        ...this.ais.map((v) => ({ lonlat: this.aisLonLat(v), headingDeg: v.headingDeg ?? v.cogDeg, type: v.typeLabel })),
+        ...this.craft.filter((k) => k.id !== vesselId).map((k) => ({ id: k.id, lonlat: craftLonLat(this.h, k), headingDeg: k.headingDeg, type: k.type })),
+        ...this.ais.map((v) => ({ id: `ais-${v.mmsi}`, lonlat: this.aisLonLat(v), headingDeg: v.headingDeg ?? v.cogDeg, type: v.typeLabel })),
       ],
       allClear: this.allClearRecent.map(({ id, publicReason, atWall, atMin, approvedBy }) => ({ id, publicReason, atWall, atLabel: clockLabel(atMin), approvedBy })),
       lastAllClearLabel: this.lastAllClearMin !== null ? clockLabel(this.lastAllClearMin) : null,
@@ -2375,6 +2694,7 @@ export class World {
       case 'signOrders': { const e = p as P.CommandEvents['signOrders']; this.signOrders(e.officer, e.orders); return; }
       case 'officer': this.officer = (p as P.CommandEvents['officer']).name || this.officer; return;
       case 'reset': this.resetHarbor((p as P.CommandEvents['reset']).mode); return;
+      case 'resizeZone': { const e = p as P.CommandEvents['resizeZone']; this.resizeZone(e.zoneId, e.radiusM); return; }
       case 'markVhfCalled': { const e = p as P.CommandEvents['markVhfCalled']; this.markVhfCalled(e.noticeId, e.vesselId); return; }
       case 'reportSighting': { const e = p as P.CommandEvents['reportSighting']; this.reportSighting(e, 'desk', 'Harbor desk'); return; }
       case 'confirmSighting': this.confirmSighting((p as P.CommandEvents['confirmSighting']).id); return;

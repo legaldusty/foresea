@@ -65,3 +65,18 @@ row('All', cov.all);
 
 console.log(`\nPitch: ${percent(pitch.insideCareful)} of the true next ${pitch.lookaheadMinutes} minutes of track stayed inside the yellow layer (${whole(pitch.trackPoints)} track points, ${pitch.nights} nights, simulated).`);
 console.log(`Ran in ${seconds.toFixed(1)} s.`);
+
+const honestSteps = calibration.direct.steps + calibration.sloppy.steps;
+const facts = {
+  honestEce: honestSteps ? (calibration.direct.ece * calibration.direct.steps + calibration.sloppy.ece * calibration.sloppy.steps) / honestSteps : 0,
+  decoyEce: calibration.decoy.ece,
+  insideCareful: cov.all.insideCareful,
+  insideLikely: cov.all.insideLikely,
+  timeRight: cov.all.timeWindowRight,
+  nights: cal.nights,
+  seed: study.seed,
+  ranAt: new Date().toISOString(),
+};
+fs.mkdirSync(fileURLToPath(new URL('../data/cache', import.meta.url)), { recursive: true });
+fs.writeFileSync(fileURLToPath(new URL('../data/cache/calibration.json', import.meta.url)), JSON.stringify(facts, null, 2));
+console.log('Wrote data/cache/calibration.json for the Models panel.');

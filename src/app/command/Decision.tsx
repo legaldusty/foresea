@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { HandPalm, PaperPlaneTilt, PencilSimple, Question, Radio, ShieldWarning, X } from '@phosphor-icons/react';
+import { Files, HandPalm, PaperPlaneTilt, PencilSimple, Question, Radio, ShieldWarning, Stop, Timer, X } from '@phosphor-icons/react';
 import type { Card, CommandEvents, CommandSnapshot, ContactView, Level, NoticeDraft, PlanView } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
 import { Button, RiskBand, Simulated } from '../ui';
@@ -11,8 +11,25 @@ type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) 
 
 const ACTION_ICON: Record<string, ReactNode> = {
   publish: <PaperPlaneTilt size={16} />, publishZone: <PaperPlaneTilt size={16} />, publishUpdate: <PaperPlaneTilt size={16} />,
-  send: <ShieldWarning size={16} />, called: <Radio size={16} />, approve: <HandPalm size={16} />,
+  send: <ShieldWarning size={16} />, called: <Radio size={16} />, approve: <HandPalm size={16} />, holdAuto: <Stop size={16} />,
 };
+
+function AutoPublish(props: { card: Card; wallMs: number; vetoSeconds: number }) {
+  const at = props.card.autoAtWall;
+  if (!at) return null;
+  const left = Math.max(0, (at - props.wallMs) / 1000);
+  const share = Math.max(0, Math.min(1, left / Math.max(1, props.vetoSeconds)));
+  return (
+    <div className="auto-publish" data-testid="auto-publish">
+      <Timer size={20} />
+      <div className="ap-text">
+        <span className="t-strong">Publishing on your behalf in <span className="mono">{Math.ceil(left)}</span> s</span>
+        <span className="t-small c-muted">{props.card.autoOrder}. Stop keeps it waiting for you.</span>
+      </div>
+      <span className="ap-track"><i style={{ width: `${share * 100}%` }} /></span>
+    </div>
+  );
+}
 
 const COMPASS: Record<string, string> = { NORTHEAST: 'NE', NORTHWEST: 'NW', SOUTHEAST: 'SE', SOUTHWEST: 'SW', NORTH: 'N', SOUTH: 'S', EAST: 'E', WEST: 'W' };
 
@@ -83,6 +100,7 @@ export function DecisionSlot(props: {
         </>
       )}
       {c.script ? <div className="script">{c.script}</div> : null}
+      <AutoPublish card={c} wallMs={snap.clock.wallMs} vetoSeconds={snap.orders.orders.vetoSeconds ?? 20} />
       <div className="d-actions">
         {c.actions.map((a) => (
           <Button key={a.id} variant={a.primary ? 'primary' : a.id === 'discard' || a.id === 'notNow' || a.id === 'dismiss' || a.id === 'ok' ? 'quiet' : 'secondary'}
@@ -118,13 +136,14 @@ export function HeadingBlock(props: { c: ContactView }) {
   );
 }
 
-export function ContactBlock(props: { c: ContactView }) {
+export function ContactBlock(props: { c: ContactView; onDossier: () => void }) {
   const c = props.c;
   return (
     <section className="rail-block contact-block" data-testid="contact-block">
       {c.risk ? <RiskBand level={c.risk.level} score={c.risk.score} /> : null}
       <div className="block-title"><span className="t-heading">{c.label}</span><Simulated /></div>
       <p className="t-small c-muted">{withMono(`${c.classification.label}: ${c.classification.detail}. ${c.registry.match ? `Registry match: ${c.registry.match}.` : 'No registry or dive-plan match.'} ${c.registry.pings} ID ping${c.registry.pings === 1 ? '' : 's'}, ${c.registry.reply === 'correct' ? 'correct reply' : 'no reply'}.`)}</p>
+      <Button variant="secondary" icon={<Files size={16} />} onClick={props.onDossier} testId="open-dossier">Full dossier: sensor, size, heat, path, risk math</Button>
     </section>
   );
 }

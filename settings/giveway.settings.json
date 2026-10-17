@@ -29,7 +29,7 @@
               "animalSlowMeters": 500, "animalSlowKnots": 10, "animalCoreFraction": 0.5, "animalMaxBendMin": 3, "routineZoneMeters": 300,
               "speedAdvisoryKnots": 5, "speedAdvisoryMaxDelayMin": 2,
               "noticeValidMinutes": 240, "routineValidMinutes": 240,
-              "autoPublishForecastUpdates": 0 },
+              "autoPublishForecastUpdates": 0, "autoPublishUpToLevel": 2, "vetoSeconds": 20 },
   "tuesday": {
     "openHour": 9.2,
     "dive": { "id": "dive-pier400", "label": "Hull dive, Pier 400", "filedBy": "Pacific Dive Services", "lon": -118.2495, "lat": 33.7235, "radiusM": 100, "slowKnots": 5, "startHour": 9, "endHour": 11.5, "robot": "HULLBOT-1" },
@@ -38,6 +38,10 @@
     "glider": { "registryId": "ALTASEA-G3", "lon": -118.2660, "lat": 33.7230, "silentHour": 10.5 },
     "history": { "days": 6, "count": 26, "seed": 61 }
   },
+  "sensor": { "depthM": { "powered": 6.0, "debris": 1.2, "animal": 4.0, "person": 0.3, "unknown": 3.0, "friendly": 5.0 },
+              "heatDeltaC": { "hot": 7.5, "warm": 2.4, "ambient": 0.2 },
+              "acousticBaseDb": { "powered": 112, "animal": 104, "person": 78, "other": 72 },
+              "acousticPerKnDb": 1.6, "acousticPerMeterDb": 1.2, "fixIntervalSec": 2, "confidenceTracking": 0.92, "confidenceHalfLifeMin": 6 },
   "forecast": { "samples": 600, "beta": 3, "lostBeta": 0.6, "driftSharpness": 3, "speedSpread": 0.15, "horizonMinutes": 90,
                 "radiusCells": 2, "radiusGrowMinutes": 15, "radiusMaxCells": 6, "likelyShare": 0.5, "likelyMaxRadiusCells": 9,
                 "carefulShare": 0.125, "tickMinutes": 10, "seed": 11, "everySeconds": 1,
@@ -124,7 +128,7 @@
   "delivery": { "resendMinutes": 2, "vhfCardMinutes": 4, "simulatedFleetSize": 12,
                 "simulatedSeenRate": 0.75, "simulatedAckRate": 0.6 },
   "channels": { "captainApp": true, "push": true, "sms": false, "vhf": true, "aisMarker": true },
-  "sim": { "timeScale": 20, "tickMs": 250, "nightStartHour": 19, "nightEndHour": 6, "driveSpeedMps": 1.6, "driveSizeM": 1.9, "silenceAfterSeconds": 60, "allClearShowSeconds": 60 },
+  "sim": { "timeScale": 20, "tickMs": 250, "nightStartHour": 19, "nightEndHour": 6, "driveSpeedMps": 1.6, "driveSizeM": 1.9, "silenceAfterSeconds": 60, "allClearShowSeconds": 60, "stuckConfirmSeconds": 3 },
   "map": { "bbox": [-118.300, 33.690, -118.140, 33.785], "center": [-118.225, 33.735], "zoom": 13.2 },
   "ais": { "bbox": [[33.690, -118.300], [33.785, -118.140]],
            "messageTypes": ["PositionReport", "StandardClassBPositionReport", "ShipStaticData"],

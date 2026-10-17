@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
-  Binoculars, CaretDown, ClipboardText, Crane, Fish, Gauge, Joystick, ListDashes, Moon, Pause, Play, PersonSimpleSwim, Polygon, Prohibit, ProjectorScreen, Stop, Sun, WifiSlash, X,
+  Binoculars, CaretDown, ClipboardText, Crane, Eye, EyeSlash, Fish, Gauge, Joystick, ListDashes, Moon, Pause, Play, PersonSimpleSwim, Polygon, Prohibit, ProjectorScreen, Stop, Sun, WifiSlash, X,
 } from '@phosphor-icons/react';
 import type { CommandEvents, ContactView, Species } from '../../shared/protocol';
 import { Button, Field, Segmented, SelectBox, Simulated } from '../ui';
@@ -58,12 +58,33 @@ export function DeskTools(props: { tool: Tool; setTool: (t: Tool) => void; onDiv
   );
 }
 
-export function ChartCorner(props: { onPresenter: () => void; presenterOpen: boolean }) {
+export type LayerKey = 'forecast' | 'zones' | 'routes' | 'ais' | 'boats' | 'labels' | 'callouts';
+export const LAYERS: { key: LayerKey; label: string }[] = [
+  { key: 'forecast', label: 'Forecast areas and time marks' },
+  { key: 'zones', label: 'Zones and notices' },
+  { key: 'routes', label: 'Boat routes and new plans' },
+  { key: 'ais', label: 'Real ships from AIS' },
+  { key: 'boats', label: 'Simulated boats' },
+  { key: 'labels', label: 'Names on the chart' },
+  { key: 'callouts', label: 'Boat callouts' },
+];
+
+export function ChartCorner(props: { onPresenter: () => void; presenterOpen: boolean; hidden: Set<LayerKey>; onLayer: (k: LayerKey) => void }) {
   const [keyOpen, setKeyOpen] = useState(false);
   return (
     <div className="chart-corner">
       {keyOpen ? (
         <div className="chart-key" data-testid="chart-key">
+          <span className="t-heading">Layers</span>
+          {LAYERS.map((l) => {
+            const on = !props.hidden.has(l.key);
+            return (
+              <button key={l.key} className="layer-row" aria-pressed={on} onClick={() => props.onLayer(l.key)} data-testid={`layer-${l.key}`}>
+                {on ? <Eye size={16} /> : <EyeSlash size={16} />}<span>{l.label}</span>
+              </button>
+            );
+          })}
+          <span className="t-heading key-title">Key</span>
           <span className="key"><i className="sw careful" />Be careful: at least 1 in 8 futures pass here</span>
           <span className="key"><i className="sw likely" />Where it is going: half of the futures stay inside</span>
           <span className="key"><i className="sw mark" />Where it should be at that time</span>

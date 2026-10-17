@@ -121,10 +121,10 @@ export function isWaiting(c: CraftSim, t: number): boolean {
   return c.waitUntilMin !== null && t < c.waitUntilMin && (c.waitAtIdx < 0 || c.routeIdx >= c.waitAtIdx);
 }
 
-function startTrip(h: Harbor, c: CraftSim, t: number): void {
+function startTrip(h: Harbor, c: CraftSim, t: number, avoid: Uint8Array | null): void {
   const from = currentCell(c);
   c.toCell = c.toCell === c.awayCell ? c.homeCell : c.awayCell;
-  const route = findPath(h.grid, from, c.toCell);
+  const route = (avoid ? findPath(h.grid, from, c.toCell, avoid) : null) ?? findPath(h.grid, from, c.toCell);
   if (!route || route.length < 2) return;
   c.route = route;
   c.baseRoute = route;
@@ -137,11 +137,11 @@ function startTrip(h: Harbor, c: CraftSim, t: number): void {
   clearFix(c);
 }
 
-export function moveCraft(h: Harbor, c: CraftSim, dtSec: number, t: number, blocked: Uint8Array | null): void {
+export function moveCraft(h: Harbor, c: CraftSim, dtSec: number, t: number, avoid: Uint8Array | null): void {
   if (c.dwellUntilMin !== null) {
     if (t < c.dwellUntilMin) return;
     c.dwellUntilMin = null;
-    startTrip(h, c, t);
+    startTrip(h, c, t, avoid);
     return;
   }
   if (c.held) return;
@@ -153,7 +153,6 @@ export function moveCraft(h: Harbor, c: CraftSim, dtSec: number, t: number, bloc
   while (c.progressM >= h.grid.cellMeters && guard++ < 100) {
     const nextCell = c.route[c.routeIdx + 1];
     if (nextCell === undefined) { c.progressM = 0; c.dwellUntilMin = t + 3; return; }
-    if (blocked && blocked[nextCell] && !blocked[c.route[c.routeIdx]]) { c.progressM = 0; return; }
     const from = c.route[c.routeIdx];
     c.headingDeg = bearingDeg(h.grid.toLonLat(...h.grid.xy(from)) as LonLat, h.grid.toLonLat(...h.grid.xy(nextCell)) as LonLat);
     c.routeIdx++;

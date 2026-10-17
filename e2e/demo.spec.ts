@@ -65,6 +65,13 @@ test('night: the forecast learns, the judge phone gets P1, Pilot Boat 2 escalate
   await test.step('2. One decision card with one row per boat; publish inside the P1 window', async () => {
     await expect(desk.getByTestId('card-title')).toContainText('Publish this notice', { timeout: 30_000 });
     await expect(desk.getByTestId('boat-table')).toBeVisible();
+    if (await desk.getByTestId('auto-publish').isVisible()) await desk.getByTestId('card-holdAuto').click();
+    await expect(desk.getByTestId('auto-publish')).toHaveCount(0);
+    await desk.getByTestId('open-dossier').click();
+    await expect(desk.getByTestId('dossier-sensor')).toContainText('Heat signature');
+    await expect(desk.getByTestId('dossier-calc')).toBeVisible();
+    await desk.screenshot({ path: `${SHOTS}/2-night-dossier.png` });
+    await desk.getByTestId('dossier-close').click();
     await expect.poll(() => (snap?.clock.simMin ?? 0) - 120, { timeout: 60_000 }).toBeGreaterThanOrEqual(7.5);
     await desk.screenshot({ path: `${SHOTS}/2-night-decision.png` });
     await desk.getByTestId('card-publish').click();
@@ -163,7 +170,23 @@ test('Tuesday: dive plan, a whale from a phone, on-time impact, glider search, d
     await expect(desk.getByTestId('today')).not.toContainText('Search area', { timeout: 10_000 });
   });
 
-  await test.step('6. The daily report exports', async () => {
+  await test.step('6. A zone is dragged wider and the models explain themselves', async () => {
+    await desk.getByTestId('desk-today').click();
+    const handle = desk.locator('.zone-handle').first();
+    const box = await handle.boundingBox();
+    if (!box) throw new Error('no zone handle');
+    await desk.mouse.move(box.x + 6, box.y + box.height / 2);
+    await desk.mouse.down();
+    await desk.mouse.move(box.x + 46, box.y + box.height / 2, { steps: 6 });
+    await desk.mouse.up();
+    await expect.poll(() => snap?.audit.some((a) => a.action === 'Zone resized' || a.detail.startsWith('Keep-clear radius set')) ?? false, { timeout: 10_000 }).toBe(true);
+    await desk.getByTestId('open-models').click();
+    await expect(desk.getByTestId('models-panel')).toContainText('TELL');
+    await desk.screenshot({ path: `${SHOTS}/12-models.png` });
+    await desk.getByTestId('models-close').click();
+  });
+
+  await test.step('7. The daily report exports', async () => {
     await desk.getByTestId('desk-report').click();
     await expect(desk.getByTestId('daily-report')).toContainText('zones issued');
     const [download] = await Promise.all([desk.waitForEvent('download'), desk.getByTestId('export-report').click()]);

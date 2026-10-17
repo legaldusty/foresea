@@ -139,8 +139,8 @@ export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number, 
     you.push({ type: 'Feature', properties: { id: 'you', heading: v.headingDeg }, geometry: { type: 'Point', coordinates: v.lonlat } });
   }
   const routes: F[] = v?.route ? [{ type: 'Feature', properties: { kind: 'planned' }, geometry: { type: 'LineString', coordinates: v.route } }] : [];
-  const vessels: F[] = s.traffic.map((t, i) => ({
-    type: 'Feature', properties: { id: `t${i}`, type: silhouetteFor(t.type, null), heading: t.headingDeg, inZone: false, stale: true, scale: 0.8 },
+  const vessels: F[] = s.traffic.map((t) => ({
+    type: 'Feature', properties: { id: t.id, type: silhouetteFor(t.type, null), heading: t.headingDeg, inZone: false, stale: true, scale: 0.8 },
     geometry: { type: 'Point', coordinates: t.lonlat },
   }));
   const contacts: F[] = v && extras.youTag ? [{ type: 'Feature', properties: { id: YOU_TAG_ID, state: 'you', selected: false }, geometry: { type: 'Point', coordinates: v.lonlat } }] : [];

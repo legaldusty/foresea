@@ -341,3 +341,53 @@ describe('Tuesday operations', () => {
     expect(w.notices.get(noticeId)!.status).not.toBe('active');
   });
 });
+
+describe('autonomy under the Standing Orders', () => {
+  function signedUpTo(level: number): World {
+    const w = freshWorld('night');
+    w.signOrders('Officer on watch', { ...w.commandSnapshot().orders.orders, autoPublishUpToLevel: level, vetoSeconds: 20 });
+    return w;
+  }
+
+  it('arms a countdown on a gentle draft inside the orders and publishes it when nobody stops it', () => {
+    const w = signedUpTo(4);
+    driveToFuel(w);
+    expect(runUntil(w, () => !!w.commandSnapshot().card?.autoAtWall)).toBe(true);
+    expect(w.commandSnapshot().card!.actions.map((a) => a.id)).toContain('holdAuto');
+    expect(runUntil(w, () => w.notices.size > 0, 2400)).toBe(true);
+    const n = [...w.notices.values()][0];
+    expect(n.approvedBy.startsWith('Standing Orders')).toBe(true);
+    const entry = [...w.audit].reverse().find((a) => a.action === 'Published')!;
+    expect(entry.actor).toBe('machine');
+    expect(entry.undoable).toBe(true);
+  });
+
+  it('Stop keeps the draft waiting for the officer', () => {
+    const w = signedUpTo(4);
+    driveToFuel(w);
+    runUntil(w, () => !!w.commandSnapshot().card?.autoAtWall);
+    const card = w.commandSnapshot().card!;
+    w.cardAction(card.id, 'holdAuto');
+    runUntil(w, () => false, 400);
+    expect(w.notices.size).toBe(0);
+    expect(w.commandSnapshot().card?.autoAtWall ?? null).toBeNull();
+  });
+
+  it('never arms when the officer turned automatic publishing off', () => {
+    const w = signedUpTo(-1);
+    driveToFuel(w);
+    runUntil(w, () => w.drafts.size > 0);
+    runUntil(w, () => false, 400);
+    expect(w.notices.size).toBe(0);
+  });
+
+  it('a dragged zone keeps its new radius', () => {
+    const w = freshWorld('tuesday');
+    const draftId = w.dropZone({ kind: 'divers', lonlat: [-118.2495, 33.7235] })!;
+    const noticeId = w.publish(draftId)!;
+    const zoneId = w.notices.get(noticeId)!.zoneId;
+    w.resizeZone(zoneId, 640);
+    expect(w.notices.get(noticeId)!.radiusM).toBe(640);
+    expect(w.commandSnapshot().zones.find((z) => z.id === zoneId)!.radiusM).toBe(640);
+  });
+});

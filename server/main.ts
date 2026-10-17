@@ -50,6 +50,18 @@ const certDir = path.resolve('certs');
 const hasCerts = fs.existsSync(path.join(certDir, 'key.pem')) && fs.existsSync(path.join(certDir, 'cert.pem'));
 const urls = () => joinUrls(PORT, hasCerts ? HTTPS_PORT : null, PUBLIC_URL);
 world.link = urls()[0];
+loadModelFacts();
+if (!flag('sim')) world.resetHarbor('live');
+
+function loadModelFacts(): void {
+  const file = path.resolve('data/cache/calibration.json');
+  if (!fs.existsSync(file)) return;
+  try {
+    world.modelFacts = { ...world.modelFacts, calibration: JSON.parse(fs.readFileSync(file, 'utf8')) };
+  } catch {
+    world.log('system', 'Models', 'Calibration facts could not be read; run npm run calibration');
+  }
+}
 world.setSources({ push: { ready: push.ready, detail: `${push.detail}. ${sms.detail}` } });
 
 const fieldCache = new Map<number, Float32Array>();
@@ -74,6 +86,7 @@ const feed = createAisFeed({
     world.setAis(vs.map((v): AisInputVessel => ({
       mmsi: v.mmsi, name: v.name, lat: v.lat, lon: v.lon, sogKn: v.sogKn ?? 0, cogDeg: v.cogDeg ?? v.headingDeg ?? 0,
       headingDeg: v.headingDeg, typeLabel: v.typeLabel, lengthM: v.lengthM, aisClass: v.aisClass, source: v.source, reportedAtMs: v.lastSeen,
+      destination: v.destination, etaReported: v.etaReported, navStatus: v.navStatus.label,
     })));
   },
   onStatus: (s) => {
@@ -209,7 +222,7 @@ function flushEffects(): void {
   world.setSources({ language: language.status() });
 }
 
-const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled', 'reportSighting', 'confirmSighting', 'extendZone', 'endZone', 'fileDivePlan', 'foundRobot'];
+const COMMAND_EVENTS: (keyof CommandEvents)[] = ['drive', 'spawn', 'removeContact', 'contactParams', 'sensorLoss', 'editDraft', 'publish', 'discardDraft', 'dropZone', 'allClear', 'cardAction', 'clock', 'undo', 'signOrders', 'officer', 'reset', 'markVhfCalled', 'reportSighting', 'confirmSighting', 'extendZone', 'endZone', 'fileDivePlan', 'foundRobot', 'resizeZone'];
 const STEERING_EVENTS = new Set<keyof CommandEvents>(['drive', 'contactParams']);
 
 function bindCommand(socket: Socket): void {

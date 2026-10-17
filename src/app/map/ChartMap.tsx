@@ -60,6 +60,33 @@ export interface ChartMapProps {
   callouts?: ChartCallout[];
   stamp?: number;
   motionDelayMs?: number;
+  handles?: ZoneHandle[];
+  onResize?: (id: string, radiusM: number) => void;
+}
+
+export interface ZoneHandle { id: string; center: LonLat; radiusM: number; label: string }
+
+const EARTH_M_PER_DEG = 111_320;
+
+function eastOf(center: LonLat, meters: number): LonLat {
+  return [center[0] + meters / (EARTH_M_PER_DEG * Math.cos((center[1] * Math.PI) / 180)), center[1]];
+}
+
+function metersBetween(a: LonLat, b: LonLat): number {
+  const dx = (b[0] - a[0]) * EARTH_M_PER_DEG * Math.cos((a[1] * Math.PI) / 180);
+  const dy = (b[1] - a[1]) * EARTH_M_PER_DEG;
+  return Math.hypot(dx, dy);
+}
+
+function ringAround(center: LonLat, meters: number): GeoJSON.FeatureCollection {
+  const pts: LonLat[] = [];
+  for (let k = 0; k <= 64; k++) {
+    const a = (k / 64) * Math.PI * 2;
+    const dx = Math.cos(a) * meters;
+    const dy = Math.sin(a) * meters;
+    pts.push([center[0] + dx / (EARTH_M_PER_DEG * Math.cos((center[1] * Math.PI) / 180)), center[1] + dy / EARTH_M_PER_DEG]);
+  }
+  return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts } }] };
 }
 
 const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you', 'ticks'];
@@ -100,6 +127,8 @@ function turn(a: number, b: number, f: number): number {
   return (a + d * f + 360) % 360;
 }
 
+const JUMP_DEGREES = 0.004;
+
 function pointsById(fc: GeoJSON.FeatureCollection): Map<string, PointFeature> {
   const out = new Map<string, PointFeature>();
   for (const f of fc.features) {
@@ -118,6 +147,7 @@ function blend(older: GeoJSON.FeatureCollection, newer: GeoJSON.FeatureCollectio
     if (!prev) return feat;
     const [ax, ay] = prev.geometry.coordinates;
     const [bx, by] = (feat.geometry as GeoJSON.Point).coordinates;
+    if (Math.abs(bx - ax) > JUMP_DEGREES || Math.abs(by - ay) > JUMP_DEGREES) return feat;
     const props = feat.properties as Record<string, unknown>;
     const ha = prev.properties.heading;
     const hb = props.heading;
@@ -141,6 +171,7 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       ...Object.fromEntries(DATA_SOURCES.map((k) => [k, { type: 'geojson', data: EMPTY }])),
       'forecast-a': { type: 'geojson', data: EMPTY },
       'forecast-b': { type: 'geojson', data: EMPTY },
+      'resize-preview': { type: 'geojson', data: EMPTY },
     },
     layers: [
       { id: 'bg', type: 'background', paint: { 'background-color': c.water } },
@@ -157,6 +188,7 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'zone-fill-slow', type: 'fill', source: 'zones', filter: ['all', ['==', ['get', 'kind'], 'slow'], ['!', ['get', 'area']]], paint: { 'fill-pattern': 'hatch-slow', 'fill-opacity': ['case', ['==', ['get', 'status'], 'draft'], 0.55, 1] } },
       { id: 'zone-fill-keepout', type: 'fill', source: 'zones', filter: ['all', ['==', ['get', 'kind'], 'keepOut'], ['!', ['get', 'area']]], paint: { 'fill-pattern': 'hatch-keepout', 'fill-opacity': ['case', ['==', ['get', 'status'], 'draft'], 0.55, 1] } },
       { id: 'zone-edge', type: 'line', source: 'zones', filter: ['==', ['get', 'status'], 'published'], paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.6 } },
+      { id: 'resize-preview', type: 'line', source: 'resize-preview', paint: { 'line-color': c.tide, 'line-width': 2, 'line-dasharray': [2, 1.5] } },
       { id: 'zone-edge-draft', type: 'line', source: 'zones', filter: ['==', ['get', 'status'], 'draft'], paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.4, 'line-dasharray': [3, 2] } },
       { id: 'route-old', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'planned'], paint: { 'line-color': withAlpha(c.muted, night ? 0.55 : 0.6), 'line-width': 1.2, 'line-dasharray': [2, 2] } },
       { id: 'route-new', type: 'line', source: 'routes', filter: ['==', ['get', 'kind'], 'new'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.tide, 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 2, 15, 4] } },
@@ -201,6 +233,8 @@ export function ChartMap(props: ChartMapProps) {
   const tickLabels = useRef(new Map<string, maplibregl.Marker>());
   const calloutMarkers = useRef(new Map<string, maplibregl.Marker>());
   const motionStats = useRef<{ frames: number; lastMs: number; contact: number[] | null }>({ frames: 0, lastMs: 0, contact: null });
+  const handleMarkers = useRef(new Map<string, maplibregl.Marker>());
+  const dragging = useRef<string | null>(null);
 
   useEffect(() => {
     ensureProtocol();
@@ -322,7 +356,7 @@ export function ChartMap(props: ChartMapProps) {
     }
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of calloutMarkers.current.values()) m.remove(); calloutMarkers.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of handleMarkers.current.values()) m.remove(); handleMarkers.current.clear(); for (const m of calloutMarkers.current.values()) m.remove(); calloutMarkers.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [props.theme]);
 
   useEffect(() => {
@@ -402,6 +436,49 @@ export function ChartMap(props: ChartMapProps) {
     for (const p of props.fitTo) b.extend(p);
     map.fitBounds(b, { padding: props.padding ?? 60, maxZoom: 15, duration: 700 });
   }, [JSON.stringify(props.fitTo)]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const want = new Map((props.handles ?? []).map((h) => [h.id, h]));
+    for (const [id, m] of handleMarkers.current) if (!want.has(id)) { m.remove(); handleMarkers.current.delete(id); }
+    for (const h of want.values()) {
+      if (dragging.current === h.id) continue;
+      let m = handleMarkers.current.get(h.id);
+      if (!m) {
+        const el = document.createElement('div');
+        el.className = 'zone-handle';
+        el.dataset.testid = `zone-handle-${h.id}`;
+        el.innerHTML = '<i></i><span></span>';
+        m = new maplibregl.Marker({ element: el, draggable: true, anchor: 'center' });
+        const marker = m;
+        marker.on('dragstart', () => { dragging.current = h.id; el.classList.add('active'); });
+        marker.on('drag', () => {
+          const cur = (propsRef.current.handles ?? []).find((x) => x.id === h.id) ?? h;
+          const at = marker.getLngLat();
+          const r = Math.max(50, Math.min(3000, Math.round(metersBetween(cur.center, [at.lng, at.lat]) / 10) * 10));
+          (el.querySelector('span') as HTMLElement).textContent = `${r} m`;
+          (map.getSource('resize-preview') as GeoJSONSource | undefined)?.setData(ringAround(cur.center, r));
+        });
+        marker.on('dragend', () => {
+          const cur = (propsRef.current.handles ?? []).find((x) => x.id === h.id) ?? h;
+          const at = marker.getLngLat();
+          const r = Math.max(50, Math.min(3000, Math.round(metersBetween(cur.center, [at.lng, at.lat]) / 10) * 10));
+          dragging.current = null;
+          el.classList.remove('active');
+          marker.setLngLat(eastOf(cur.center, r));
+          (map.getSource('resize-preview') as GeoJSONSource | undefined)?.setData(EMPTY);
+          propsRef.current.onResize?.(cur.id, r);
+        });
+        m.setLngLat(eastOf(h.center, h.radiusM)).addTo(map);
+        handleMarkers.current.set(h.id, m);
+      }
+      m.setLngLat(eastOf(h.center, h.radiusM));
+      const el = m.getElement();
+      el.title = `${h.label}. Drag to resize.`;
+      (el.querySelector('span') as HTMLElement).textContent = `${h.radiusM} m`;
+    }
+  }, [JSON.stringify(props.handles ?? [])]);
 
   function pushForecast(map: MLMap, data: ChartData): void {
     const key = JSON.stringify(data.forecast);

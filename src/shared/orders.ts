@@ -2,7 +2,7 @@ export interface OrderBlank {
   key: string;
   unit: string;
   options: number[];
-  format?: 'percent';
+  format?: 'percent' | 'level';
 }
 
 export type OrderPart = string | OrderBlank;
@@ -22,24 +22,22 @@ export const ORDER_CARDS: OrderCard[] = [
       'IF risk is', { key: 'draftRiskMin', unit: 'or more', options: [8, 10, 12, 15] },
       'AND the top target is', { key: 'draftOddsMin', unit: 'likely or more', options: [0.5, 0.6, 0.7, 0.8], format: 'percent' },
       'AND each boat is delayed', { key: 'maxDelayPerBoatMin', unit: 'min or less', options: [4, 6, 8, 10, 15] },
-      'THEN draft the notice for my tap.',
+      'THEN draft the notice.',
+    ],
+  },
+  {
+    id: 'auto',
+    title: 'Publish on my behalf',
+    parts: [
+      'Publish give-way notices automatically up to', { key: 'autoPublishUpToLevel', unit: 'risk', options: [-1, 1, 2, 3], format: 'level' },
+      'after a', { key: 'vetoSeconds', unit: 'second countdown I can stop. Every one is logged and can be undone.', options: [10, 20, 30, 60] },
     ],
   },
   {
     id: 'zone',
     title: 'Safety zone',
     parts: [
-      'Keep', { key: 'zoneMeters', unit: 'm around the contact', options: [150, 250, 400, 500] },
-      'plus its predicted path to the top', { key: 'zoneTopTargets', unit: 'targets', options: [1, 2, 3] },
-      'for the next', { key: 'zonePathMinutes', unit: 'min.', options: [5, 10, 15, 20] },
-    ],
-  },
-  {
-    id: 'unsure',
-    title: 'When TELL is unsure',
-    parts: [
-      'IF no target is above', { key: 'unsureBelowOdds', unit: '', options: [0.3, 0.4, 0.5], format: 'percent' },
-      'THEN multiply the zone by', { key: 'zoneGrowWhenUnsure', unit: '', options: [1.5, 2, 3] },
+      'Keep', { key: 'zoneMeters', unit: 'm clear around the contact, plus the forecast area for the next 30 minutes.', options: [150, 250, 400, 500] },
     ],
   },
   {
@@ -66,6 +64,9 @@ export const ORDER_CARDS: OrderCard[] = [
   },
 ];
 
+const LEVEL_WORDS: Record<number, string> = { [-1]: 'never', 0: 'Low', 1: 'Medium', 2: 'Serious', 3: 'High', 4: 'Critical' };
+
 export function formatBlank(b: OrderBlank, v: number): string {
+  if (b.format === 'level') return LEVEL_WORDS[v] ?? String(v);
   return b.format === 'percent' ? `${Math.round(v * 100)}%` : String(v);
 }

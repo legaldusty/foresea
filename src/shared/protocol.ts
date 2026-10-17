@@ -71,6 +71,47 @@ export interface AreaView {
   changedAtLabel: string | null;
 }
 
+export type OperatingMode = 'live' | 'sim';
+
+export interface SensorView {
+  lonlat: LonLat;
+  depthM: number;
+  headingDeg: number;
+  speedMps: number;
+  speedKn: number;
+  sizeM: number;
+  heatDeltaC: number;
+  heatLabel: string;
+  acousticDb: number;
+  observedMin: number;
+  lastFixSec: number;
+  trackKm: number;
+  confidence: number;
+  simulated: boolean;
+}
+
+export interface ConsequenceView { targetId: string; name: string; C: number; people: number; hazard: number; economy: number; environment: number; odds: number; etaMin: number | null }
+
+export interface RiskMathView {
+  H: number;
+  P: number;
+  K: number;
+  C: number;
+  likelihood: number;
+  severity: number;
+  L: number;
+  S: number;
+  R: number;
+  likelihoodBands: number[];
+  severityBands: number[];
+  levelMaxScores: number[];
+  sizeFactor: number;
+  speedFactor: number;
+  weights: Record<string, number>;
+}
+
+export interface TimelineEntry { atMin: number; label: string; detail: string; actor: string }
+
 export interface ContactView {
   id: string;
   label: string;
@@ -98,6 +139,31 @@ export interface ContactView {
   why: string;
   history: { t: number; p: number[] }[];
   historyIds: string[];
+  sensor: SensorView;
+  classificationWhy: string[];
+  consequences: ConsequenceView[];
+  riskMath: RiskMathView | null;
+  timeline: TimelineEntry[];
+  analystNote: { text: string; source: 'granite' | 'template' } | null;
+}
+
+export interface VesselIntel {
+  score: number;
+  level: 'normal' | 'watch' | 'anomalous';
+  reasons: string[];
+  features: { label: string; value: string; z: number | null }[];
+}
+
+export interface VesselDetail {
+  mmsi: number | null;
+  destination: string | null;
+  etaReported: string | null;
+  sogKn: number;
+  cogDeg: number;
+  headingDeg: number | null;
+  lastSeenSec: number | null;
+  status: string;
+  activity: string | null;
 }
 
 export interface VesselView {
@@ -114,6 +180,20 @@ export interface VesselView {
   phone: { joined: boolean; captain: string | null } | null;
   inZone: boolean;
   affected: { priority: Priority; text: string; crossingLabel: string | null; untilLabel: string | null } | null;
+  intel: VesselIntel | null;
+  detail: VesselDetail;
+}
+
+export interface ModelCard {
+  id: string;
+  name: string;
+  kind: string;
+  role: string;
+  decides: boolean;
+  trainedOn: string;
+  metrics: { label: string; value: string }[];
+  lastRunMs: number | null;
+  runsPerMinute: number | null;
 }
 
 export interface ZoneView {
@@ -129,6 +209,7 @@ export interface ZoneView {
   contactId: string | null;
   noticeId: string | null;
   area: AreaView | null;
+  center: LonLat;
 }
 
 export interface FixOptionView { kind: string; label: string; addedMin: number | null; why: string }
@@ -230,6 +311,8 @@ export interface Card {
   createdAtMin: number;
   realerts: number;
   backupCalled: boolean;
+  autoAtWall?: number | null;
+  autoOrder?: string | null;
   contactId: string | null;
   noticeId: string | null;
   draftId: string | null;
@@ -349,6 +432,8 @@ export interface CommandSnapshot {
   report: DailyReport;
   headline: Headline;
   steps: StepView[] | null;
+  mode: OperatingMode;
+  models: ModelCard[];
 }
 
 export interface CaptainNotice {
@@ -384,7 +469,7 @@ export interface CaptainSnapshot {
   vessel: { id: string; name: string; type: string; lonlat: LonLat; headingDeg: number; speedKn: number; route: LonLat[] | null; newRoute: LonLat[] | null } | null;
   notices: CaptainNotice[];
   today: CaptainTodayRow[];
-  traffic: { lonlat: LonLat; headingDeg: number; type: string }[];
+  traffic: { id: string; lonlat: LonLat; headingDeg: number; type: string }[];
   allClear: { id: string; publicReason: string; atWall: string; atLabel: string; approvedBy: string }[];
   lastAllClearLabel: string | null;
   clock: ClockView;
@@ -413,7 +498,8 @@ export interface CommandEvents {
   undo: { auditId: string };
   signOrders: { officer: string; orders: Record<string, number> };
   officer: { name: string };
-  reset: { mode: 'tuesday' | 'night' | 'empty' };
+  reset: { mode: 'tuesday' | 'night' | 'empty' | 'live' };
+  resizeZone: { zoneId: string; radiusM: number };
   markVhfCalled: { noticeId: string; vesselId: string };
 }
 
