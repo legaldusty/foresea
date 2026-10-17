@@ -245,7 +245,8 @@ export class World {
 
   private spawnContact(spec: Omit<ContactSpec, 'id' | 'label' | 'firstSeenMin' | 'seed'> & { seed?: number }, nearness = true): ContactSim {
     const n = ++this.contactSeq;
-    const full: ContactSpec = { ...spec, id: `C-${n}`, label: `Contact C-${n}`, firstSeenMin: this.simMin, seed: spec.seed ?? 100 + n };
+    const registeredName = spec.registryId ? this.h.registry.find((r) => r.id === spec.registryId)?.name : undefined;
+    const full: ContactSpec = { ...spec, id: `C-${n}`, label: registeredName ?? `Contact C-${n}`, firstSeenMin: this.simMin, seed: spec.seed ?? 100 + n };
     const c = createContact(this.h, this.settings, full, this.current, nearness);
     this.contacts.set(c.id, c);
     this.evaluate(c);

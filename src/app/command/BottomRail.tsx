@@ -87,7 +87,7 @@ function OnTime(props: { snap: CommandSnapshot }) {
     <div className="board" data-testid="ontime-board">
       <div className="board-title">
         <span className="t-strong">On time</span>
-        <span className="summary">{rerouted ? <>{rerouted.name} <span className="t-mono-small">{signed(rerouted.deltaMin)}</span>, still on time</> : 'Plan is the timetable or the AIS reported ETA'}</span>
+        <span className="summary">{rerouted ? <span>{rerouted.name} <span className="t-mono-small">{signed(rerouted.deltaMin)}</span>, still on time</span> : 'Plan is the timetable or the AIS reported ETA'}</span>
       </div>
       <div className="board-rows">
         <div className="orow head"><span className="name">Vessel</span><span className="src">Source</span><span className="t">Plan</span><span className="t">Ours</span><span className="chg">Change</span><span className="status">Status</span></div>
