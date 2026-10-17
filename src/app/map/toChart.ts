@@ -70,15 +70,17 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
     if (c.track.length > 1) paths.push({ type: 'Feature', properties: { kind: 'track', rank: 9 }, geometry: { type: 'LineString', coordinates: c.track } });
   }
   const routes: F[] = [];
+  const foreground = (v: CommandSnapshot['vessels'][number]) => !!v.affected || !!v.phone?.joined || v.id === selectedId;
   for (const v of s.vessels) {
+    if (!v.affected && v.id !== selectedId) continue;
     if (v.route) routes.push({ type: 'Feature', properties: { kind: 'planned', id: v.id }, geometry: { type: 'LineString', coordinates: v.route } });
     if (v.newRoute) routes.push({ type: 'Feature', properties: { kind: 'new', id: v.id }, geometry: { type: 'LineString', coordinates: v.newRoute } });
   }
   const vessels: F[] = s.vessels.map((v) => ({
     type: 'Feature',
     properties: {
-      id: v.id, type: silhouetteFor(v.type, v.lengthM), heading: v.headingDeg, inZone: v.inZone, stale: false,
-      scale: v.lengthM && v.lengthM > 200 ? 1.5 : v.lengthM && v.lengthM > 80 ? 1.2 : 0.85, source: v.source,
+      id: v.id, type: silhouetteFor(v.type, v.lengthM), heading: v.headingDeg, inZone: !!v.affected && v.inZone, stale: false,
+      scale: v.lengthM && v.lengthM > 200 ? 1.5 : v.lengthM && v.lengthM > 80 ? 1.2 : 0.85, source: v.source, bg: !foreground(v),
     },
     geometry: { type: 'Point', coordinates: v.lonlat },
   }));
@@ -99,7 +101,11 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
   };
 }
 
-export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number): ChartData {
+export interface CaptainChartExtras { youTag?: boolean; spot?: LonLat | null }
+
+export const YOU_TAG_ID = 'you-tag';
+
+export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number, extras: CaptainChartExtras = {}): ChartData {
   if (!s) return BLANK;
   const forecast: F[] = [];
   const ticks: F[] = [];
@@ -127,8 +133,10 @@ export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number):
     type: 'Feature', properties: { id: `t${i}`, type: silhouetteFor(t.type, null), heading: t.headingDeg, inZone: false, stale: true, scale: 0.8 },
     geometry: { type: 'Point', coordinates: t.lonlat },
   }));
+  const contacts: F[] = v && extras.youTag ? [{ type: 'Feature', properties: { id: YOU_TAG_ID, state: 'you', selected: false }, geometry: { type: 'Point', coordinates: v.lonlat } }] : [];
+  const paths: F[] = v && extras.spot ? [{ type: 'Feature', properties: { kind: 'track' }, geometry: { type: 'LineString', coordinates: [v.lonlat, extras.spot] } }] : [];
   return {
-    zones: fc(zoneFeatures(zones)), paths: EMPTY, routes: fc(routes), vessels: fc(vessels), contacts: EMPTY,
+    zones: fc(zoneFeatures(zones)), paths: fc(paths), routes: fc(routes), vessels: fc(vessels), contacts: fc(contacts),
     arrows: fc(arrowFeatures(zones)), you: fc(you), forecast: fc(forecast), ticks: fc(ticks),
   };
 }

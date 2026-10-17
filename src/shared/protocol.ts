@@ -113,6 +113,7 @@ export interface VesselView {
   newRoute: LonLat[] | null;
   phone: { joined: boolean; captain: string | null } | null;
   inZone: boolean;
+  affected: { priority: Priority; text: string; crossingLabel: string | null; untilLabel: string | null } | null;
 }
 
 export interface ZoneView {

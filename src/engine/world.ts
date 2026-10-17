@@ -2153,8 +2153,33 @@ export class World {
     return `${tgt.short ?? tgt.name} is the likeliest target at ${Math.round(top.p * 100)}%, about ${minutesLabel(etaToGoal(this.h, c, top.goal))} out. Risk ${r.R}: ${r.levelName}, ${rungName(r.level).toLowerCase()}.`;
   }
 
+  private affectedVessels(): Map<string, NonNullable<P.VesselView['affected']>> {
+    const order: Record<Priority, number> = { P1: 0, P2: 1, P3: 2, P4: 3 };
+    const out = new Map<string, NonNullable<P.VesselView['affected']>>();
+    const offer = (id: string, a: NonNullable<P.VesselView['affected']>) => {
+      const prev = out.get(id);
+      if (!prev || order[a.priority] < order[prev.priority]) out.set(id, a);
+    };
+    for (const n of this.notices.values()) {
+      if (n.status !== 'active') continue;
+      for (const [vid, e] of n.perVessel) {
+        if (e.priority === 'P4' && (e.action === 'none' || e.action === 'headsUp')) continue;
+        if (e.priority === 'P4') continue;
+        offer(vid, { priority: e.priority, text: e.instructionText, crossingLabel: e.crossing ? clockLabel(e.crossing.atMin) : null, untilLabel: e.untilMin ? clockLabel(e.untilMin) : null });
+      }
+    }
+    for (const d of this.drafts.values()) {
+      for (const b of d.plan.boats) {
+        if (b.priority === 'P4') continue;
+        offer(b.vesselId, { priority: b.priority, text: b.instruction, crossingLabel: b.crossingLabel, untilLabel: b.untilLabel });
+      }
+    }
+    return out;
+  }
+
   commandSnapshot(extra: { aisOnTime?: P.OnTimeRow[]; joinUrls?: string[] } = {}): P.CommandSnapshot {
     const vessels: P.VesselView[] = [];
+    const affected = this.affectedVessels();
     const zoneMasks = [...this.zones.values()].filter((z) => z.status === 'published').map((z) => z.geometry.mask);
     for (const c of this.craft) {
       const rerouted = !!c.rerouteNoticeId;
@@ -2167,6 +2192,7 @@ export class World {
         newRoute: rerouted ? this.routeLonLat(remainingRoute(c), 3) : null,
         phone: c.phone ? { joined: cap?.connected ?? false, captain: cap?.connected ? 'Phone' : null } : null,
         inZone: zoneMasks.some((m) => m[cell] === 1),
+        affected: affected.get(c.id) ?? null,
       });
     }
     for (const v of this.ais) {
@@ -2174,6 +2200,7 @@ export class World {
         id: `ais-${v.mmsi}`, name: v.name || `MMSI ${v.mmsi}`, type: v.typeLabel, lonlat: this.aisLonLat(v), headingDeg: v.headingDeg ?? v.cogDeg, speedKn: v.sogKn,
         source: v.source === 'live' ? 'ais-live' : 'ais-replay', lengthM: v.lengthM, route: null, newRoute: null, phone: null,
         inZone: v.cell >= 0 && zoneMasks.some((m) => m[v.cell] === 1),
+        affected: affected.get(`ais-${v.mmsi}`) ?? null,
       });
     }
     const top = this.cards[0];

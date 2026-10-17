@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32" fill="none">
+<path d="M16 2C18.2 2 19.5 4.6 19.5 8V22L21.6 25.2V27L19.2 26.2L18.6 27.5H13.4L12.8 26.2L10.4 27V25.2L12.5 22V8C12.5 4.6 13.8 2 16 2Z" stroke-linejoin="round" style="fill:var(--drone,#D83A34);stroke:var(--vessel-edge,#E8EEF2)"/>
+<path fill="none" d="M12.9 7.5H19.1" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M12.9 19.5H19.1" style="stroke:var(--vessel-detail,#0C1A25)"/>
+<path fill="none" d="M14 29.5H18" stroke-width="1.5" stroke-linecap="round" style="stroke:var(--drone,#D83A34)"/>
+</svg>

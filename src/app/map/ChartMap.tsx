@@ -154,8 +154,9 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'vessels', type: 'symbol', source: 'vessels', layout: {
         'icon-image': ['coalesce', ['image', ['concat', 'v-', ['get', 'type']]], ['image', 'v-other']],
         'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-ignore-placement': true,
-        'icon-size': ['interpolate', ['linear'], ['zoom'], 11, ['*', 0.55, ['get', 'scale']], 13, ['*', 0.8, ['get', 'scale']], 15, ['*', 1.25, ['get', 'scale']]],
-      }, paint: { 'icon-opacity': ['case', ['get', 'stale'], 0.5, 1] } },
+        'icon-size': ['interpolate', ['linear'], ['zoom'], 11, ['*', 0.55, ['get', 'scale'], ['case', ['get', 'bg'], 0.75, 1]], 13, ['*', 0.8, ['get', 'scale'], ['case', ['get', 'bg'], 0.75, 1]], 15, ['*', 1.25, ['get', 'scale'], ['case', ['get', 'bg'], 0.75, 1]]],
+        'symbol-sort-key': ['case', ['get', 'bg'], 0, 1],
+      }, paint: { 'icon-opacity': ['case', ['get', 'bg'], 0.4, ['get', 'stale'], 0.5, 1] } },
       { id: 'vessels-alert', type: 'symbol', source: 'vessels', filter: ['get', 'inZone'], layout: { 'icon-image': 'ring-alert', 'icon-allow-overlap': true, 'icon-size': 0.6 } },
       { id: 'contacts', type: 'symbol', source: 'contacts', layout: { 'icon-image': ['concat', 'diamond-', ['get', 'state']], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['case', ['get', 'selected'], 0.75, 0.6] } },
       { id: 'you-route', type: 'line', source: 'you', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.tide, 'line-width': 4 } },

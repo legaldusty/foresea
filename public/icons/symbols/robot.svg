@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none">
+<circle cx="12" cy="12" r="10.25" stroke-width="1.5" style="fill:var(--vessel-detail,#0C1A25);stroke:var(--vessel-edge,#E8EEF2)"/>
+<path d="M12 4C12.75 4 13.2 5 13.2 6V15.4C13.2 16.1 12.7 16.6 12 16.6C11.3 16.6 10.8 16.1 10.8 15.4V6C10.8 5 11.25 4 12 4Z" style="fill:var(--vessel-edge,#E8EEF2)"/>
+<path d="M10.8 9.6L6 13.6L6.5 14.4L10.8 12.2Z" style="fill:var(--vessel-edge,#E8EEF2)"/>
+<path d="M13.2 9.6L18 13.6L17.5 14.4L13.2 12.2Z" style="fill:var(--vessel-edge,#E8EEF2)"/>
+<path fill="none" d="M12 16.6V20" stroke-linecap="round" style="stroke:var(--vessel-edge,#E8EEF2)"/>
+</svg>

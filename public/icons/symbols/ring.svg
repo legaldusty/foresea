@@ -1,0 +1,4 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="44" height="44" viewBox="0 0 44 44" fill="none">
+<circle cx="22" cy="22" r="17" fill="none" stroke-width="1.5" style="stroke:var(--text,#E8EEF2)"/>
+<path fill="none" d="M22 1.5V5.5M22 38.5V42.5M1.5 22H5.5M38.5 22H42.5" stroke-width="1.5" stroke-linecap="round" style="stroke:var(--text,#E8EEF2)"/>
+</svg>

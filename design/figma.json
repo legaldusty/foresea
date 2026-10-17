@@ -225,5 +225,112 @@
       "command-day-whale.png": "3202ce32a3bde06172f66d553bf9268dd6aa3748"
     },
     "chartCrop": "chart frame 1056 x 592 at y 80 shows the full render width and rows 88 to 895, imageTransform [[1,0,0],[0,0.8967,0.0978]]"
+  },
+  "round3Command": {
+    "page": "45:24",
+    "sheets": {
+      "Components": "47:24",
+      "Chart renders": "68:5656"
+    },
+    "frames": {
+      "night": {
+        "First seen": "57:4834",
+        "Learning": "57:6209",
+        "Confident, decision card": "53:4228",
+        "Why drawer": "61:1241",
+        "No gentle option": "58:778",
+        "Pilot Boat 2 silent": "59:1011",
+        "Key open": "63:1633",
+        "Presenter": "63:1998",
+        "Run 1,000 nights": "68:3145",
+        "Tuesday, today and on time": "68:5137",
+        "Tuesday, sightings and report": "68:5292",
+        "New zone menu": "68:5496"
+      },
+      "day": {
+        "First seen": "68:3663",
+        "Learning": "68:3781",
+        "Confident, decision card": "68:3919",
+        "Why drawer": "68:4057",
+        "No gentle option": "68:4301",
+        "Pilot Boat 2 silent": "68:4449",
+        "Key open": "68:4577",
+        "Presenter": "68:4716",
+        "Run 1,000 nights": "68:4855",
+        "Tuesday, today and on time": "65:2263",
+        "Tuesday, sightings and report": "67:2586",
+        "New zone menu": "67:2849"
+      }
+    },
+    "symbols": {
+      "Drone": "47:111",
+      "Drone / Low": "47:86",
+      "Drone / Medium": "47:92",
+      "Drone / Serious": "47:98",
+      "Drone / High": "47:104",
+      "Drone / Critical": "47:110",
+      "Robot": "47:117",
+      "Animal": "47:121",
+      "Selection ring": "47:125"
+    },
+    "components": {
+      "Time mark": "51:4197",
+      "Time mark / Right": "49:4166",
+      "Time mark / Left": "51:4192",
+      "Map label": "49:4171",
+      "Conflict callout": "49:4173",
+      "Key toggle": "49:4187",
+      "Key toggle / Closed": "49:4179",
+      "Key toggle / Open": "49:4183",
+      "Key": "62:1500",
+      "Presenter button": "49:4188",
+      "Presenter panel": "63:1520",
+      "Top bar": "50:4164",
+      "Headline": "50:4205",
+      "Step": "50:4226",
+      "Step / Done": "50:4210",
+      "Step / Current": "50:4215",
+      "Step / Next": "50:4221",
+      "Card row": "50:4240",
+      "Card row / Header": "50:4227",
+      "Card row / Row": "50:4232",
+      "Card row / Total": "50:4237",
+      "Today row": "64:2291",
+      "Today row / Header": "64:2254",
+      "Today row / Active": "64:2259",
+      "Today row / Scheduled": "64:2275",
+      "On-time row": "64:2318",
+      "On-time row / Header": "64:2292",
+      "On-time row / On time": "64:2298",
+      "On-time row / At risk": "64:2307"
+    },
+    "icons": {
+      "Question": "47:30",
+      "ListDashes": "47:34",
+      "ProjectorScreen": "47:38",
+      "Binoculars": "47:42",
+      "Polygon": "47:46",
+      "ClipboardText": "47:50",
+      "FastForward": "47:54",
+      "DownloadSimple": "47:58",
+      "ClockClockwise": "47:62",
+      "Prohibit": "47:66",
+      "UserSwitch": "47:70",
+      "Robot": "47:74",
+      "ArrowsClockwise": "47:78"
+    },
+    "exports": {
+      "public/icons/symbols/drone.svg": "47:104",
+      "public/icons/symbols/robot.svg": "47:117",
+      "public/icons/symbols/animal.svg": "47:121",
+      "public/icons/symbols/ring.svg": "47:125"
+    },
+    "chartRenders": {
+      "night 1056x724": "082f8c0266033561bf0fb87c9fe66d16d8fd2b0d",
+      "day 1056x724": "7942139d34474ae4da8c151d445c0a9a1a9588fc",
+      "night 1056x440": "1ede5db317e0348343d9ffd933f04eac49520f17",
+      "day 1056x440": "5048fb164e559c1a90d197db4af1bae474d8a4cb"
+    },
+    "chartFrames": "Incident frames: chart 1056 x 724 at y 176, FILL. Tuesday frames: chart 1056 x 380 at y 136, CROP with imageTransform [[1,0,0],[0,0.8636,0.0068]]. Renders are the running app with every snapshot array emptied, at device scale 2."
   }
 }
