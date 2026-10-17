@@ -17,7 +17,7 @@ function which(bin: string): boolean {
 }
 
 const TUNNEL_WAIT_MS = 45_000;
-const TUNNEL_TRIES = 2;
+const TUNNEL_TRIES = 3;
 
 function tryTunnel(): Promise<{ url: string | null; log: string }> {
   const child = spawn('cloudflared', ['tunnel', '--no-autoupdate', '--url', `http://localhost:${PORT}`], { stdio: ['ignore', 'pipe', 'pipe'] });
@@ -49,9 +49,10 @@ async function startTunnel(): Promise<string | null> {
     if (url) { console.log(`Tunnel up: ${url}`); return url; }
     const errors = log.split('\n').filter((l) => / ERR | WRN |error|failed/i.test(l)).slice(-4);
     console.log(`No tunnel URL from cloudflared.${errors.length ? `\n${errors.join('\n')}` : ''}`);
-    if (attempt < TUNNEL_TRIES) await new Promise((ok) => setTimeout(ok, 4000));
+    if (attempt < TUNNEL_TRIES) await new Promise((ok) => setTimeout(ok, attempt * 5000));
   }
   console.log('Tunnel failed. Phones must use the LAN address below and be on the same network as this laptop.');
+  console.log('If it says "no such host", this network could not look up Cloudflare. Check the DNS servers in Wi-Fi settings, or switch networks and run it again.');
   return null;
 }
 
