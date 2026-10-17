@@ -18,7 +18,7 @@ rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
 
 ssh "${SSH_OPTS[@]}" "root@$HOST" "bash -s" <<REMOTE
 set -euo pipefail
-printf 'PUBLIC_URL=https://%s\nGIVEWAY_LLM_TIMEOUT_MS=20000\n' '$DOMAIN' > /opt/giveway/hosting.env
+printf 'PUBLIC_URL=https://%s\nGIVEWAY_LLM_TIMEOUT_MS=45000\n' '$DOMAIN' > /opt/giveway/hosting.env
 printf '%s {\n\tencode zstd gzip\n\treverse_proxy 127.0.0.1:5170\n}\n' '$DOMAIN' > /etc/caddy/Caddyfile
 cp /opt/giveway/app/deploy/giveway.service /etc/systemd/system/giveway.service
 chown -R giveway:giveway /opt/giveway
