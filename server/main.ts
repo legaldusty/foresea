@@ -92,7 +92,7 @@ function refreshOnTime(): void {
     }));
     const cruise = harbor.targets.find((t) => t.id === 'cruise');
     if (cruise) {
-      const ship = berthedAt(aisVessels, cruise, settings.ais as never);
+      const ship = berthedAt(aisVessels, cruise, settings);
       world.setBerth(!!ship, ship?.name ?? null);
     }
     world.setSources({ ais: { ...world.sources.ais, vessels: aisVessels.length } });

@@ -30,7 +30,7 @@ const ACTION_ICON: Record<string, JSX.Element | null> = {
 
 function cardMeta(c: Card, waiting: number): string {
   const first = c.kind === 'publish' ? 'Drafted by GIVE WAY from signed Standing Orders'
-    : c.kind === 'notResponding' ? 'No acknowledgment in 4 min. Read this on VHF:'
+    : c.kind === 'notResponding' ? 'No acknowledgment in 4 min'
     : `Raised ${clockOf(c.createdAtMin)}`;
   return [first, c.realerts ? `Re-alerted ${c.realerts} ${c.realerts === 1 ? 'time' : 'times'}` : '', c.backupCalled ? 'Backup officer called' : '', waiting ? `${waiting} more waiting` : '']
     .filter(Boolean).join('. ');

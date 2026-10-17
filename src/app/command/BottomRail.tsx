@@ -66,7 +66,7 @@ function Delivery(props: { snap: CommandSnapshot }) {
             <span className="chan"><ChannelIcon ch={d.channel} />{CHANNEL_WORD[d.channel]}</span>
             <StepTrack states={d.states} />
             {d.notResponding
-              ? <span className="state warn"><Warning size={16} weight="bold" />No reply<span className="vhf"><Radio size={14} />VHF script ready</span></span>
+              ? <span className="state warn"><Warning size={16} weight="bold" />No reply<span className="vhf"><Radio size={14} />Call on VHF</span></span>
               : <span className="state">{STATE_WORD[lastState(d)]}</span>}
             <span className="tail">{d.simulated ? 'Simulated' : ''}</span>
           </div>
