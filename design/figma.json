@@ -332,5 +332,12 @@
       "day 1056x440": "5048fb164e559c1a90d197db4af1bae474d8a4cb"
     },
     "chartFrames": "Incident frames: chart 1056 x 724 at y 176, FILL. Tuesday frames: chart 1056 x 380 at y 136, CROP with imageTransform [[1,0,0],[0,0.8636,0.0068]]. Renders are the running app with every snapshot array emptied, at device scale 2."
+  },
+  "round4": {
+    "page": "85:24",
+    "commandNight": "85:25",
+    "captainDay": "86:50",
+    "captainTakeover": "86:100",
+    "icons": "84:86"
   }
 }

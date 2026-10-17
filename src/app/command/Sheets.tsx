@@ -15,10 +15,15 @@ import { NightsProof } from './NightsProof';
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 
 function Sheet(props: { title: ReactNode; meta?: ReactNode; onClose: () => void; children: ReactNode; testId?: string; width?: number }) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape') props.onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
   return (
     <div className="sheet-back" onClick={props.onClose}>
       <div className="sheet" style={props.width ? { width: `min(${props.width}px, calc(100vw - 48px))` } : undefined} onClick={(e) => e.stopPropagation()} data-testid={props.testId}>
-        <div className="sheet-head">
+        <div className="sheet-head" role="dialog" aria-modal="true">
           <div className="title-block">
             <span className="t-display">{props.title}</span>
             {props.meta ? <span className="t-small c-muted">{props.meta}</span> : null}

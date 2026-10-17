@@ -5,104 +5,1848 @@
     {
       "name": "Primitives",
       "id": "VariableCollectionId:2:7",
-      "modes": ["Value"],
+      "modes": [
+        "Value"
+      ],
       "variables": [
-        { "name": "Ink 900", "id": "VariableID:2:8", "type": "COLOR", "css": "--color-ink-900", "values": { "Value": "#0A1621" } },
-        { "name": "Ink 800", "id": "VariableID:2:9", "type": "COLOR", "css": "--color-ink-800", "values": { "Value": "#0F2030" } },
-        { "name": "Ink 700", "id": "VariableID:2:10", "type": "COLOR", "css": "--color-ink-700", "values": { "Value": "#17304A" } },
-        { "name": "Line on ink", "id": "VariableID:2:11", "type": "COLOR", "css": "--color-line-on-ink", "values": { "Value": "#24405A" } },
-        { "name": "Text on ink", "id": "VariableID:2:12", "type": "COLOR", "css": "--color-text-on-ink", "values": { "Value": "#E8EEF2" } },
-        { "name": "Muted on ink", "id": "VariableID:2:13", "type": "COLOR", "css": "--color-muted-on-ink", "values": { "Value": "#8FA3B3" } },
-        { "name": "Paper", "id": "VariableID:2:14", "type": "COLOR", "css": "--color-paper", "values": { "Value": "#F6F3EC" } },
-        { "name": "Paper 2", "id": "VariableID:2:15", "type": "COLOR", "css": "--color-paper-2", "values": { "Value": "#EDE7DA" } },
-        { "name": "Text", "id": "VariableID:2:16", "type": "COLOR", "css": "--color-text", "values": { "Value": "#0F1B26" } },
-        { "name": "Muted", "id": "VariableID:2:17", "type": "COLOR", "css": "--color-muted", "values": { "Value": "#5B6B78" } },
-        { "name": "Rule", "id": "VariableID:2:18", "type": "COLOR", "css": "--color-rule", "values": { "Value": "#D9D2C3" } },
-        { "name": "Land", "id": "VariableID:2:19", "type": "COLOR", "css": "--color-land", "values": { "Value": "#E8DCC0" } },
-        { "name": "Land edge", "id": "VariableID:2:20", "type": "COLOR", "css": "--color-land-edge", "values": { "Value": "#CDBE9A" } },
-        { "name": "Water", "id": "VariableID:2:21", "type": "COLOR", "css": "--color-water", "values": { "Value": "#F8FAF9" } },
-        { "name": "Shallows", "id": "VariableID:2:22", "type": "COLOR", "css": "--color-shallows", "values": { "Value": "#D6E8EF" } },
-        { "name": "Chart line", "id": "VariableID:2:23", "type": "COLOR", "css": "--color-chart-line", "values": { "Value": "#A9C1CC" } },
-        { "name": "Night land", "id": "VariableID:2:24", "type": "COLOR", "css": "--color-night-land", "values": { "Value": "#1B2A36" } },
-        { "name": "Night land edge", "id": "VariableID:2:25", "type": "COLOR", "css": "--color-night-land-edge", "values": { "Value": "#3A5266" } },
-        { "name": "Night water", "id": "VariableID:2:26", "type": "COLOR", "css": "--color-night-water", "values": { "Value": "#0C1A25" } },
-        { "name": "Night shallows", "id": "VariableID:2:27", "type": "COLOR", "css": "--color-night-shallows", "values": { "Value": "#12283A" } },
-        { "name": "Night chart line", "id": "VariableID:2:28", "type": "COLOR", "css": "--color-night-chart-line", "values": { "Value": "#24405A" } },
-        { "name": "Tide", "id": "VariableID:2:29", "type": "COLOR", "css": "--color-tide", "values": { "Value": "#0F8B8D" } },
-        { "name": "Tide strong", "id": "VariableID:2:30", "type": "COLOR", "css": "--color-tide-strong", "values": { "Value": "#0A6E70" } },
-        { "name": "You", "id": "VariableID:2:31", "type": "COLOR", "css": "--color-you", "values": { "Value": "#3474D4" } },
-        { "name": "Risk Low", "id": "VariableID:2:32", "type": "COLOR", "css": "--color-risk-low", "values": { "Value": "#8A9BA8" } },
-        { "name": "Risk Medium", "id": "VariableID:2:33", "type": "COLOR", "css": "--color-risk-medium", "values": { "Value": "#E0A100" } },
-        { "name": "Risk Serious", "id": "VariableID:2:34", "type": "COLOR", "css": "--color-risk-serious", "values": { "Value": "#E8712B" } },
-        { "name": "Risk High", "id": "VariableID:2:35", "type": "COLOR", "css": "--color-risk-high", "values": { "Value": "#D83A34" } },
-        { "name": "Risk Critical", "id": "VariableID:2:36", "type": "COLOR", "css": "--color-risk-critical", "values": { "Value": "#A4161A" } },
-        { "name": "White", "id": "VariableID:2:37", "type": "COLOR", "css": "--color-white", "values": { "Value": "#FFFFFF" } }
+        {
+          "name": "Legacy/Ink 900",
+          "id": "VariableID:2:8",
+          "type": "COLOR",
+          "css": "--color-legacy-ink-900",
+          "values": {
+            "Value": "#0A1621"
+          }
+        },
+        {
+          "name": "Legacy/Ink 800",
+          "id": "VariableID:2:9",
+          "type": "COLOR",
+          "css": "--color-legacy-ink-800",
+          "values": {
+            "Value": "#0F2030"
+          }
+        },
+        {
+          "name": "Legacy/Ink 700",
+          "id": "VariableID:2:10",
+          "type": "COLOR",
+          "css": "--color-legacy-ink-700",
+          "values": {
+            "Value": "#17304A"
+          }
+        },
+        {
+          "name": "Legacy/Line on ink",
+          "id": "VariableID:2:11",
+          "type": "COLOR",
+          "css": "--color-legacy-line-on-ink",
+          "values": {
+            "Value": "#24405A"
+          }
+        },
+        {
+          "name": "Legacy/Text on ink",
+          "id": "VariableID:2:12",
+          "type": "COLOR",
+          "css": "--color-legacy-text-on-ink",
+          "values": {
+            "Value": "#E8EEF2"
+          }
+        },
+        {
+          "name": "Legacy/Muted on ink",
+          "id": "VariableID:2:13",
+          "type": "COLOR",
+          "css": "--color-legacy-muted-on-ink",
+          "values": {
+            "Value": "#8FA3B3"
+          }
+        },
+        {
+          "name": "Legacy/Paper",
+          "id": "VariableID:2:14",
+          "type": "COLOR",
+          "css": "--color-legacy-paper",
+          "values": {
+            "Value": "#F6F3EC"
+          }
+        },
+        {
+          "name": "Legacy/Paper 2",
+          "id": "VariableID:2:15",
+          "type": "COLOR",
+          "css": "--color-legacy-paper-2",
+          "values": {
+            "Value": "#EDE7DA"
+          }
+        },
+        {
+          "name": "Legacy/Text",
+          "id": "VariableID:2:16",
+          "type": "COLOR",
+          "css": "--color-legacy-text",
+          "values": {
+            "Value": "#0F1B26"
+          }
+        },
+        {
+          "name": "Legacy/Muted",
+          "id": "VariableID:2:17",
+          "type": "COLOR",
+          "css": "--color-legacy-muted",
+          "values": {
+            "Value": "#5B6B78"
+          }
+        },
+        {
+          "name": "Legacy/Rule",
+          "id": "VariableID:2:18",
+          "type": "COLOR",
+          "css": "--color-legacy-rule",
+          "values": {
+            "Value": "#D9D2C3"
+          }
+        },
+        {
+          "name": "Legacy/Land",
+          "id": "VariableID:2:19",
+          "type": "COLOR",
+          "css": "--color-legacy-land",
+          "values": {
+            "Value": "#E8DCC0"
+          }
+        },
+        {
+          "name": "Legacy/Land edge",
+          "id": "VariableID:2:20",
+          "type": "COLOR",
+          "css": "--color-legacy-land-edge",
+          "values": {
+            "Value": "#CDBE9A"
+          }
+        },
+        {
+          "name": "Legacy/Water",
+          "id": "VariableID:2:21",
+          "type": "COLOR",
+          "css": "--color-legacy-water",
+          "values": {
+            "Value": "#F8FAF9"
+          }
+        },
+        {
+          "name": "Legacy/Shallows",
+          "id": "VariableID:2:22",
+          "type": "COLOR",
+          "css": "--color-legacy-shallows",
+          "values": {
+            "Value": "#D6E8EF"
+          }
+        },
+        {
+          "name": "Legacy/Chart line",
+          "id": "VariableID:2:23",
+          "type": "COLOR",
+          "css": "--color-legacy-chart-line",
+          "values": {
+            "Value": "#A9C1CC"
+          }
+        },
+        {
+          "name": "Legacy/Tide",
+          "id": "VariableID:2:29",
+          "type": "COLOR",
+          "css": "--color-legacy-tide",
+          "values": {
+            "Value": "#0F8B8D"
+          }
+        },
+        {
+          "name": "Legacy/Tide strong",
+          "id": "VariableID:2:30",
+          "type": "COLOR",
+          "css": "--color-legacy-tide-strong",
+          "values": {
+            "Value": "#0A6E70"
+          }
+        },
+        {
+          "name": "Legacy/You",
+          "id": "VariableID:2:31",
+          "type": "COLOR",
+          "css": "--color-legacy-you",
+          "values": {
+            "Value": "#3474D4"
+          }
+        },
+        {
+          "name": "Legacy/Risk Low",
+          "id": "VariableID:2:32",
+          "type": "COLOR",
+          "css": "--color-legacy-risk-low",
+          "values": {
+            "Value": "#8A9BA8"
+          }
+        },
+        {
+          "name": "Legacy/Risk Medium",
+          "id": "VariableID:2:33",
+          "type": "COLOR",
+          "css": "--color-legacy-risk-medium",
+          "values": {
+            "Value": "#E0A100"
+          }
+        },
+        {
+          "name": "Legacy/Risk Serious",
+          "id": "VariableID:2:34",
+          "type": "COLOR",
+          "css": "--color-legacy-risk-serious",
+          "values": {
+            "Value": "#E8712B"
+          }
+        },
+        {
+          "name": "Legacy/Risk High",
+          "id": "VariableID:2:35",
+          "type": "COLOR",
+          "css": "--color-legacy-risk-high",
+          "values": {
+            "Value": "#D83A34"
+          }
+        },
+        {
+          "name": "Legacy/Risk Critical",
+          "id": "VariableID:2:36",
+          "type": "COLOR",
+          "css": "--color-legacy-risk-critical",
+          "values": {
+            "Value": "#A4161A"
+          }
+        },
+        {
+          "name": "White",
+          "id": "VariableID:2:37",
+          "type": "COLOR",
+          "css": "--color-white",
+          "values": {
+            "Value": "#FFFFFF"
+          }
+        },
+        {
+          "name": "Gray dark/1",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-1",
+          "values": {
+            "Value": "#080A0E"
+          }
+        },
+        {
+          "name": "Gray dark/2",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-2",
+          "values": {
+            "Value": "#0E1116"
+          }
+        },
+        {
+          "name": "Gray dark/3",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-3",
+          "values": {
+            "Value": "#14171E"
+          }
+        },
+        {
+          "name": "Gray dark/4",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-4",
+          "values": {
+            "Value": "#1A1E26"
+          }
+        },
+        {
+          "name": "Gray dark/5",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-5",
+          "values": {
+            "Value": "#20252E"
+          }
+        },
+        {
+          "name": "Gray dark/6",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-6",
+          "values": {
+            "Value": "#282D36"
+          }
+        },
+        {
+          "name": "Gray dark/7",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-7",
+          "values": {
+            "Value": "#343944"
+          }
+        },
+        {
+          "name": "Gray dark/8",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-8",
+          "values": {
+            "Value": "#49505C"
+          }
+        },
+        {
+          "name": "Gray dark/9",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-9",
+          "values": {
+            "Value": "#6B727E"
+          }
+        },
+        {
+          "name": "Gray dark/10",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-10",
+          "values": {
+            "Value": "#7A808B"
+          }
+        },
+        {
+          "name": "Gray dark/11",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-11",
+          "values": {
+            "Value": "#A6ABB4"
+          }
+        },
+        {
+          "name": "Gray dark/12",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-dark-12",
+          "values": {
+            "Value": "#E7EAEE"
+          }
+        },
+        {
+          "name": "Gray light/1",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-1",
+          "values": {
+            "Value": "#FBFCFD"
+          }
+        },
+        {
+          "name": "Gray light/2",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-2",
+          "values": {
+            "Value": "#F5F7F9"
+          }
+        },
+        {
+          "name": "Gray light/3",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-3",
+          "values": {
+            "Value": "#EEF0F4"
+          }
+        },
+        {
+          "name": "Gray light/4",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-4",
+          "values": {
+            "Value": "#E7EAEE"
+          }
+        },
+        {
+          "name": "Gray light/5",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-5",
+          "values": {
+            "Value": "#E0E3E8"
+          }
+        },
+        {
+          "name": "Gray light/6",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-6",
+          "values": {
+            "Value": "#D7DBE1"
+          }
+        },
+        {
+          "name": "Gray light/7",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-7",
+          "values": {
+            "Value": "#C7CBD2"
+          }
+        },
+        {
+          "name": "Gray light/8",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-8",
+          "values": {
+            "Value": "#A9AEB7"
+          }
+        },
+        {
+          "name": "Gray light/9",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-9",
+          "values": {
+            "Value": "#6F757F"
+          }
+        },
+        {
+          "name": "Gray light/10",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-10",
+          "values": {
+            "Value": "#606671"
+          }
+        },
+        {
+          "name": "Gray light/11",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-11",
+          "values": {
+            "Value": "#505660"
+          }
+        },
+        {
+          "name": "Gray light/12",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-gray-light-12",
+          "values": {
+            "Value": "#141820"
+          }
+        },
+        {
+          "name": "Blue light/1",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-1",
+          "values": {
+            "Value": "#F7FAFF"
+          }
+        },
+        {
+          "name": "Blue light/2",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-2",
+          "values": {
+            "Value": "#EEF4FF"
+          }
+        },
+        {
+          "name": "Blue light/3",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-3",
+          "values": {
+            "Value": "#DFEAFF"
+          }
+        },
+        {
+          "name": "Blue light/4",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-4",
+          "values": {
+            "Value": "#CFE0FF"
+          }
+        },
+        {
+          "name": "Blue light/5",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-5",
+          "values": {
+            "Value": "#BDD5FF"
+          }
+        },
+        {
+          "name": "Blue light/6",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-6",
+          "values": {
+            "Value": "#A7C4FF"
+          }
+        },
+        {
+          "name": "Blue light/7",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-7",
+          "values": {
+            "Value": "#87ADFA"
+          }
+        },
+        {
+          "name": "Blue light/8",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-8",
+          "values": {
+            "Value": "#5F8DF3"
+          }
+        },
+        {
+          "name": "Blue light/9",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-9",
+          "values": {
+            "Value": "#2C5FDD"
+          }
+        },
+        {
+          "name": "Blue light/10",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-10",
+          "values": {
+            "Value": "#1F4FCC"
+          }
+        },
+        {
+          "name": "Blue light/11",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-11",
+          "values": {
+            "Value": "#204EC3"
+          }
+        },
+        {
+          "name": "Blue light/12",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-light-12",
+          "values": {
+            "Value": "#0D2769"
+          }
+        },
+        {
+          "name": "Blue dark/1",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-1",
+          "values": {
+            "Value": "#0B0F18"
+          }
+        },
+        {
+          "name": "Blue dark/2",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-2",
+          "values": {
+            "Value": "#0E1626"
+          }
+        },
+        {
+          "name": "Blue dark/3",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-3",
+          "values": {
+            "Value": "#13203E"
+          }
+        },
+        {
+          "name": "Blue dark/4",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-4",
+          "values": {
+            "Value": "#162953"
+          }
+        },
+        {
+          "name": "Blue dark/5",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-5",
+          "values": {
+            "Value": "#1B3266"
+          }
+        },
+        {
+          "name": "Blue dark/6",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-6",
+          "values": {
+            "Value": "#233E7C"
+          }
+        },
+        {
+          "name": "Blue dark/7",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-7",
+          "values": {
+            "Value": "#2C4E99"
+          }
+        },
+        {
+          "name": "Blue dark/8",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-8",
+          "values": {
+            "Value": "#3862C4"
+          }
+        },
+        {
+          "name": "Blue dark/9",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-9",
+          "values": {
+            "Value": "#386BE2"
+          }
+        },
+        {
+          "name": "Blue dark/10",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-10",
+          "values": {
+            "Value": "#4D7FF1"
+          }
+        },
+        {
+          "name": "Blue dark/11",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-11",
+          "values": {
+            "Value": "#90B6FF"
+          }
+        },
+        {
+          "name": "Blue dark/12",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-blue-dark-12",
+          "values": {
+            "Value": "#D7E5FF"
+          }
+        },
+        {
+          "name": "Chrome",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-chrome",
+          "values": {
+            "Value": "#090C11"
+          }
+        },
+        {
+          "name": "Chrome line",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-chrome-line",
+          "values": {
+            "Value": "#22272E"
+          }
+        },
+        {
+          "name": "On chrome",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-on-chrome",
+          "values": {
+            "Value": "#EFF0F3"
+          }
+        },
+        {
+          "name": "On chrome muted",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-on-chrome-muted",
+          "values": {
+            "Value": "#A0A5AE"
+          }
+        },
+        {
+          "name": "Risk medium",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-risk-medium",
+          "values": {
+            "Value": "#F0B135"
+          }
+        },
+        {
+          "name": "Risk serious",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-risk-serious",
+          "values": {
+            "Value": "#F0772D"
+          }
+        },
+        {
+          "name": "Risk high",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-risk-high",
+          "values": {
+            "Value": "#D73431"
+          }
+        },
+        {
+          "name": "Risk critical",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-risk-critical",
+          "values": {
+            "Value": "#9E1326"
+          }
+        },
+        {
+          "name": "Risk medium dim",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-risk-medium-dim",
+          "values": {
+            "Value": "#E3AD4B"
+          }
+        },
+        {
+          "name": "Risk serious dim",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-risk-serious-dim",
+          "values": {
+            "Value": "#E1773B"
+          }
+        },
+        {
+          "name": "Risk high dim",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-risk-high-dim",
+          "values": {
+            "Value": "#DE4F46"
+          }
+        },
+        {
+          "name": "Risk critical dim",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-risk-critical-dim",
+          "values": {
+            "Value": "#B63039"
+          }
+        },
+        {
+          "name": "Success",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-success",
+          "values": {
+            "Value": "#349D62"
+          }
+        },
+        {
+          "name": "Success dim",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-success-dim",
+          "values": {
+            "Value": "#59B47D"
+          }
+        },
+        {
+          "name": "Night water",
+          "id": "VariableID:2:26",
+          "type": "COLOR",
+          "css": "--color-night-water",
+          "values": {
+            "Value": "#080F18"
+          }
+        },
+        {
+          "name": "Night shallows",
+          "id": "VariableID:2:27",
+          "type": "COLOR",
+          "css": "--color-night-shallows",
+          "values": {
+            "Value": "#0E1A29"
+          }
+        },
+        {
+          "name": "Night land",
+          "id": "VariableID:2:24",
+          "type": "COLOR",
+          "css": "--color-night-land",
+          "values": {
+            "Value": "#1B1E24"
+          }
+        },
+        {
+          "name": "Night land edge",
+          "id": "VariableID:2:25",
+          "type": "COLOR",
+          "css": "--color-night-land-edge",
+          "values": {
+            "Value": "#333842"
+          }
+        },
+        {
+          "name": "Night chart line",
+          "id": "VariableID:2:28",
+          "type": "COLOR",
+          "css": "--color-night-chart-line",
+          "values": {
+            "Value": "#26313F"
+          }
+        },
+        {
+          "name": "Day water",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-day-water",
+          "values": {
+            "Value": "#F6FAFD"
+          }
+        },
+        {
+          "name": "Day shallows",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-day-shallows",
+          "values": {
+            "Value": "#D5EAF7"
+          }
+        },
+        {
+          "name": "Day land",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-day-land",
+          "values": {
+            "Value": "#EDE7DB"
+          }
+        },
+        {
+          "name": "Day land edge",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-day-land-edge",
+          "values": {
+            "Value": "#C5BDAD"
+          }
+        },
+        {
+          "name": "Day chart line",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-day-chart-line",
+          "values": {
+            "Value": "#ADC1CF"
+          }
+        },
+        {
+          "name": "Ink",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-ink",
+          "values": {
+            "Value": "#0C0F16"
+          }
+        },
+        {
+          "name": "White R4",
+          "id": null,
+          "type": "COLOR",
+          "css": "--color-white-r4",
+          "values": {
+            "Value": "#FFFFFF"
+          }
+        }
       ]
     },
     {
       "name": "Theme",
       "id": "VariableCollectionId:2:38",
-      "modes": ["Night", "Day"],
+      "modes": [
+        "Night",
+        "Day"
+      ],
       "variables": [
-        { "name": "bg", "id": "VariableID:2:39", "type": "COLOR", "css": "--bg", "values": { "Night": "#0A1621", "Day": "#F6F3EC" }, "aliases": { "Night": "Ink 900", "Day": "Paper" } },
-        { "name": "panel", "id": "VariableID:2:40", "type": "COLOR", "css": "--panel", "values": { "Night": "#0F2030", "Day": "#EDE7DA" }, "aliases": { "Night": "Ink 800", "Day": "Paper 2" } },
-        { "name": "raised", "id": "VariableID:2:41", "type": "COLOR", "css": "--raised", "values": { "Night": "#17304A", "Day": "#FFFFFF" }, "aliases": { "Night": "Ink 700", "Day": "White" } },
-        { "name": "line", "id": "VariableID:2:42", "type": "COLOR", "css": "--line", "values": { "Night": "#24405A", "Day": "#D9D2C3" }, "aliases": { "Night": "Line on ink", "Day": "Rule" } },
-        { "name": "text", "id": "VariableID:2:43", "type": "COLOR", "css": "--text", "values": { "Night": "#E8EEF2", "Day": "#0F1B26" }, "aliases": { "Night": "Text on ink", "Day": "Text" } },
-        { "name": "muted", "id": "VariableID:2:44", "type": "COLOR", "css": "--muted", "values": { "Night": "#8FA3B3", "Day": "#5B6B78" }, "aliases": { "Night": "Muted on ink", "Day": "Muted" } },
-        { "name": "land", "id": "VariableID:2:45", "type": "COLOR", "css": "--land", "values": { "Night": "#1B2A36", "Day": "#E8DCC0" }, "aliases": { "Night": "Night land", "Day": "Land" } },
-        { "name": "landEdge", "id": "VariableID:2:46", "type": "COLOR", "css": "--land-edge", "values": { "Night": "#3A5266", "Day": "#CDBE9A" }, "aliases": { "Night": "Night land edge", "Day": "Land edge" } },
-        { "name": "water", "id": "VariableID:2:47", "type": "COLOR", "css": "--water", "values": { "Night": "#0C1A25", "Day": "#F8FAF9" }, "aliases": { "Night": "Night water", "Day": "Water" } },
-        { "name": "shallows", "id": "VariableID:2:48", "type": "COLOR", "css": "--shallows", "values": { "Night": "#12283A", "Day": "#D6E8EF" }, "aliases": { "Night": "Night shallows", "Day": "Shallows" } },
-        { "name": "chartLine", "id": "VariableID:2:49", "type": "COLOR", "css": "--chart-line", "values": { "Night": "#24405A", "Day": "#A9C1CC" }, "aliases": { "Night": "Night chart line", "Day": "Chart line" } },
-        { "name": "tide", "id": "VariableID:2:50", "type": "COLOR", "css": "--tide", "values": { "Night": "#0F8B8D", "Day": "#0F8B8D" }, "aliases": { "Night": "Tide", "Day": "Tide" } },
-        { "name": "tideStrong", "id": "VariableID:2:51", "type": "COLOR", "css": "--tide-strong", "values": { "Night": "#0A6E70", "Day": "#0A6E70" }, "aliases": { "Night": "Tide strong", "Day": "Tide strong" } },
-        { "name": "onTide", "id": "VariableID:2:52", "type": "COLOR", "css": "--on-tide", "values": { "Night": "#FFFFFF", "Day": "#FFFFFF" }, "aliases": { "Night": "White", "Day": "White" } },
-        { "name": "you", "id": "VariableID:2:53", "type": "COLOR", "css": "--you", "values": { "Night": "#3474D4", "Day": "#3474D4" }, "aliases": { "Night": "You", "Day": "You" } },
-        { "name": "riskLow", "id": "VariableID:2:54", "type": "COLOR", "css": "--risk-low", "values": { "Night": "#8A9BA8", "Day": "#8A9BA8" }, "aliases": { "Night": "Risk Low", "Day": "Risk Low" } },
-        { "name": "riskMedium", "id": "VariableID:2:55", "type": "COLOR", "css": "--risk-medium", "values": { "Night": "#E0A100", "Day": "#E0A100" }, "aliases": { "Night": "Risk Medium", "Day": "Risk Medium" } },
-        { "name": "riskSerious", "id": "VariableID:2:56", "type": "COLOR", "css": "--risk-serious", "values": { "Night": "#E8712B", "Day": "#E8712B" }, "aliases": { "Night": "Risk Serious", "Day": "Risk Serious" } },
-        { "name": "riskHigh", "id": "VariableID:2:57", "type": "COLOR", "css": "--risk-high", "values": { "Night": "#D83A34", "Day": "#D83A34" }, "aliases": { "Night": "Risk High", "Day": "Risk High" } },
-        { "name": "riskCritical", "id": "VariableID:2:58", "type": "COLOR", "css": "--risk-critical", "values": { "Night": "#A4161A", "Day": "#A4161A" }, "aliases": { "Night": "Risk Critical", "Day": "Risk Critical" } },
-        { "name": "onRiskLow", "id": "VariableID:2:59", "type": "COLOR", "css": "--on-risk-low", "values": { "Night": "#0F1B26", "Day": "#0F1B26" }, "aliases": { "Night": "Text", "Day": "Text" } },
-        { "name": "onRiskMedium", "id": "VariableID:2:60", "type": "COLOR", "css": "--on-risk-medium", "values": { "Night": "#0F1B26", "Day": "#0F1B26" }, "aliases": { "Night": "Text", "Day": "Text" } },
-        { "name": "onRiskSerious", "id": "VariableID:2:61", "type": "COLOR", "css": "--on-risk-serious", "values": { "Night": "#0F1B26", "Day": "#0F1B26" }, "aliases": { "Night": "Text", "Day": "Text" } },
-        { "name": "onRiskHigh", "id": "VariableID:2:62", "type": "COLOR", "css": "--on-risk-high", "values": { "Night": "#FFFFFF", "Day": "#FFFFFF" }, "aliases": { "Night": "White", "Day": "White" } },
-        { "name": "onRiskCritical", "id": "VariableID:2:63", "type": "COLOR", "css": "--on-risk-critical", "values": { "Night": "#FFFFFF", "Day": "#FFFFFF" }, "aliases": { "Night": "White", "Day": "White" } },
-        { "name": "focus", "id": "VariableID:2:64", "type": "COLOR", "css": "--focus", "values": { "Night": "#0F8B8D", "Day": "#0A6E70" }, "aliases": { "Night": "Tide", "Day": "Tide strong" } },
-        { "name": "vessel", "id": "VariableID:8:2", "type": "COLOR", "css": "--vessel", "values": { "Night": "#8FA3B3", "Day": "#5B6B78" }, "aliases": { "Night": "Muted on ink", "Day": "Muted" } },
-        { "name": "vesselEdge", "id": "VariableID:8:3", "type": "COLOR", "css": "--vessel-edge", "values": { "Night": "#E8EEF2", "Day": "#0F1B26" }, "aliases": { "Night": "Text on ink", "Day": "Text" } },
-        { "name": "vesselDetail", "id": "VariableID:8:4", "type": "COLOR", "css": "--vessel-detail", "values": { "Night": "#0C1A25", "Day": "#F8FAF9" }, "aliases": { "Night": "Night water", "Day": "Water" } }
+        {
+          "name": "bg",
+          "type": "COLOR",
+          "css": "--bg",
+          "values": {
+            "Night": "#080A0E",
+            "Day": "#F5F7F9"
+          },
+          "aliases": {
+            "Night": "Gray dark/1",
+            "Day": "Gray light/2"
+          }
+        },
+        {
+          "name": "panel",
+          "type": "COLOR",
+          "css": "--panel",
+          "values": {
+            "Night": "#0E1116",
+            "Day": "#FBFCFD"
+          },
+          "aliases": {
+            "Night": "Gray dark/2",
+            "Day": "Gray light/1"
+          }
+        },
+        {
+          "name": "raised",
+          "type": "COLOR",
+          "css": "--raised",
+          "values": {
+            "Night": "#14171E",
+            "Day": "#FFFFFF"
+          },
+          "aliases": {
+            "Night": "Gray dark/3",
+            "Day": "White R4"
+          }
+        },
+        {
+          "name": "line",
+          "type": "COLOR",
+          "css": "--line",
+          "values": {
+            "Night": "#282D36",
+            "Day": "#D7DBE1"
+          },
+          "aliases": {
+            "Night": "Gray dark/6",
+            "Day": "Gray light/6"
+          }
+        },
+        {
+          "name": "text",
+          "type": "COLOR",
+          "css": "--text",
+          "values": {
+            "Night": "#E7EAEE",
+            "Day": "#141820"
+          },
+          "aliases": {
+            "Night": "Gray dark/12",
+            "Day": "Gray light/12"
+          }
+        },
+        {
+          "name": "muted",
+          "type": "COLOR",
+          "css": "--muted",
+          "values": {
+            "Night": "#A6ABB4",
+            "Day": "#505660"
+          },
+          "aliases": {
+            "Night": "Gray dark/11",
+            "Day": "Gray light/11"
+          }
+        },
+        {
+          "name": "land",
+          "type": "COLOR",
+          "css": "--land",
+          "values": {
+            "Night": "#1B1E24",
+            "Day": "#EDE7DB"
+          },
+          "aliases": {
+            "Night": "Night land",
+            "Day": "Day land"
+          }
+        },
+        {
+          "name": "landEdge",
+          "type": "COLOR",
+          "css": "--land-edge",
+          "values": {
+            "Night": "#333842",
+            "Day": "#C5BDAD"
+          },
+          "aliases": {
+            "Night": "Night land edge",
+            "Day": "Day land edge"
+          }
+        },
+        {
+          "name": "water",
+          "type": "COLOR",
+          "css": "--water",
+          "values": {
+            "Night": "#080F18",
+            "Day": "#F6FAFD"
+          },
+          "aliases": {
+            "Night": "Night water",
+            "Day": "Day water"
+          }
+        },
+        {
+          "name": "shallows",
+          "type": "COLOR",
+          "css": "--shallows",
+          "values": {
+            "Night": "#0E1A29",
+            "Day": "#D5EAF7"
+          },
+          "aliases": {
+            "Night": "Night shallows",
+            "Day": "Day shallows"
+          }
+        },
+        {
+          "name": "chartLine",
+          "type": "COLOR",
+          "css": "--chart-line",
+          "values": {
+            "Night": "#26313F",
+            "Day": "#ADC1CF"
+          },
+          "aliases": {
+            "Night": "Night chart line",
+            "Day": "Day chart line"
+          }
+        },
+        {
+          "name": "tide",
+          "type": "COLOR",
+          "css": "--tide",
+          "values": {
+            "Night": "#386BE2",
+            "Day": "#2C5FDD"
+          },
+          "aliases": {
+            "Night": "Blue dark/9",
+            "Day": "Blue light/9"
+          }
+        },
+        {
+          "name": "tideStrong",
+          "type": "COLOR",
+          "css": "--tide-strong",
+          "values": {
+            "Night": "#4D7FF1",
+            "Day": "#1F4FCC"
+          },
+          "aliases": {
+            "Night": "Blue dark/10",
+            "Day": "Blue light/10"
+          }
+        },
+        {
+          "name": "onTide",
+          "type": "COLOR",
+          "css": "--on-tide",
+          "values": {
+            "Night": "#FFFFFF",
+            "Day": "#FFFFFF"
+          },
+          "aliases": {
+            "Night": "White R4",
+            "Day": "White R4"
+          }
+        },
+        {
+          "name": "you",
+          "type": "COLOR",
+          "css": "--you",
+          "values": {
+            "Night": "#4D7FF1",
+            "Day": "#2C5FDD"
+          },
+          "aliases": {
+            "Night": "Blue dark/10",
+            "Day": "Blue light/9"
+          }
+        },
+        {
+          "name": "riskLow",
+          "type": "COLOR",
+          "css": "--risk-low",
+          "values": {
+            "Night": "#7A808B",
+            "Day": "#6F757F"
+          },
+          "aliases": {
+            "Night": "Gray dark/10",
+            "Day": "Gray light/9"
+          }
+        },
+        {
+          "name": "riskMedium",
+          "type": "COLOR",
+          "css": "--risk-medium",
+          "values": {
+            "Night": "#E3AD4B",
+            "Day": "#F0B135"
+          },
+          "aliases": {
+            "Night": "Risk medium dim",
+            "Day": "Risk medium"
+          }
+        },
+        {
+          "name": "riskSerious",
+          "type": "COLOR",
+          "css": "--risk-serious",
+          "values": {
+            "Night": "#E1773B",
+            "Day": "#F0772D"
+          },
+          "aliases": {
+            "Night": "Risk serious dim",
+            "Day": "Risk serious"
+          }
+        },
+        {
+          "name": "riskHigh",
+          "type": "COLOR",
+          "css": "--risk-high",
+          "values": {
+            "Night": "#DE4F46",
+            "Day": "#D73431"
+          },
+          "aliases": {
+            "Night": "Risk high dim",
+            "Day": "Risk high"
+          }
+        },
+        {
+          "name": "riskCritical",
+          "type": "COLOR",
+          "css": "--risk-critical",
+          "values": {
+            "Night": "#B63039",
+            "Day": "#9E1326"
+          },
+          "aliases": {
+            "Night": "Risk critical dim",
+            "Day": "Risk critical"
+          }
+        },
+        {
+          "name": "onRiskLow",
+          "type": "COLOR",
+          "css": "--on-risk-low",
+          "values": {
+            "Night": "#080A0E",
+            "Day": "#FFFFFF"
+          },
+          "aliases": {
+            "Night": "Gray dark/1",
+            "Day": "White R4"
+          }
+        },
+        {
+          "name": "onRiskMedium",
+          "type": "COLOR",
+          "css": "--on-risk-medium",
+          "values": {
+            "Night": "#0C0F16",
+            "Day": "#0C0F16"
+          },
+          "aliases": {
+            "Night": "Ink",
+            "Day": "Ink"
+          }
+        },
+        {
+          "name": "onRiskSerious",
+          "type": "COLOR",
+          "css": "--on-risk-serious",
+          "values": {
+            "Night": "#0C0F16",
+            "Day": "#0C0F16"
+          },
+          "aliases": {
+            "Night": "Ink",
+            "Day": "Ink"
+          }
+        },
+        {
+          "name": "onRiskHigh",
+          "type": "COLOR",
+          "css": "--on-risk-high",
+          "values": {
+            "Night": "#FFFFFF",
+            "Day": "#FFFFFF"
+          },
+          "aliases": {
+            "Night": "White R4",
+            "Day": "White R4"
+          }
+        },
+        {
+          "name": "onRiskCritical",
+          "type": "COLOR",
+          "css": "--on-risk-critical",
+          "values": {
+            "Night": "#FFFFFF",
+            "Day": "#FFFFFF"
+          },
+          "aliases": {
+            "Night": "White R4",
+            "Day": "White R4"
+          }
+        },
+        {
+          "name": "focus",
+          "type": "COLOR",
+          "css": "--focus",
+          "values": {
+            "Night": "#4D7FF1",
+            "Day": "#2C5FDD"
+          },
+          "aliases": {
+            "Night": "Blue dark/10",
+            "Day": "Blue light/9"
+          }
+        },
+        {
+          "name": "vessel",
+          "type": "COLOR",
+          "css": "--vessel",
+          "values": {
+            "Night": "#A6ABB4",
+            "Day": "#6F757F"
+          },
+          "aliases": {
+            "Night": "Gray dark/11",
+            "Day": "Gray light/9"
+          }
+        },
+        {
+          "name": "vesselEdge",
+          "type": "COLOR",
+          "css": "--vessel-edge",
+          "values": {
+            "Night": "#E7EAEE",
+            "Day": "#141820"
+          },
+          "aliases": {
+            "Night": "Gray dark/12",
+            "Day": "Gray light/12"
+          }
+        },
+        {
+          "name": "vesselDetail",
+          "type": "COLOR",
+          "css": "--vessel-detail",
+          "values": {
+            "Night": "#080F18",
+            "Day": "#F6FAFD"
+          },
+          "aliases": {
+            "Night": "Night water",
+            "Day": "Day water"
+          }
+        },
+        {
+          "name": "sunken",
+          "type": "COLOR",
+          "css": "--sunken",
+          "values": {
+            "Night": "#080A0E",
+            "Day": "#EEF0F4"
+          },
+          "aliases": {
+            "Night": "Gray dark/1",
+            "Day": "Gray light/3"
+          }
+        },
+        {
+          "name": "hover",
+          "type": "COLOR",
+          "css": "--hover",
+          "values": {
+            "Night": "#1A1E26",
+            "Day": "#E7EAEE"
+          },
+          "aliases": {
+            "Night": "Gray dark/4",
+            "Day": "Gray light/4"
+          }
+        },
+        {
+          "name": "selected",
+          "type": "COLOR",
+          "css": "--selected",
+          "values": {
+            "Night": "#13203E",
+            "Day": "#DFEAFF"
+          },
+          "aliases": {
+            "Night": "Blue dark/3",
+            "Day": "Blue light/3"
+          }
+        },
+        {
+          "name": "lineStrong",
+          "type": "COLOR",
+          "css": "--line-strong",
+          "values": {
+            "Night": "#343944",
+            "Day": "#C7CBD2"
+          },
+          "aliases": {
+            "Night": "Gray dark/7",
+            "Day": "Gray light/7"
+          }
+        },
+        {
+          "name": "faint",
+          "type": "COLOR",
+          "css": "--faint",
+          "values": {
+            "Night": "#6B727E",
+            "Day": "#6F757F"
+          },
+          "aliases": {
+            "Night": "Gray dark/9",
+            "Day": "Gray light/9"
+          }
+        },
+        {
+          "name": "accent",
+          "type": "COLOR",
+          "css": "--accent",
+          "values": {
+            "Night": "#386BE2",
+            "Day": "#2C5FDD"
+          },
+          "aliases": {
+            "Night": "Blue dark/9",
+            "Day": "Blue light/9"
+          }
+        },
+        {
+          "name": "accentHover",
+          "type": "COLOR",
+          "css": "--accent-hover",
+          "values": {
+            "Night": "#4D7FF1",
+            "Day": "#1F4FCC"
+          },
+          "aliases": {
+            "Night": "Blue dark/10",
+            "Day": "Blue light/10"
+          }
+        },
+        {
+          "name": "accentText",
+          "type": "COLOR",
+          "css": "--accent-text",
+          "values": {
+            "Night": "#90B6FF",
+            "Day": "#204EC3"
+          },
+          "aliases": {
+            "Night": "Blue dark/11",
+            "Day": "Blue light/11"
+          }
+        },
+        {
+          "name": "accentSubtle",
+          "type": "COLOR",
+          "css": "--accent-subtle",
+          "values": {
+            "Night": "#13203E",
+            "Day": "#DFEAFF"
+          },
+          "aliases": {
+            "Night": "Blue dark/3",
+            "Day": "Blue light/3"
+          }
+        },
+        {
+          "name": "onAccent",
+          "type": "COLOR",
+          "css": "--on-accent",
+          "values": {
+            "Night": "#FFFFFF",
+            "Day": "#FFFFFF"
+          },
+          "aliases": {
+            "Night": "White R4",
+            "Day": "White R4"
+          }
+        },
+        {
+          "name": "chrome",
+          "type": "COLOR",
+          "css": "--chrome",
+          "values": {
+            "Night": "#090C11",
+            "Day": "#090C11"
+          },
+          "aliases": {
+            "Night": "Chrome",
+            "Day": "Chrome"
+          }
+        },
+        {
+          "name": "chromeLine",
+          "type": "COLOR",
+          "css": "--chrome-line",
+          "values": {
+            "Night": "#22272E",
+            "Day": "#22272E"
+          },
+          "aliases": {
+            "Night": "Chrome line",
+            "Day": "Chrome line"
+          }
+        },
+        {
+          "name": "onChrome",
+          "type": "COLOR",
+          "css": "--on-chrome",
+          "values": {
+            "Night": "#EFF0F3",
+            "Day": "#EFF0F3"
+          },
+          "aliases": {
+            "Night": "On chrome",
+            "Day": "On chrome"
+          }
+        },
+        {
+          "name": "onChromeMuted",
+          "type": "COLOR",
+          "css": "--on-chrome-muted",
+          "values": {
+            "Night": "#A0A5AE",
+            "Day": "#A0A5AE"
+          },
+          "aliases": {
+            "Night": "On chrome muted",
+            "Day": "On chrome muted"
+          }
+        },
+        {
+          "name": "success",
+          "type": "COLOR",
+          "css": "--success",
+          "values": {
+            "Night": "#59B47D",
+            "Day": "#349D62"
+          },
+          "aliases": {
+            "Night": "Success dim",
+            "Day": "Success"
+          }
+        }
       ]
     },
     {
       "name": "Dimensions",
       "id": "VariableCollectionId:2:65",
-      "modes": ["Value"],
+      "modes": [
+        "Value"
+      ],
       "variables": [
-        { "name": "space/4", "id": "VariableID:2:66", "type": "FLOAT", "css": "--space-4", "values": { "Value": 4 } },
-        { "name": "space/8", "id": "VariableID:2:67", "type": "FLOAT", "css": "--space-8", "values": { "Value": 8 } },
-        { "name": "space/12", "id": "VariableID:2:68", "type": "FLOAT", "css": "--space-12", "values": { "Value": 12 } },
-        { "name": "space/16", "id": "VariableID:2:69", "type": "FLOAT", "css": "--space-16", "values": { "Value": 16 } },
-        { "name": "space/24", "id": "VariableID:2:70", "type": "FLOAT", "css": "--space-24", "values": { "Value": 24 } },
-        { "name": "space/32", "id": "VariableID:2:71", "type": "FLOAT", "css": "--space-32", "values": { "Value": 32 } },
-        { "name": "space/48", "id": "VariableID:2:72", "type": "FLOAT", "css": "--space-48", "values": { "Value": 48 } },
-        { "name": "radius/2", "id": "VariableID:2:73", "type": "FLOAT", "css": "--radius-2", "values": { "Value": 2 } },
-        { "name": "radius/0", "id": "VariableID:2:74", "type": "FLOAT", "css": "--radius-0", "values": { "Value": 0 } },
-        { "name": "stroke/1", "id": "VariableID:2:75", "type": "FLOAT", "css": "--stroke-1", "values": { "Value": 1 } }
+        {
+          "name": "space/2",
+          "type": "FLOAT",
+          "css": "--space-2",
+          "values": {
+            "Value": 2
+          }
+        },
+        {
+          "name": "space/4",
+          "type": "FLOAT",
+          "css": "--space-4",
+          "values": {
+            "Value": 4
+          }
+        },
+        {
+          "name": "space/8",
+          "type": "FLOAT",
+          "css": "--space-8",
+          "values": {
+            "Value": 8
+          }
+        },
+        {
+          "name": "space/12",
+          "type": "FLOAT",
+          "css": "--space-12",
+          "values": {
+            "Value": 12
+          }
+        },
+        {
+          "name": "space/16",
+          "type": "FLOAT",
+          "css": "--space-16",
+          "values": {
+            "Value": 16
+          }
+        },
+        {
+          "name": "space/20",
+          "type": "FLOAT",
+          "css": "--space-20",
+          "values": {
+            "Value": 20
+          }
+        },
+        {
+          "name": "space/24",
+          "type": "FLOAT",
+          "css": "--space-24",
+          "values": {
+            "Value": 24
+          }
+        },
+        {
+          "name": "space/32",
+          "type": "FLOAT",
+          "css": "--space-32",
+          "values": {
+            "Value": 32
+          }
+        },
+        {
+          "name": "space/40",
+          "type": "FLOAT",
+          "css": "--space-40",
+          "values": {
+            "Value": 40
+          }
+        },
+        {
+          "name": "space/48",
+          "type": "FLOAT",
+          "css": "--space-48",
+          "values": {
+            "Value": 48
+          }
+        },
+        {
+          "name": "space/64",
+          "type": "FLOAT",
+          "css": "--space-64",
+          "values": {
+            "Value": 64
+          }
+        },
+        {
+          "name": "radius/0",
+          "type": "FLOAT",
+          "css": "--radius-0",
+          "values": {
+            "Value": 0
+          }
+        },
+        {
+          "name": "radius/2",
+          "type": "FLOAT",
+          "css": "--radius-2",
+          "values": {
+            "Value": 2
+          }
+        },
+        {
+          "name": "radius/4",
+          "type": "FLOAT",
+          "css": "--radius-4",
+          "values": {
+            "Value": 4
+          }
+        },
+        {
+          "name": "radius/6",
+          "type": "FLOAT",
+          "css": "--radius-6",
+          "values": {
+            "Value": 6
+          }
+        },
+        {
+          "name": "radius/8",
+          "type": "FLOAT",
+          "css": "--radius-8",
+          "values": {
+            "Value": 8
+          }
+        },
+        {
+          "name": "stroke/1",
+          "type": "FLOAT",
+          "css": "--stroke-1",
+          "values": {
+            "Value": 1
+          }
+        }
       ]
     }
   ],
   "textStyles": [
-    { "name": "Sans/Display", "css": "display", "fontFamily": "IBM Plex Sans", "fontStyle": "SemiBold", "fontWeight": 600, "fontSize": 28, "lineHeight": 32, "letterSpacingPercent": -0.5, "textCase": "ORIGINAL", "tabularFigures": false },
-    { "name": "Sans/Title", "css": "title", "fontFamily": "IBM Plex Sans", "fontStyle": "SemiBold", "fontWeight": 600, "fontSize": 20, "lineHeight": 26, "letterSpacingPercent": -0.25, "textCase": "ORIGINAL", "tabularFigures": false },
-    { "name": "Sans/Heading", "css": "heading", "fontFamily": "IBM Plex Sans", "fontStyle": "SemiBold", "fontWeight": 600, "fontSize": 16, "lineHeight": 22, "letterSpacingPercent": 0, "textCase": "ORIGINAL", "tabularFigures": false },
-    { "name": "Sans/Body", "css": "body", "fontFamily": "IBM Plex Sans", "fontStyle": "Regular", "fontWeight": 400, "fontSize": 14, "lineHeight": 20, "letterSpacingPercent": 0, "textCase": "ORIGINAL", "tabularFigures": false },
-    { "name": "Sans/Body strong", "css": "body-strong", "fontFamily": "IBM Plex Sans", "fontStyle": "Medium", "fontWeight": 500, "fontSize": 14, "lineHeight": 20, "letterSpacingPercent": 0, "textCase": "ORIGINAL", "tabularFigures": false },
-    { "name": "Sans/Small", "css": "small", "fontFamily": "IBM Plex Sans", "fontStyle": "Regular", "fontWeight": 400, "fontSize": 13, "lineHeight": 18, "letterSpacingPercent": 0, "textCase": "ORIGINAL", "tabularFigures": false },
-    { "name": "Sans/Instruction", "css": "instruction", "fontFamily": "IBM Plex Sans", "fontStyle": "SemiBold", "fontWeight": 600, "fontSize": 22, "lineHeight": 28, "letterSpacingPercent": 2, "textCase": "ORIGINAL", "tabularFigures": false },
-    { "name": "Mono/Data XL", "css": "data-xl", "fontFamily": "IBM Plex Mono", "fontStyle": "Medium", "fontWeight": 500, "fontSize": 40, "lineHeight": 44, "letterSpacingPercent": -1, "textCase": "ORIGINAL", "tabularFigures": true },
-    { "name": "Mono/Data", "css": "data", "fontFamily": "IBM Plex Mono", "fontStyle": "Regular", "fontWeight": 400, "fontSize": 14, "lineHeight": 20, "letterSpacingPercent": 0, "textCase": "ORIGINAL", "tabularFigures": true },
-    { "name": "Mono/Small", "css": "mono-small", "fontFamily": "IBM Plex Mono", "fontStyle": "Regular", "fontWeight": 400, "fontSize": 13, "lineHeight": 18, "letterSpacingPercent": 0, "textCase": "ORIGINAL", "tabularFigures": true }
-  ]
+    {
+      "name": "Sans/Display",
+      "css": "display",
+      "fontFamily": "IBM Plex Sans",
+      "fontStyle": "SemiBold",
+      "fontWeight": 600,
+      "fontSize": 24,
+      "lineHeight": 30,
+      "letterSpacingPercent": -1,
+      "textCase": "ORIGINAL",
+      "tabularFigures": false
+    },
+    {
+      "name": "Sans/Title",
+      "css": "title",
+      "fontFamily": "IBM Plex Sans",
+      "fontStyle": "SemiBold",
+      "fontWeight": 600,
+      "fontSize": 20,
+      "lineHeight": 26,
+      "letterSpacingPercent": -0.5,
+      "textCase": "ORIGINAL",
+      "tabularFigures": false
+    },
+    {
+      "name": "Sans/Heading",
+      "css": "heading",
+      "fontFamily": "IBM Plex Sans",
+      "fontStyle": "SemiBold",
+      "fontWeight": 600,
+      "fontSize": 16,
+      "lineHeight": 22,
+      "letterSpacingPercent": -0.2,
+      "textCase": "ORIGINAL",
+      "tabularFigures": false
+    },
+    {
+      "name": "Sans/Body",
+      "css": "body",
+      "fontFamily": "IBM Plex Sans",
+      "fontStyle": "Regular",
+      "fontWeight": 400,
+      "fontSize": 14,
+      "lineHeight": 20,
+      "letterSpacingPercent": 0,
+      "textCase": "ORIGINAL",
+      "tabularFigures": false
+    },
+    {
+      "name": "Sans/Body strong",
+      "css": "body-strong",
+      "fontFamily": "IBM Plex Sans",
+      "fontStyle": "Medium",
+      "fontWeight": 500,
+      "fontSize": 14,
+      "lineHeight": 20,
+      "letterSpacingPercent": 0,
+      "textCase": "ORIGINAL",
+      "tabularFigures": false
+    },
+    {
+      "name": "Sans/Small",
+      "css": "small",
+      "fontFamily": "IBM Plex Sans",
+      "fontStyle": "Regular",
+      "fontWeight": 400,
+      "fontSize": 13,
+      "lineHeight": 18,
+      "letterSpacingPercent": 0.2,
+      "textCase": "ORIGINAL",
+      "tabularFigures": false
+    },
+    {
+      "name": "Sans/Label",
+      "css": "label",
+      "fontFamily": "IBM Plex Sans",
+      "fontStyle": "Medium",
+      "fontWeight": 500,
+      "fontSize": 13,
+      "lineHeight": 16,
+      "letterSpacingPercent": 0.5,
+      "textCase": "ORIGINAL",
+      "tabularFigures": false
+    },
+    {
+      "name": "Sans/Instruction",
+      "css": "instruction",
+      "fontFamily": "IBM Plex Sans",
+      "fontStyle": "SemiBold",
+      "fontWeight": 600,
+      "fontSize": 22,
+      "lineHeight": 28,
+      "letterSpacingPercent": 1,
+      "textCase": "ORIGINAL",
+      "tabularFigures": false
+    },
+    {
+      "name": "Mono/Data XL",
+      "css": "data-xl",
+      "fontFamily": "IBM Plex Mono",
+      "fontStyle": "Medium",
+      "fontWeight": 500,
+      "fontSize": 32,
+      "lineHeight": 36,
+      "letterSpacingPercent": -1,
+      "textCase": "ORIGINAL",
+      "tabularFigures": true
+    },
+    {
+      "name": "Mono/Data",
+      "css": "data",
+      "fontFamily": "IBM Plex Mono",
+      "fontStyle": "Regular",
+      "fontWeight": 400,
+      "fontSize": 14,
+      "lineHeight": 20,
+      "letterSpacingPercent": 0,
+      "textCase": "ORIGINAL",
+      "tabularFigures": true
+    },
+    {
+      "name": "Mono/Small",
+      "css": "mono-small",
+      "fontFamily": "IBM Plex Mono",
+      "fontStyle": "Regular",
+      "fontWeight": 400,
+      "fontSize": 13,
+      "lineHeight": 18,
+      "letterSpacingPercent": 0,
+      "textCase": "ORIGINAL",
+      "tabularFigures": true
+    }
+  ],
+  "effectStyles": [
+    {
+      "name": "Elevation/1",
+      "css": "1",
+      "layers": [
+        [
+          0,
+          1,
+          2,
+          0,
+          0.06
+        ],
+        [
+          0,
+          2,
+          8,
+          0,
+          0.06
+        ]
+      ]
+    },
+    {
+      "name": "Elevation/2",
+      "css": "2",
+      "layers": [
+        [
+          0,
+          1,
+          2,
+          0,
+          0.06
+        ],
+        [
+          0,
+          4,
+          12,
+          0,
+          0.08
+        ],
+        [
+          0,
+          12,
+          32,
+          0,
+          0.1
+        ]
+      ]
+    },
+    {
+      "name": "Elevation/3",
+      "css": "3",
+      "layers": [
+        [
+          0,
+          2,
+          4,
+          0,
+          0.08
+        ],
+        [
+          0,
+          12,
+          32,
+          0,
+          0.12
+        ],
+        [
+          0,
+          32,
+          72,
+          0,
+          0.18
+        ]
+      ]
+    }
+  ],
+  "shadowColor": "12, 15, 22",
+  "motion": {
+    "ease-out": "cubic-bezier(0.23, 1, 0.32, 1)",
+    "ease-in-out": "cubic-bezier(0.77, 0, 0.175, 1)",
+    "drawer": "cubic-bezier(0.32, 0.72, 0, 1)",
+    "dur-1": "120ms",
+    "dur-2": "180ms",
+    "dur-3": "240ms"
+  }
 }

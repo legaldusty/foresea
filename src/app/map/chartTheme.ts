@@ -19,14 +19,14 @@ export interface ChartColors {
 
 const FALLBACK: Record<'night' | 'day', ChartColors> = {
   night: {
-    water: '#0C1A25', shallows: '#12283A', land: '#1B2A36', landEdge: '#2C4053', chartLine: '#24405A', text: '#E8EEF2', muted: '#8FA3B3',
-    tide: '#0F8B8D', you: '#3D7DD8', riskLow: '#8A9BA8', riskMedium: '#E0A100', riskSerious: '#E8712B', riskHigh: '#D83A34', riskCritical: '#A4161A',
-    panel: '#0F2030', bg: '#0A1621',
+    water: '#080F18', shallows: '#0E1A29', land: '#1B1E24', landEdge: '#333842', chartLine: '#26313F', text: '#E7EAEE', muted: '#A6ABB4',
+    tide: '#386BE2', you: '#4D7FF1', riskLow: '#7A808B', riskMedium: '#E3AD4B', riskSerious: '#E1773B', riskHigh: '#DE4F46', riskCritical: '#B63039',
+    panel: '#0E1116', bg: '#080A0E',
   },
   day: {
-    water: '#F8FAF9', shallows: '#D6E8EF', land: '#E8DCC0', landEdge: '#CDBE9A', chartLine: '#D9D2C3', text: '#0F1B26', muted: '#5B6B78',
-    tide: '#0F8B8D', you: '#1F5FBF', riskLow: '#8A9BA8', riskMedium: '#E0A100', riskSerious: '#E8712B', riskHigh: '#D83A34', riskCritical: '#A4161A',
-    panel: '#EDE7DA', bg: '#F6F3EC',
+    water: '#F6FAFD', shallows: '#D5EAF7', land: '#EDE7DB', landEdge: '#C5BDAD', chartLine: '#ADC1CF', text: '#141820', muted: '#505660',
+    tide: '#2C5FDD', you: '#2C5FDD', riskLow: '#6F757F', riskMedium: '#F0B135', riskSerious: '#F0772D', riskHigh: '#D73431', riskCritical: '#9E1326',
+    panel: '#FBFCFD', bg: '#F5F7F9',
   },
 };
 

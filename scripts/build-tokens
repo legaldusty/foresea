@@ -38,6 +38,10 @@ for (const s of data.textStyles) {
   rootLines.push(`${key}: ${s.fontWeight} ${s.fontSize}px/${s.lineHeight}px ${family};`);
 }
 
+for (const e of data.effectStyles ?? []) rootLines.push(`--shadow-${e.css}: ${e.layers.map(([x, y, blur, spread, alpha]) => `${x}px ${y}px ${blur}px ${spread}px rgba(${data.shadowColor}, ${alpha})`).join(', ')};`);
+for (const [k, v] of Object.entries(data.motion ?? {})) rootLines.push(`--${k}: ${v};`);
+rootLines.push(`--scrim: rgba(${data.shadowColor ?? '0, 0, 0'}, 0.64);`);
+
 const themeLines = (mode, scheme) => {
   const lines = theme.variables.map((v) => {
     const alias = v.aliases && v.aliases[mode];
