@@ -247,7 +247,7 @@ export function PublishedNotice(props: { n: Notice; snap: CommandSnapshot; send:
       </dl>
       <button className="tab" aria-selected={showWords} onClick={() => setShowWords(!showWords)}>{showWords ? 'Hide radio script and translations' : 'Radio script, AIS marker, text and translations'}</button>
       {showWords ? (
-        <div className="evidence">
+        <div className="evidence words">
           <div className="row"><span className="what">VHF script</span><span className="why c-text">{n.wording.vhf}</span></div>
           <div className="row"><span className="what">AIS marker</span><span className="why c-text t-mono-small">{n.wording.aisMarker}</span></div>
           <div className="row"><span className="what">Text message</span><span className="why c-text">{n.wording.sms}</span></div>
