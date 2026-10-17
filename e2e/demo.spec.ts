@@ -91,6 +91,11 @@ test('night: the forecast learns, the judge phone gets P1, Pilot Boat 2 escalate
     await expect(judge.getByTestId('countdown').first()).toBeVisible();
     await judge.screenshot({ path: `${SHOTS}/3-judge-phone-p1.png` });
     await judge.getByTestId('got-it').first().click();
+    if (!(await desk.getByTestId('delivery-board').isVisible())) {
+      await desk.getByTestId('rail-filter').click();
+      await desk.getByTestId('rail-show-boats').click();
+      await desk.keyboard.press('Escape');
+    }
     await expect(desk.getByTestId('delivery-launch1')).toContainText(/Acknowledged|Complying/, { timeout: 15_000 });
     await expect(teammate.getByTestId('takeover')).toHaveCount(0);
     await teammate.screenshot({ path: `${SHOTS}/3-teammate-phone.png` });

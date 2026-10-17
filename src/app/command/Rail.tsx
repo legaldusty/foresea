@@ -15,6 +15,8 @@ export const RAIL_SECTIONS: { key: RailSection; label: string }[] = [
   { key: 'incidents', label: 'Incidents and reports' },
 ];
 
+export const DEFAULT_HIDDEN_RAIL: RailSection[] = ['boats', 'today'];
+
 export function RailBar(props: { hidden: Set<RailSection>; onToggle: (k: RailSection) => void; onCollapse: () => void; layers: Set<LayerKey>; onLayer: (k: LayerKey) => void }) {
   const [open, setOpen] = useState(false);
   const shown = RAIL_SECTIONS.length - props.hidden.size;

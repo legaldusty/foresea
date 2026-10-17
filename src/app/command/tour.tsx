@@ -1,6 +1,7 @@
 import { Broadcast, Moon, Sun } from '@phosphor-icons/react';
 import type { CommandEvents, CommandSnapshot, ForecastView } from '../../shared/protocol';
 import type { TourStep } from '../ui/Tour';
+import type { RailSection } from './Rail';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 
@@ -11,6 +12,7 @@ export interface CommandTourContext {
   openSheet: (s: 'models' | 'orders' | 'join' | 'nights' | null) => void;
   showDesk: (tab: string) => void;
   closeOverlays: () => void;
+  showPanel: (section: RailSection) => void;
   hosted: boolean;
 }
 
@@ -115,7 +117,8 @@ export function commandTour(ctx: CommandTourContext): TourStep[] {
     {
       id: 'delivery', chapter: NIGHT, target: '[data-testid="delivery-board"]',
       title: 'Who got it, and who did not',
-      body: <p>Each boat in the path moves from delivered to seen to acknowledged. If a captain ignores it, a card with a VHF radio script appears after 4 minutes. Captains see one instruction and P1 to P4, never a risk score.</p>,
+      body: <p>Each boat in the path moves from delivered to seen to acknowledged, with its instruction underneath. If a captain ignores it, a card with a VHF radio script appears after 4 minutes. Captains see one instruction and P1 to P4, never a risk score. This list starts hidden to keep the panel quiet; the tour just switched it on from the Show menu.</p>,
+      enter: () => ctx.showPanel('boats'),
     },
     {
       id: 'phones', chapter: NIGHT, target: ['[data-testid="join-sheet"]', '[data-testid="open-join"]'],

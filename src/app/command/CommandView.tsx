@@ -9,7 +9,7 @@ import type { AuditWhere } from '../../shared/protocol';
 import { ZoneInspector } from './ZoneInspector';
 import { IncidentSheet } from './Incident';
 import { ShortcutsSheet } from './Shortcuts';
-import { RailAlertBar, RailBar, RailStrip, useRailAlerts, type RailAlert, type RailSection } from './Rail';
+import { DEFAULT_HIDDEN_RAIL, RailAlertBar, RailBar, RailStrip, useRailAlerts, type RailAlert, type RailSection } from './Rail';
 import { wakeAudio, useCardChime } from './alerts';
 import { describeHit } from './describe';
 import { commandChart } from '../map/toChart';
@@ -107,8 +107,10 @@ export function CommandView() {
   const [deskTab, setDeskTab] = useState<string>('today');
   const [reportId, setReportId] = useState<string | null>(null);
   const [railCollapsed, setRailCollapsed] = usePersisted<boolean>('giveway.rail.collapsed', false);
-  const [railHiddenList, setRailHiddenList] = usePersisted<RailSection[]>('giveway.rail.hidden', []);
+  const [railHiddenList, setRailHiddenList] = usePersisted<RailSection[]>('giveway.rail.hidden.v2', DEFAULT_HIDDEN_RAIL);
   const railHidden = useMemo(() => new Set(railHiddenList), [railHiddenList.join(',')]);
+  const railHiddenRef = useRef(railHiddenList);
+  railHiddenRef.current = railHiddenList;
   const toggleRail = (k: RailSection) => setRailHiddenList(railHidden.has(k) ? railHiddenList.filter((x) => x !== k) : [...railHiddenList, k]);
   const railAlerts = useRailAlerts(snap, railCollapsed);
   const selectedRef = useRef<HTMLDivElement>(null);
@@ -144,6 +146,7 @@ export function CommandView() {
     snap: () => snapRef.current, forecasts: () => forecastsRef.current, send: hub.send, hosted: hub.hosted,
     openSheet: (s) => setSheet(s), showDesk: (t) => { setDeskTab(t); setDeskCollapsed(false); },
     closeOverlays: () => { setSheet(null); setInspect(null); setWhy(false); },
+    showPanel: (k) => setRailHiddenList(railHiddenRef.current.filter((x) => x !== k)),
   }), [hub.send, hub.hosted]);
   const startTour = () => { tour.markSeen(); tour.setIndex(0); };
   const [editing, setEditing] = useState(false);

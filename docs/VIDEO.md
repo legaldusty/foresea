@@ -10,6 +10,7 @@ One take, one screen recording, voice over the top. Read this once all the way t
 4. Make the captain window narrow like a phone (about 420 pixels wide, as tall as the screen) and put it on the right edge of the screen. Put the desk window on the left and make it fill the rest of the screen.
 5. In the captain window, click **Join**. When the little tour pops up, click the **X** to close it.
 6. In the desk window, press the **P** key once to open the Presenter panel, then press **P** again to close it. You just want to know where it is. Make sure the desk says **Live** at the top left.
+6b. In the desk window, click **Show** at the top of the right panel and tick **Boats told and their replies**, then press Escape. It starts hidden to keep the screen calm, but you want the video to show the captain's acknowledgment.
 7. Practice the whole thing once without recording. When you are done practicing, click **Live** at the top left of the desk to reset the harbor for the real take. The phone window stays connected because both windows share the harbor code in the address bar.
 8. Start the recording: press **Cmd + Shift + 5**, pick **Record Entire Screen**, set Options > Microphone to your Mac mic, and click **Record**. Or record with no sound and add your voice later in iMovie or CapCut.
 
