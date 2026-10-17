@@ -13,6 +13,7 @@ import { AllClearCard, Banner, NoticeCard, Takeover } from './alerts';
 import { Legend, MapControls, OfflineLine, TopBar } from './parts';
 import { LanguageScreen, NoticesScreen, TodaySheet } from './screens';
 import { ReportFlow } from './report';
+import { BulletinStrip } from './conditions';
 import { boatBox, framePoints } from './frame';
 import { snapshotAt } from './timing';
 import { useLanguage } from './words';
@@ -176,6 +177,7 @@ export function CaptainView() {
           <TopBar name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} offline={stale} onPick={() => setPicking(true)} onNotices={() => setScreen('notices')} />
         )}
         {stale ? <OfflineLine receivedAt={hub.receivedAt} now={now} /> : null}
+        {!banner ? <BulletinStrip bulletins={snap?.bulletins ?? []} /> : null}
       </div>
       <div className="cap-map">
         <ChartMap key={theme} theme={theme} compact showLabels data={data} stamp={snap?.clock.wallMs} motionDelayMs={600} fitTo={fit} padding={MAP_PADDING} labels={youLabels} />

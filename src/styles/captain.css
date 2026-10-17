@@ -193,3 +193,18 @@ div.cap-notice { cursor: default; }
 .cap-item { display: flex; justify-content: space-between; gap: var(--space-12); align-items: center; min-height: 44px; padding: var(--space-12) 0; border: 0; border-top: 1px solid var(--line); background: transparent; color: var(--text); text-align: left; width: 100%; font: inherit; cursor: pointer; }
 .cap-item:first-child { border-top: 0; }
 .cap-item .t-data { color: var(--muted); }
+
+.cap-bulletins { background: var(--panel); border-bottom: 1px solid var(--line); }
+.cap-bulletin { display: flex; gap: var(--space-12); align-items: flex-start; padding: 10px var(--space-16); }
+.cap-bulletin + .cap-bulletin { border-top: 1px solid var(--line); }
+.cap-bulletin .lead { flex: none; margin-top: 1px; }
+.cap-bulletin .text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cap-bulletin .title { font: var(--type-body-strong); font-size: 15px; line-height: 20px; }
+.cap-bulletin .detail { font: var(--type-small); color: var(--text); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.cap-bulletin .meta { font: var(--type-small); color: var(--muted); }
+
+.cap-wx { display: flex; gap: var(--space-12); align-items: flex-start; padding: 10px 0; border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.cap-wx .lead { flex: none; margin-top: 1px; }
+.cap-wx .text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.cap-wx .line { font: var(--type-body); font-size: 15px; line-height: 21px; }
+.cap-wx .meta { font: var(--type-small); color: var(--muted); }
