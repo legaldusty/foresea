@@ -5,6 +5,7 @@ import { ORDER_CARDS, formatBlank } from '../../shared/orders';
 import { Button, Simulated, TextBox } from '../ui';
 import type { NightsProgress, NightsResult } from '../workers/nights.worker';
 import { wallTime } from '../format';
+import { NightsProof } from './NightsProof';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 
@@ -52,7 +53,7 @@ export function NightsSheet(props: { onClose: () => void }) {
     ? <><span className="t-mono-small">{result.nights.toLocaleString()}</span> nights detected at the gates and <span className="t-mono-small">{result.nights.toLocaleString()}</span> close in, in <span className="t-mono-small">{(result.ms / 1000).toFixed(1)}</span> s in this browser. TELL against the nearest-dock guess.</>
     : 'Running in a Web Worker in this browser.';
   return (
-    <Sheet title={<span className="sheet-title">Run 1,000 nights <Simulated /></span>} meta={meta} onClose={props.onClose} testId="nights-sheet" width={848}>
+    <Sheet title={<span className="sheet-title">Run 1,000 nights <Simulated /></span>} meta={meta} onClose={props.onClose} testId="nights-sheet" width={1200}>
       {!result ? (
         <div className="t-body c-muted">{progress ? `Running ${progress.phase === 'gates' ? 'gate detections' : 'close-in detections'}: ${Math.round(progress.fraction * 100)}%` : 'Starting the worker'}</div>
       ) : (
@@ -89,6 +90,7 @@ export function NightsSheet(props: { onClose: () => void }) {
             </div>
             <span className="t-small c-muted">Means: TELL <span className="t-mono-small">{g!.tellWarnMin.toFixed(1)}</span> min, nearest-dock guess <span className="t-mono-small">{g!.baseWarnMin.toFixed(1)}</span> min. Detection at the harbor gates; drone at 1 m/s, so minutes scale with speed. Decoys fool it once, then it corrects.</span>
           </div>
+          <NightsProof c={result.calibration} running={progress ? `Measuring ${progress.phase === 'coverage' ? 'forecast coverage' : 'calibration'}: ${Math.round(progress.fraction * 100)}%` : null} />
           <div style={{ display: 'flex', gap: 8 }}>
             <Button variant="primary" icon={<ArrowCounterClockwise size={16} />} onClick={() => run(Math.floor(Math.random() * 100000))}>Run again</Button>
             <Button variant="secondary" onClick={props.onClose}>Close</Button>

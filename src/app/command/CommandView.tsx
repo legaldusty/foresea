@@ -10,7 +10,7 @@ import { Headline, StepStrip } from './Headline';
 import { ChartCorner, DeskTools, DriveControl, Presenter, type Tool } from './ChartTools';
 import { ContactBlock, DecisionSlot, HeadingBlock, WhyDrawer } from './Decision';
 import { NoticeEditor, PublishedNotice } from './RightRail';
-import { BottomRail } from './BottomRail';
+import { DeskRail } from './Desk';
 import { JoinSheet, NightsSheet, OrdersSheet } from './Sheets';
 import { StepTrack } from '../ui';
 import '../../styles/command.css';
@@ -61,6 +61,7 @@ export function CommandView() {
   const [why, setWhy] = useState(false);
   const [editing, setEditing] = useState(false);
   const [deskOpen, setDeskOpen] = useState(false);
+  const [divePoint, setDivePoint] = useState<[number, number] | null>(null);
   const theme: 'night' | 'day' = themeChoice ?? (snap && !snap.clock.night ? 'day' : 'night');
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
@@ -102,6 +103,7 @@ export function CommandView() {
   const onDrop = (lonlat: [number, number]) => {
     if (tool === 'whale' || tool === 'divers' || tool === 'dredge' || tool === 'closure') void hub.send('dropZone', { kind: tool, lonlat });
     if (tool.startsWith('sighting:')) void hub.send('reportSighting', { species: tool.slice('sighting:'.length) as never, lonlat });
+    if (tool === 'dive') setDivePoint(lonlat);
     setTool('select');
   };
 
@@ -126,7 +128,7 @@ export function CommandView() {
           {tool === 'drive' && driven ? <DriveControl c={driven} send={hub.send} onStop={() => setTool('select')} /> : null}
           <span className="chart-attr">Map data: OpenStreetMap contributors</span>
         </div>
-        {!incident || deskOpen ? <div className="cmd-desk"><BottomRail snap={snap} send={hub.send} /></div> : null}
+        {!incident || deskOpen ? <div className="cmd-desk"><DeskRail snap={snap} send={hub.send} divePoint={divePoint} onPickDive={() => setTool('dive')} /></div> : null}
         {why ? <WhyDrawer snap={snap} c={focus} plan={(draft ?? focusNotice)?.plan ?? null} onClose={() => setWhy(false)} /> : null}
       </div>
       <aside className="cmd-rail" data-testid="right-rail" ref={railRef}>
