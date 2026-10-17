@@ -139,6 +139,10 @@ Upload these from `docs/devpost/gallery/` in this order. They are all 1800 by 12
 10. `10-models.png`: The models behind it, what each one does, what it never does, and how accurate it is.
 11. `11-views.png`: Switch between the harbor desk, the captain phone, the drive page and the public board in one click.
 
+## Poster (twist 3)
+
+Submit `docs/devpost/Foresea Poster.pdf` with the Devpost (add it to the image gallery as `Foresea Poster.png` too, and mention it in the video description if there is room). For printing on Sunday, print the PDF on letter paper at 100% scale, borderless if the printer allows it.
+
 ## Upload a file
 
 Upload `docs/devpost/foresea-submission.zip`. It has a two page judge's guide (`Foresea Judges Guide.pdf`) and our full source code.

@@ -353,5 +353,9 @@
     "drive": "110:166",
     "driveJoystick": "112:140",
     "filterMenu": "113:140"
+  },
+  "poster": {
+    "page": "115:26",
+    "frame": "115:33"
   }
 }
