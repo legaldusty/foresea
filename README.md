@@ -50,7 +50,7 @@ Optional setup:
 
 ## Proof
 
-- `npm test` runs 199 unit, scenario and world tests.
+- `npm test` runs 206 unit, scenario and world tests.
 - `npm run e2e` runs the 90-second demo end to end in Playwright with a laptop and two phones: Tuesday whale zone, night contact, P1 on the judge's phone and a silent P4 on a teammate's, Got it, a boat that ignores the notice, All clear, and Run 1,000 nights. Screenshots land in `e2e/screenshots/`.
 - `npm run scenarios` prints the five incidents from the spec. Every "must stay true" rule holds.
 - `npm run bench` runs the benchmark: with detection at the harbor gates, TELL gives about 73 minutes of warning against 47.5 for a nearest-dock guess (1.54 times, against a bar of 1.4), and calls the right target by arrival in every run.
