@@ -701,6 +701,7 @@ export interface PilotEvents {
   launch: Record<string, never>;
   steer: { lonlat: LonLat };
   surface: Record<string, never>;
+  night: Record<string, never>;
 }
 
 export interface PilotSnapshot {

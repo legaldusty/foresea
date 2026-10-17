@@ -1,12 +1,21 @@
 import { BellRinging, BellSlash, Broadcast, Compass, Cpu, FileText, Keyboard, QrCode, Scroll, UserCircle, Waves, Wind, WifiSlash } from '@phosphor-icons/react';
 import type { CommandSnapshot } from '../../shared/protocol';
 import { Button, Segmented } from '../ui';
+import { ViewsMenu } from '../ui/Views';
 import type { Link } from '../hub/useHub';
 import { compassAbbr } from '../format';
 import { ageText, compass16, feet, knotsWhole } from '../conditionsFormat';
 
-export function Lockup() {
-  return <span className="lockup"><span className="mark" /><span className="word">GIVE WAY</span></span>;
+export function Lockup(props: { surface?: boolean }) {
+  if (props.surface) {
+    return (
+      <span className="lockup on-surface">
+        <img className="for-dark" src="/brand/foresea-lockup-reverse.svg" alt="Foresea" />
+        <img className="for-light" src="/brand/foresea-lockup-color.svg" alt="" aria-hidden="true" />
+      </span>
+    );
+  }
+  return <span className="lockup"><img src="/brand/foresea-lockup-reverse.svg" alt="Foresea" /></span>;
 }
 
 export function TopBar(props: { snap: CommandSnapshot; link: Link; onOrders: () => void; onJoin: () => void; onModels: () => void; onMode: (mode: 'live' | 'sim') => void; muted: boolean; onMute: () => void; onKeys: () => void; onTour: () => void }) {
@@ -41,6 +50,7 @@ export function TopBar(props: { snap: CommandSnapshot; link: Link; onOrders: () 
       <span className="top-officer" title={snap.officer}><UserCircle size={20} /><span className="who">{snap.officer}</span></span>
       <span className="vdiv" />
       <div className="top-actions">
+        <ViewsMenu current="desk" label />
         <Button variant="secondary" icon={<Compass size={16} />} onClick={props.onTour} testId="open-tour">Tour</Button>
         <Button variant="secondary" icon={<Cpu size={16} />} onClick={props.onModels} testId="open-models">Models</Button>
         <Button variant="secondary" icon={<Scroll size={16} />} onClick={props.onOrders} testId="open-orders">Standing Orders</Button>

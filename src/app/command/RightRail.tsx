@@ -30,7 +30,7 @@ const ACTION_ICON: Record<string, JSX.Element | null> = {
 };
 
 function cardMeta(c: Card, waiting: number): string {
-  const first = c.kind === 'publish' ? 'Drafted by GIVE WAY from signed Standing Orders'
+  const first = c.kind === 'publish' ? 'Drafted by Foresea from signed Standing Orders'
     : c.kind === 'notResponding' ? 'No acknowledgment in 4 min'
     : `Raised ${clockOf(c.createdAtMin)}`;
   return [first, c.realerts ? `Re-alerted ${c.realerts} ${c.realerts === 1 ? 'time' : 'times'}` : '', c.backupCalled ? 'Backup officer called' : '', waiting ? `${waiting} more waiting` : '']
@@ -191,7 +191,7 @@ export function NoticeEditor(props: { d: NoticeDraft; send: Send; simMin: number
   const plan = d.plan;
   return (
     <section className="section" data-testid="notice-editor">
-      <TitleBlock title="Notice to boats" meta={d.routine ? 'Drafted from a routine template you signed' : 'Drafted by GIVE WAY from signed Standing Orders'} />
+      <TitleBlock title="Notice to boats" meta={d.routine ? 'Drafted from a routine template you signed' : 'Drafted by Foresea from signed Standing Orders'} />
       <Field label="Instruction">
         <SelectBox value={d.instruction} options={INSTRUCTIONS.map((o) => ({ value: o.value, label: o.value === d.instruction ? d.instructionText : o.label }))} onChange={(v) => edit({ instruction: v })} />
       </Field>

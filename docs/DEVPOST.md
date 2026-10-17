@@ -4,7 +4,7 @@ Paste each section into the matching Devpost field. Numbers come from `npm run b
 
 ## Name
 
-GIVE WAY
+Foresea
 
 ## Track
 
@@ -22,7 +22,7 @@ The name comes from the boating rules: the give-way vessel is the one that steer
 
 ## What it does
 
-GIVE WAY runs five steps on every contact and stops at the line where a person must decide.
+Foresea runs five steps on every contact and stops at the line where a person must decide.
 
 1. **See.** A port sensor reports position, speed, size and heat (simulated; the prompt says detection is the easy part).
 2. **Identify.** Every unknown starts as a risk until it is proven friendly. It checks the registry and dive plans, sends an ID ping, and classifies the contact from speed, heat and size as a powered vehicle, debris or a dead robot, a marine animal, or a person.
@@ -73,7 +73,7 @@ Validate who pays with the Port of LA operations desk, connect a real underwater
 
 ## Responsible use
 
-GIVE WAY could be misused to track legitimate boats or to unfairly push certain vessels out of an area. It never acts on any vehicle, every public notice is approved by a person and can be undone with one tap, and every action is logged.
+Foresea could be misused to track legitimate boats or to unfairly push certain vessels out of an area. It never acts on any vehicle, every public notice is approved by a person and can be undone with one tap, and every action is logged.
 
 ## Built with
 

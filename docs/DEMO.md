@@ -40,7 +40,7 @@ Presenter, **Tuesday**. The headline reads like "Tuesday 09:12. 3 zones active, 
 4. **Phones.** Phone A (Harbor Launch 7, head on) gets the P1 takeover: one instruction like ALTER COURSE NORTHWEST 150 m, a countdown to when it is safe, and the forecast on its map. The judge taps **Got it**; Command shows Acknowledged. Phone B (Water Taxi) gets nothing or a calm heads-up. Say: "Targeted, not a flood."
 5. **Ignored.** Pilot Boat 2 never answers. After 4 minutes on the clock the card says **Pilot Boat 2 not responding** with the VHF script. Read it out loud. Click **Called on VHF**.
 6. **All clear** in the published notice. Every phone shows ALL CLEAR.
-7. **After-action report.** Click **After-action report** under the contact (or press R): minutes of warning before arrival, detection to notice, boats that acknowledged, zero gates closed, what GIVE WAY did alone and what people decided. **Print** works.
+7. **After-action report.** Click **After-action report** under the contact (or press R): minutes of warning before arrival, detection to notice, boats that acknowledged, zero gates closed, what Foresea did alone and what people decided. **Print** works.
 8. **Proof.** Presenter, **Run 1,000 nights**: about 1.5 times the warning of the nearest-dock guess, the reliability chart, and the share of the drone's real path inside the yellow. Say: "In simulated nights the drone stayed inside the yellow 95% of the time. Decoys fool it at first, and we show that."
 
 ## If something goes wrong

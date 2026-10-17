@@ -634,7 +634,7 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 export function loadTrafficModel(json: unknown): TrafficModel {
-  if (!isRecord(json) || json.format !== TRAFFIC_MODEL_FORMAT) throw new Error('This file is not a GIVE WAY traffic model.');
+  if (!isRecord(json) || json.format !== TRAFFIC_MODEL_FORMAT) throw new Error('This file is not a Foresea traffic model.');
   if (json.version !== TRAFFIC_MODEL_VERSION) throw new Error(`Traffic model version ${String(json.version)} is not supported; expected ${TRAFFIC_MODEL_VERSION}.`);
   if (!isRecord(json.grid) || !isRecord(json.meta) || !isRecord(json.gaps) || !isRecord(json.density) || !Array.isArray(json.cells)) {
     throw new Error('The traffic model is missing its grid, meta, gaps, density or cells.');

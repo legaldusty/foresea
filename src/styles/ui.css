@@ -185,3 +185,28 @@
 .tour-chapter svg { flex: none; margin-top: 1px; }
 .tour-chapter .text { display: flex; flex-direction: column; gap: 2px; }
 .tour-dialog-acts { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: var(--space-8); }
+
+.views { position: relative; flex: none; }
+.views-btn { width: 44px; height: 44px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: var(--radius-6); background: transparent; color: var(--on-chrome); cursor: pointer; }
+.views-btn:hover, .views-btn[aria-expanded="true"] { background: color-mix(in oklch, var(--on-chrome) 10%, transparent); }
+.views-btn:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.views-menu { position: absolute; right: 0; top: calc(100% + 8px); z-index: 70; width: 344px; padding: 6px 0 0; background: var(--raised); color: var(--text); border: 1px solid var(--line); border-radius: var(--radius-6); box-shadow: var(--shadow-2); animation: tour-in var(--dur-2) var(--ease-out); text-align: left; }
+.views-row { display: flex; align-items: center; padding-right: 6px; }
+.views-row:hover { background: var(--hover); }
+.views-row.current { background: var(--selected); }
+.views-main { flex: 1; min-width: 0; display: flex; align-items: center; gap: var(--space-12); padding: 10px var(--space-8) 10px 14px; color: inherit; text-decoration: none; }
+.views-main svg { flex: none; }
+.views-main .text { display: flex; flex-direction: column; gap: 2px; }
+.views-main:focus-visible, .views-new:focus-visible, .view-link:focus-visible { outline: 2px solid var(--focus); outline-offset: -2px; }
+.views-new { flex: none; width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; color: var(--muted); border-radius: var(--radius-4); }
+.views-new:hover { color: var(--text); background: var(--hover); }
+.views-foot { margin: 6px 0 0; padding: 10px 14px; border-top: 1px solid var(--line); font: var(--type-small); color: var(--muted); }
+@media (max-width: 600px) {
+  .views-menu { position: fixed; left: 8px; right: 8px; top: 60px; width: auto; }
+  .views-main { min-height: 52px; }
+  .views-new { width: 44px; height: 44px; }
+}
+.view-links { display: flex; flex-direction: column; gap: var(--space-4); }
+.view-link { display: flex; align-items: center; gap: 10px; height: 36px; padding: 0 10px; border: 1px solid var(--line-strong); border-radius: var(--radius-4); background: var(--raised); color: var(--text); font: var(--type-body-strong); text-decoration: none; }
+.view-link .out { margin-left: auto; color: var(--muted); }
+.view-link:hover { background: var(--hover); }

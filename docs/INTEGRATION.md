@@ -1,6 +1,6 @@
 # Integration
 
-How GIVE WAY would run on a real harbor: detections come in from sensors, published notices go out in formats other agencies already read, and a judge can drive the unknown drone from a phone.
+How Foresea would run on a real harbor: detections come in from sensors, published notices go out in formats other agencies already read, and a judge can drive the unknown drone from a phone.
 
 Everything below runs on the hub (`npm run dev` or `npm run demo`, port 5170).
 
@@ -65,7 +65,7 @@ npx tsx scripts/sensor-feed.ts https://giveway.example --key "$GIVEWAY_SENSOR_KE
 
 `--speedup` moves the track faster than real time while still reporting the true speed, which matches the desk clock in Simulation. `--every` sets the seconds between fixes and `--max` stops after that many fixes.
 
-Because every fix is scored the same way a desk contact is, a test rig can run many simulated vehicles with known goals and read back what GIVE WAY called and how early. `npm run bench` does the same check offline.
+Because every fix is scored the same way a desk contact is, a test rig can run many simulated vehicles with known goals and read back what Foresea called and how early. `npm run bench` does the same check offline.
 
 ## Feeds out
 

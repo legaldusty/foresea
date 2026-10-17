@@ -532,6 +532,11 @@ function bindPilot(socket: Socket, h: HarborRoom): void {
           ack?.({ ok: true });
           return;
         }
+        if (decision.action === 'scene') {
+          world.handle('reset', { mode: 'night' });
+          world.handle('clock', { timeScale: 10, paused: false });
+          world.log('Drive page', 'Night scene started', 'A judge switched the harbor to a simulated night from the drive page.');
+        }
         if (decision.action === 'spawn') {
           const c = world.spawn({ preset: 'driven' });
           if (c) world.log('Drive page', 'Judge took the helm', `${c.spec.label} launched outside Angels Gate from the drive page. Simulated.`);
@@ -625,7 +630,7 @@ async function attachFrontend(): Promise<void> {
 await attachFrontend();
 httpServer.listen(PORT, '0.0.0.0', () => {
   const ips = lanAddresses();
-  console.log(`GIVE WAY hub on http://localhost:${PORT}${ips.length ? `  (LAN ${ips.map((ip) => `http://${ip}:${PORT}`).join(', ')})` : ''}`);
+  console.log(`Foresea hub on http://localhost:${PORT}${ips.length ? `  (LAN ${ips.map((ip) => `http://${ip}:${PORT}`).join(', ')})` : ''}`);
   if (hasCerts) console.log(`HTTPS on port ${HTTPS_PORT} for phones that need push and offline install`);
   console.log(`AIS mode ${AIS_MODE}; language: ${language.status().detail}${PRIVATE ? `; private harbors on, up to ${settings.hosting.maxHarbors}` : ''}`);
 });

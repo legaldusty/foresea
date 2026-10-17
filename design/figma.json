@@ -1,7 +1,7 @@
 {
   "fileKey": "HSRZm9qfJcg0n6gkeGVie1",
   "url": "https://www.figma.com/design/HSRZm9qfJcg0n6gkeGVie1",
-  "name": "GIVE WAY",
+  "name": "Foresea",
   "pages": {
     "Cover": "0:1",
     "Foundations": "2:2",
@@ -123,7 +123,10 @@
     "Command/QR / Harbor Launch 7": "34:2241",
     "Command/Drive control": "35:2701",
     "Command/Menu item": "35:2743",
-    "Command/Add contact menu": "35:2744"
+    "Command/Add contact menu": "35:2744",
+    "Brand/Lockup color": "108:172",
+    "Brand/Mark color": "108:178",
+    "Brand/App icon": "108:183"
   },
   "icons": {
     "Anchor": "3:9",
@@ -345,6 +348,8 @@
     "captainSosSent": "95:103",
     "tourWelcome": "96:85",
     "tourStep": "96:127",
-    "tourCaptain": "96:155"
+    "tourCaptain": "96:155",
+    "viewsMenu": "110:114",
+    "drive": "110:166"
   }
 }

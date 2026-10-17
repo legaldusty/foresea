@@ -46,7 +46,7 @@ export function useCardChime(card: Card | null, muted: boolean): void {
     if (key && key !== last.current && !muted) {
       chime(URGENT.has(card?.kind ?? ''));
       if (document.hidden && 'Notification' in window && Notification.permission === 'granted') {
-        try { new Notification('GIVE WAY', { body: card?.title ?? '', tag: card?.id }); } catch { return; }
+        try { new Notification('Foresea', { body: card?.title ?? '', tag: card?.id }); } catch { return; }
       }
     }
     last.current = key;

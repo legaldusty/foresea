@@ -130,7 +130,7 @@ export function capAlert(z: PublicZone, o: FeedOptions, declaration = true): str
     el('status', status),
     el('msgType', 'Alert'),
     el('scope', 'Public'),
-    ...(status === 'Exercise' ? [el('note', 'Exercise from the GIVE WAY simulation. Not a real notice.')] : []),
+    ...(status === 'Exercise' ? [el('note', 'Exercise from the Foresea simulation. Not a real notice.')] : []),
     '<info>',
     el('language', o.language),
     el('category', o.category),

@@ -69,7 +69,7 @@ async function hubAlreadyRunning(): Promise<boolean> {
 
 async function main(): Promise<void> {
   if (await hubAlreadyRunning()) {
-    console.error(`A GIVE WAY hub is already running on port ${PORT}. Stop it first (Ctrl+C in its terminal), then run this again.`);
+    console.error(`A Foresea hub is already running on port ${PORT}. Stop it first (Ctrl+C in its terminal), then run this again.`);
     console.error('Rebuilding while it runs can hand phones and browsers a half-written chart file.');
     process.exit(1);
   }

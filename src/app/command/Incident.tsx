@@ -26,7 +26,7 @@ function Stat(props: { value: string; unit?: string; label: string; testId?: str
 const fmt = (v: number | null, digits = 0) => (v === null ? 'n/a' : v.toFixed(digits));
 
 function actorWord(a: string): string {
-  if (a === 'machine') return 'GIVE WAY';
+  if (a === 'machine') return 'Foresea';
   if (a === 'officer') return 'Officer';
   if (a === 'system') return 'System';
   if (a === 'simulated') return 'Simulated';
@@ -95,7 +95,7 @@ export function IncidentSheet(props: { contactId: string; onClose: () => void })
               </section>
               <section className="ir-sec ir-split">
                 <div>
-                  <span className="t-heading">GIVE WAY did on its own</span>
+                  <span className="t-heading">Foresea did on its own</span>
                   <ul>{r.machineDid.map((a) => <li key={a}>{a}</li>)}</ul>
                 </div>
                 <div>

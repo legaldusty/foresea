@@ -2331,7 +2331,7 @@ export class World {
             rec.resends = 1;
             const phone = craft.phone && (this.captains.get(vid)?.connected ?? false);
             if (phone) {
-              this.effects.resends.push({ noticeId: n.id, vesselId: vid, vesselName: rec.vesselName, priority: entry.priority, text: `GIVE WAY ${entry.priority}: ${entry.instructionText}. ${n.publicReason}. ${this.link}` });
+              this.effects.resends.push({ noticeId: n.id, vesselId: vid, vesselName: rec.vesselName, priority: entry.priority, text: `Foresea ${entry.priority}: ${entry.instructionText}. ${n.publicReason}. ${this.link}` });
             } else {
               const next: P.Channel = channels.push ? 'push' : channels.sms ? 'sms' : 'vhf';
               rec.channel = next;

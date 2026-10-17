@@ -171,7 +171,7 @@ export function WhyDrawer(props: { snap: CommandSnapshot; c: ContactView | null;
   const options = (plan?.boats ?? []).filter((b) => b.options.length && !b.vesselId.startsWith('ais-'));
   return (
     <aside className="why" data-testid="why-drawer">
-      <div className="why-head"><span className="t-title">Why GIVE WAY suggests this</span><button className="icon-btn" onClick={props.onClose} aria-label="Close"><X size={20} /></button></div>
+      <div className="why-head"><span className="t-title">Why Foresea suggests this</span><button className="icon-btn" onClick={props.onClose} aria-label="Close"><X size={20} /></button></div>
       {c ? (
         <>
           <section>

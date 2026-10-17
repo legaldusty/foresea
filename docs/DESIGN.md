@@ -1,4 +1,4 @@
-# GIVE WAY design system, round 4
+# Foresea design system, round 4
 
 The source of truth is the Figma file `HSRZm9qfJcg0n6gkeGVie1`: variables (Primitives, Theme with Night and Day modes, Dimensions), text styles, effect styles, the component library and the Round 4 page. `npm run tokens` turns `design/figma-variables.json` into `src/styles/tokens.css`. Components use semantic tokens only.
 

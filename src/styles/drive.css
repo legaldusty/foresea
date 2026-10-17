@@ -2,12 +2,11 @@
 .drive-page .num { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
 
 .drive-head { flex: none; display: flex; align-items: center; gap: var(--space-12); min-height: 56px; padding: env(safe-area-inset-top, 0px) var(--space-16) 0; border-bottom: 1px solid var(--chrome-line); background: var(--chrome); color: var(--on-chrome); }
-.drive-head .lockup { color: var(--on-chrome); }
-.drive-head .lockup .mark { width: 28px; height: 28px; }
-.drive-head .lockup .word { font: 600 20px/26px var(--font-sans); letter-spacing: 0.06em; }
+.drive-head .lockup img { height: 26px; }
 .drive-link { margin-left: auto; font: var(--type-small); color: var(--on-chrome-muted); white-space: nowrap; }
+.drive-head { padding-right: var(--space-4); gap: var(--space-8); }
 
-.drive-intro { flex: none; margin: 0; padding: var(--space-16); font: var(--type-heading); letter-spacing: var(--type-heading-tracking); }
+.drive-intro { flex: none; display: flex; flex-direction: column; gap: var(--space-4); padding: 14px var(--space-16) var(--space-12); }
 
 .drive-notice { flex: none; display: flex; align-items: flex-start; gap: 10px; padding: var(--space-12) var(--space-16); background: var(--panel); border-top: 1px solid var(--line); font: var(--type-body); }
 .drive-notice svg { flex: none; }
@@ -18,9 +17,20 @@
 .drive-map .chart-label-time:empty { display: none; }
 .drive-attr { position: absolute; right: var(--space-8); bottom: 6px; z-index: 2; font: var(--type-small); color: var(--muted); pointer-events: none; }
 
-.drive-foot { flex: none; display: flex; flex-direction: column; gap: var(--space-12); padding: var(--space-16) var(--space-16) calc(env(safe-area-inset-bottom, 0px) + var(--space-16)); }
+.drive-foot { flex: none; display: flex; flex-direction: column; gap: 10px; padding: 14px var(--space-16) calc(env(safe-area-inset-bottom, 0px) + var(--space-16)); background: var(--raised); }
+.drive-row { display: flex; align-items: baseline; gap: var(--space-8); }
+.drive-row .t-heading { flex: 1; }
+.drive-speed { display: inline-flex; align-items: baseline; gap: var(--space-4); font: var(--type-mono-small); color: var(--muted); }
+.drive-targets { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-8); }
+.drive-targets .btn { min-width: 0; }
+.drive-targets .btn-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .drive-foot .btn-l { height: 56px; }
 .drive-status { display: flex; align-items: center; gap: var(--space-8); font: var(--type-body); }
 .drive-status svg { flex: none; }
 .drive-status .simulated { margin-left: auto; }
-.drive-small { font: var(--type-small); color: var(--muted); }
+.drive-small { display: flex; align-items: center; gap: 6px; font: var(--type-small); color: var(--muted); }
+.drive-small svg { flex: none; }
+
+@media (min-width: 720px) {
+  .drive-intro, .drive-foot { padding-left: max(var(--space-16), calc(50% - 320px)); padding-right: max(var(--space-16), calc(50% - 320px)); }
+}

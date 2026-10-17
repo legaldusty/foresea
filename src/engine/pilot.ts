@@ -1,8 +1,8 @@
 import type { LonLat } from './geo';
 
-export type PilotRequest = 'launch' | 'steer' | 'surface';
+export type PilotRequest = 'launch' | 'steer' | 'surface' | 'night';
 
-export const PILOT_REQUESTS: readonly PilotRequest[] = ['launch', 'steer', 'surface'];
+export const PILOT_REQUESTS: readonly PilotRequest[] = ['launch', 'steer', 'surface', 'night'];
 
 export interface PilotState {
   mode: 'live' | 'sim';
@@ -12,6 +12,7 @@ export interface PilotState {
 
 export type PilotDecision =
   | { ok: true; action: 'spawn' }
+  | { ok: true; action: 'scene' }
   | { ok: true; action: 'reuse'; contactId: string }
   | { ok: true; action: 'drive'; contactId: string; lonlat: LonLat }
   | { ok: true; action: 'remove'; contactId: string }
@@ -34,7 +35,8 @@ function lonLatIn(payload: unknown, bbox: PilotState['bbox']): LonLat | null {
 }
 
 export function pilotDecision(request: unknown, payload: unknown, state: PilotState): PilotDecision {
-  if (!isPilotRequest(request)) return { ok: false, error: 'The drive page can only launch, steer or surface the drone' };
+  if (!isPilotRequest(request)) return { ok: false, error: 'The drive page can only start a night scene, launch, steer or surface the drone' };
+  if (request === 'night') return state.mode === 'live' ? { ok: true, action: 'scene' } : { ok: false, error: 'The harbor is already in Simulation' };
   if (state.mode !== 'sim') return { ok: false, error: PILOT_LIVE_REFUSAL };
   if (request === 'launch') return state.drivenId ? { ok: true, action: 'reuse', contactId: state.drivenId } : { ok: true, action: 'spawn' };
   if (!state.drivenId) return { ok: false, error: 'Launch the drone first' };

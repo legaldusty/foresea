@@ -165,7 +165,7 @@ export function templateWording(facts: WordingFacts): Wording {
   const spokenInstruction = facts.instruction === 'KEEP CLEAR' ? `Keep ${spokenNumber(facts.radiusM)} clear` : facts.instructionText.charAt(0) + facts.instructionText.slice(1).toLowerCase();
   const vhf = `All stations, all stations, this is ${facts.station}. ${headline}. ${spokenInstruction}. ${named} Until ${until}. ${facts.station} out.`.replace(/\s+/g, ' ');
   const aisMarker = `${facts.publicReason.toUpperCase()} ${facts.nearPlace.replace(/^the /, '').toUpperCase()} ${facts.instructionText} UNTIL ${until.replace(':', '')}`.replace(/\s+/g, ' ').slice(0, 160);
-  const sms = `GIVE WAY: ${headline}. ${facts.instructionText} until ${until}. Map: ${facts.link}`;
+  const sms = `Foresea: ${headline}. ${facts.instructionText} until ${until}. Map: ${facts.link}`;
   const translations: Record<string, string> = {};
   for (const lang of Object.keys(PHRASES) as Lang[]) translations[lang] = translateInstruction(lang, facts.instruction, facts);
   let brief: string | null = null;
@@ -189,6 +189,6 @@ export function allClearWording(station: string, nearPlace: string, atMin: numbe
     notice: `ALL CLEAR${where}. Resume normal navigation. ${clockLabel(atMin)}.`,
     vhf: `All stations, all stations, this is ${station}. All clear${where}. Resume normal navigation. ${station} out.`,
     aisMarker: `ALL CLEAR ${nearPlace.replace(/^the /, '').toUpperCase()} ${clockLabel(atMin).replace(':', '')}`.trim(),
-    sms: `GIVE WAY: ALL CLEAR${where}. Resume normal navigation.`,
+    sms: `Foresea: ALL CLEAR${where}. Resume normal navigation.`,
   };
 }

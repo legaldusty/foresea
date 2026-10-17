@@ -1,6 +1,6 @@
-# GIVE WAY
+# Foresea
 
-GIVE WAY works out where an unknown underwater drone is heading and moves only the boats in its path before it gets there, so the harbor never has to shut down. On an ordinary Tuesday the same screen routes boats around divers, dredges and whales, finds lost research robots, and keeps ships on time with real ship-tracking data.
+Foresea works out where an unknown underwater drone is heading and moves only the boats in its path before it gets there, so the harbor never has to shut down. On an ordinary Tuesday the same screen routes boats around divers, dredges and whales, finds lost research robots, and keeps ships on time with real ship-tracking data.
 
 Our entry to the InnovateLA Dual-Use Hackathon at USC, Marine track, with NULL Systems.
 
@@ -71,7 +71,7 @@ Underwater drone detections cannot be real: nobody publishes them, and the promp
 
 ## Responsible use
 
-GIVE WAY could be misused to track legitimate boats or to unfairly push certain vessels out of an area. It never acts on any vehicle, every public notice is approved by a person and can be undone with one tap, and every action is logged.
+Foresea could be misused to track legitimate boats or to unfairly push certain vessels out of an area. It never acts on any vehicle, every public notice is approved by a person and can be undone with one tap, and every action is logged.
 
 ## Tools we used
 

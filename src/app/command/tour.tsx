@@ -58,7 +58,7 @@ export function commandTour(ctx: CommandTourContext): TourStep[] {
     {
       id: 'orders', chapter: LIVE, target: '[data-testid="open-orders"]',
       title: 'Rules written in plain English',
-      body: <p>The officer signs Standing Orders, typed like "Publish whale zones automatically at night". GIVE WAY shows exactly what it understood and obeys it. High and Critical risk, people in the water and closures always wait for a person.</p>,
+      body: <p>The officer signs Standing Orders, typed like "Publish whale zones automatically at night". Foresea shows exactly what it understood and obeys it. High and Critical risk, people in the water and closures always wait for a person.</p>,
       enter: () => ctx.closeOverlays(),
     },
     {
@@ -79,7 +79,7 @@ export function commandTour(ctx: CommandTourContext): TourStep[] {
     {
       id: 'contact', chapter: NIGHT, target: '.cmd-chart',
       title: 'Unknown contact at Angels Gate',
-      body: <p>GIVE WAY identifies it from its size, heat, speed and an ID ping that gets no reply. Its risk sits on a 5 by 5 grid: how likely harm is, against how bad it would be at the place it is heading.</p>,
+      body: <p>Foresea identifies it from its size, heat, speed and an ID ping that gets no reply. Its risk sits on a 5 by 5 grid: how likely harm is, against how bad it would be at the place it is heading.</p>,
       waitFor: { done: () => ctx.forecasts().length > 0, waiting: 'Building its forecast', ready: 'Its forecast is on the chart' },
     },
     {
@@ -168,7 +168,7 @@ export function commandTour(ctx: CommandTourContext): TourStep[] {
     {
       id: 'glider', chapter: TUESDAY, target: '.cmd-chart',
       title: 'Lost, not hostile',
-      body: <p>A research glider stops reporting. GIVE WAY matches it to its registered owner, sees it drifting with the NOAA current instead of aiming, and turns the drift forecast into a search area.</p>,
+      body: <p>A research glider stops reporting. Foresea matches it to its registered owner, sees it drifting with the NOAA current instead of aiming, and turns the drift forecast into a search area.</p>,
       action: { label: 'Lose a robot', run: async () => { await ctx.send('spawn', { preset: 'glider' }); } },
       waitFor: { done: () => !!snap()?.zones.some((z) => z.reason === 'Search area'), waiting: 'The glider is going silent', ready: 'Owner message and search area are ready' },
     },
@@ -187,7 +187,7 @@ export function commandTour(ctx: CommandTourContext): TourStep[] {
     },
     {
       id: 'end', chapter: TUESDAY,
-      title: 'That is GIVE WAY',
+      title: 'That is Foresea',
       body: (
         <>
           <p>Press P for the Presenter panel with every demo control: scenes, time, contacts and driving a drone yourself. Tour in the top bar runs this again.</p>

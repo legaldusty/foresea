@@ -1,7 +1,12 @@
 #!/usr/bin/env bash
 set -euo pipefail
-HOST="${1:?Usage: deploy/push.sh <server ip> [domain]}"
-DOMAIN="${2:-${HOST//./-}.sslip.io}"
+HOST="${1:?Usage: deploy/push.sh <server ip> [public domain] [more domains]}"
+FALLBACK="${HOST//./-}.sslip.io"
+DOMAIN="${2:-$FALLBACK}"
+SITES="$DOMAIN"
+for extra in "${@:3}" "$FALLBACK"; do
+  case " $SITES " in *" $extra "*) ;; *) SITES="$SITES, $extra" ;; esac
+done
 KEY="${GIVEWAY_SSH_KEY:-$HOME/.ssh/giveway_deploy}"
 SSH_OPTS=(-i "$KEY" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15)
 cd "$(dirname "$0")/.."
@@ -19,7 +24,7 @@ rsync -az --delete -e "ssh ${SSH_OPTS[*]}" \
 ssh "${SSH_OPTS[@]}" "root@$HOST" "bash -s" <<REMOTE
 set -euo pipefail
 printf 'PUBLIC_URL=https://%s\nGIVEWAY_LLM_TIMEOUT_MS=45000\n' '$DOMAIN' > /opt/giveway/hosting.env
-printf '%s {\n\tencode zstd gzip\n\treverse_proxy 127.0.0.1:5170\n}\n' '$DOMAIN' > /etc/caddy/Caddyfile
+printf '%s {\n\tencode zstd gzip\n\treverse_proxy 127.0.0.1:5170\n}\n' '$SITES' > /etc/caddy/Caddyfile
 cp /opt/giveway/app/deploy/giveway.service /etc/systemd/system/giveway.service
 chown -R giveway:giveway /opt/giveway
 cd /opt/giveway/app

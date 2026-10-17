@@ -9,7 +9,7 @@ const ips = ['127.0.0.1', ...lanAddresses()];
 const san = ['DNS:localhost', ...ips.map((ip) => `IP:${ip}`)].join(',');
 const config = [
   '[req]', 'distinguished_name = dn', 'x509_extensions = ext', 'prompt = no',
-  '[dn]', 'CN = GIVE WAY hub', 'O = GIVE WAY',
+  '[dn]', 'CN = Foresea hub', 'O = Foresea',
   '[ext]', `subjectAltName = ${san}`, 'basicConstraints = CA:FALSE', 'keyUsage = digitalSignature, keyEncipherment', 'extendedKeyUsage = serverAuth',
 ].join('\n');
 const cnf = path.join(dir, 'openssl.cnf');

@@ -7,8 +7,11 @@
 .cmd-rail { grid-column: 2; grid-row: 2; position: relative; border-left: 1px solid var(--line); background: var(--panel); overflow-y: auto; display: flex; flex-direction: column; padding-bottom: var(--space-16); }
 .mono { font-family: var(--font-mono); font-variant-numeric: tabular-nums; font-weight: inherit; }
 
-.lockup { display: inline-flex; align-items: center; gap: 8px; color: var(--text); }
-.lockup .word { font: 600 16px/22px var(--font-sans); letter-spacing: 0.08em; white-space: nowrap; }
+.lockup { display: inline-flex; align-items: center; flex: none; }
+.lockup img { display: block; height: 24px; width: auto; }
+.lockup.on-surface .for-light { display: none; }
+[data-theme="day"] .lockup.on-surface .for-dark { display: none; }
+[data-theme="day"] .lockup.on-surface .for-light { display: block; }
 .vdiv { width: 1px; height: 20px; background: var(--line); flex: none; }
 .top-clock { display: flex; align-items: baseline; gap: var(--space-4); white-space: nowrap; }
 .top-clock .t-data { font: var(--type-data); }

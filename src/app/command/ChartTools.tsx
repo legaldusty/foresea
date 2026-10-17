@@ -5,6 +5,7 @@ import {
 import type { CommandEvents, ContactView, Species } from '../../shared/protocol';
 import { Button, Field, Segmented, SelectBox, Simulated } from '../ui';
 import { usePersisted } from './resize';
+import { ViewLinks } from '../ui/Views';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
 export type ZoneKind = 'whale' | 'divers' | 'dredge' | 'closure' | 'slow';
@@ -149,6 +150,10 @@ export function Presenter(props: {
           <Button variant="secondary" onClick={() => void props.send('reset', { mode: 'night' })} testId="reset-night">Night</Button>
           <Button variant="secondary" onClick={() => void props.send('reset', { mode: 'empty' })} testId="reset-empty">Empty harbor</Button>
         </div>
+      </section>
+      <section>
+        <span className="sec">Open a view</span>
+        <ViewLinks exclude="desk" />
       </section>
       <section>
         <span className="sec">Time</span>

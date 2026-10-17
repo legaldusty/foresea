@@ -128,7 +128,7 @@ export function SosScreen(props: { sos: CaptainSos | null; lonlat: LonLat | null
       <Header title="Person overboard" onBack={props.onClose} close testId="sos-close" />
       <div className="scroll pad">
         <span className="t-display">Hold to send your position to the harbor desk.</span>
-        <span className="t-body c-muted">GIVE WAY marks where you are now. The desk sees a search area that drifts with the current and moves other boats out of it.</span>
+        <span className="t-body c-muted">Foresea marks where you are now. The desk sees a search area that drifts with the current and moves other boats out of it.</span>
         <span className="cap-sos-pos"><MapPin size={20} /><span className="num">{position(props.lonlat)}</span></span>
         <HoldToSend onDone={() => void send()} disabled={sending || !props.online} />
         {failed || !props.online ? (

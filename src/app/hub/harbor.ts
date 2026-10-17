@@ -31,3 +31,12 @@ export function api(path: string): string {
   const code = harborCode();
   return code ? `${path}${path.includes('?') ? '&' : '?'}h=${code}` : path;
 }
+
+export function viewPath(path: string): string {
+  const code = harborCode();
+  if (!code) return path;
+  const [base, query] = path.split('?');
+  const params = new URLSearchParams(query ?? '');
+  params.set('h', code);
+  return `${base}?${params.toString()}`;
+}

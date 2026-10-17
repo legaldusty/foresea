@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { Bell, Broadcast, CaretLeft, CellSignalSlash, Circle, Fish, Gauge, HandPalm, Lifebuoy, Moon, NavigationArrow, RadioButton, Sun, Warning, WifiSlash, X } from '@phosphor-icons/react';
 import type { CaptainNotice, ClockView, PublicReason, Species } from '../../shared/protocol';
 import { minutesUntil } from './timing';
+import { ViewsMenu } from '../ui/Views';
 
 const NUMBER = /(\d{1,2}:\d{2}|\d+(?:\.\d+)?)/g;
 
@@ -17,7 +18,8 @@ export function TopBar(props: { name: string; speedKn: number | null; offline: b
         <button type="button" className="who" onClick={props.onPick} aria-label="Change boat">{props.name}</button>
         {props.speedKn !== null ? <span className="speed">{props.speedKn.toFixed(1)} kn</span> : null}
         <span className="simulated">Simulated</span>
-        <span className="cap-linkstate" data-testid="link-state">{props.offline ? <CellSignalSlash size={16} /> : <Broadcast size={16} />}{props.offline ? 'Offline' : 'Live'}</span>
+        <span className="cap-linkstate" data-testid="link-state" title={props.offline ? 'Offline' : 'Live'}>{props.offline ? <CellSignalSlash size={16} /> : <Broadcast size={16} />}<span className="word">{props.offline ? 'Offline' : 'Live'}</span></span>
+        <ViewsMenu current="captain" />
         <button type="button" className="icon-btn" onClick={props.onNotices} aria-label="Notices" title="Notices" data-testid="open-notices"><Bell size={24} /></button>
       </div>
     </div>

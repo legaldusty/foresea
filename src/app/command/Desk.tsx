@@ -131,7 +131,7 @@ function Log(props: { snap: CommandSnapshot; send: Send; onPlace: (w: AuditWhere
         <div className={`log-row${a.undone ? ' undone' : ''}${a.where ? ' placed' : ''}`} key={a.id} onClick={a.where ? () => props.onPlace(a.where as AuditWhere) : undefined}
           title={a.where ? `Show on the chart${a.where.place ? `: ${a.where.place}` : ''}` : undefined} data-testid={a.where ? `log-place-${a.id}` : undefined}>
           <span className="mono">{a.where ? <MapPin size={14} className="pin" /> : null}{clockOf(a.atMin)}</span>
-          <span className="t-strong">{a.actor === 'machine' ? 'GIVE WAY' : a.actor === 'officer' ? props.snap.officer : a.actor === 'system' ? 'System' : a.actor.replace(/^captain:/, 'Captain, ')}</span>
+          <span className="t-strong">{a.actor === 'machine' ? 'Foresea' : a.actor === 'officer' ? props.snap.officer : a.actor === 'system' ? 'System' : a.actor.replace(/^captain:/, 'Captain, ')}</span>
           <span>{a.action}</span>
           <span className="c-muted">{a.detail}</span>
           {a.undoable && !a.undone ? <button className="undo" onClick={(e) => { e.stopPropagation(); void props.send('undo', { auditId: a.id }); }}><ArrowCounterClockwise size={16} />Undo</button> : <span />}

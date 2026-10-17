@@ -388,7 +388,7 @@ export function CommandView() {
       {sheet === 'keys' ? <ShortcutsSheet onClose={() => setSheet(null)} /> : null}
       {tour.index !== null ? <TourOverlay steps={tourSteps} index={tour.index} onIndex={tour.setIndex} onClose={() => tour.setIndex(null)} /> : null}
       {tour.index === null && !tour.seen && (hub.hosted || wantsTour) ? (
-        <TourWelcome brand={<Lockup />} title="See GIVE WAY in four minutes" chapters={COMMAND_TOUR_CHAPTERS}
+        <TourWelcome brand={<Lockup surface />} title="See Foresea in four minutes" chapters={COMMAND_TOUR_CHAPTERS}
           body="The tour runs the real scenes for you and points at each part as it happens. Leave whenever you like and pick it up again from Tour in the top bar."
           onStart={startTour} onSkip={tour.markSeen} />
       ) : null}

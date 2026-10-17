@@ -113,7 +113,7 @@ function Log(props: { snap: CommandSnapshot; send: Send }) {
         {props.snap.audit.map((a) => (
           <div className={`lrow${a.undone ? ' undone' : ''}`} key={a.id}>
             <span className="t-mono-small">{clockOf(a.atMin)}</span>
-            <span className="actor">{a.actor === 'machine' ? 'GIVE WAY' : a.actor === 'officer' ? props.snap.officer : a.actor === 'system' ? 'System' : a.actor.replace(/^captain:/, 'Captain, ')}</span>
+            <span className="actor">{a.actor === 'machine' ? 'Foresea' : a.actor === 'officer' ? props.snap.officer : a.actor === 'system' ? 'System' : a.actor.replace(/^captain:/, 'Captain, ')}</span>
             <span className="act">{a.action}</span>
             <span>{a.detail}</span>
             {a.undoable && !a.undone ? <button className="undo" onClick={() => void props.send('undo', { auditId: a.id })}><ArrowCounterClockwise size={12} /> Undo</button> : <span />}

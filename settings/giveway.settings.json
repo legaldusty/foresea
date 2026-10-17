@@ -160,7 +160,7 @@
                   "tideCurve": { "pastHours": 6, "aheadHours": 18, "intervalMinutes": 30 },
                   "windHistoryHours": 6, "waveHistoryHours": 12, "captainSeriesPoints": 25,
                   "nwsZone": "PZZ655", "nwsZoneName": "Inner waters, Point Mugu to San Mateo Point", "nwsAlertZones": ["PZZ655"],
-                  "forecastPeriods": 4, "userAgent": "GIVE WAY harbor desk, InnovateLA Dual-Use Hackathon",
+                  "forecastPeriods": 4, "userAgent": "Foresea harbor desk, InnovateLA Dual-Use Hackathon",
                   "refreshMinutes": { "buoys": 5, "tide": 5, "met": 5, "alerts": 2, "forecast": 15 }, "checkSeconds": 30,
                   "maxAgeMinutes": { "buoy": 180, "station": 60, "alerts": 20, "forecast": 720 },
                   "requestTimeoutSeconds": 12, "advisoryCardsInSimulation": false },

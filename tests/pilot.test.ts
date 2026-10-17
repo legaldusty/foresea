@@ -16,6 +16,11 @@ describe('pilot permissions', () => {
     }
   });
 
+  it('starts a night scene from Live mode only', () => {
+    expect(pilotDecision('night', {}, { mode: 'live', drivenId: null, bbox })).toEqual({ ok: true, action: 'scene' });
+    expect(pilotDecision('night', {}, sim(null)).ok).toBe(false);
+  });
+
   it('launches the driven preset only when none exists, otherwise reuses it', () => {
     expect(pilotDecision('launch', {}, sim(null))).toEqual({ ok: true, action: 'spawn' });
     expect(pilotDecision('launch', {}, sim('C-14'))).toEqual({ ok: true, action: 'reuse', contactId: 'C-14' });

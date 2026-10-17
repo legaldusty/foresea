@@ -1,6 +1,6 @@
 {
-  "name": "GIVE WAY Captain",
-  "short_name": "GIVE WAY",
+  "name": "Foresea Captain",
+  "short_name": "Foresea",
   "description": "Harbor notices for your boat: where not to go, and your new route.",
   "start_url": "/captain",
   "scope": "/",

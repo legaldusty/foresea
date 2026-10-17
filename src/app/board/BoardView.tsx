@@ -7,6 +7,7 @@ import { silhouetteFor } from '../map/chartImages';
 import { Lockup } from '../command/TopBar';
 import '../../styles/board.css';
 import { api } from '../hub/harbor';
+import { ViewsMenu } from '../ui/Views';
 
 const POLL_MS = 5000;
 
@@ -52,6 +53,7 @@ export function BoardView() {
         <span style={{ flex: 1 }} />
         {offline ? <span className="board-offline"><WifiSlash size={20} />Showing the last notices</span> : null}
         <span className="board-clock mono">{board?.clockLabel ?? ''}</span>
+        <ViewsMenu current="board" />
       </header>
       {board?.mode === 'sim' ? <div className="board-exercise">Exercise. These notices are simulated for a demonstration.</div> : null}
       <main className="board-main">

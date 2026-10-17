@@ -1,4 +1,4 @@
-const SHELL = 'giveway-shell-v3';
+const SHELL = 'foresea-shell-v4';
 const TILES = 'giveway-tiles-v3';
 const PMTILES_MAGIC = 'PMTiles';
 const TILE_URL = '/tiles/harbor.pmtiles';
@@ -122,7 +122,7 @@ self.addEventListener('message', (event) => {
 });
 
 self.addEventListener('push', (event) => {
-  let msg = { title: 'GIVE WAY', body: 'New harbor notice', tag: 'giveway', url: '/captain', priority: 'P3', requireInteraction: false };
+  let msg = { title: 'Foresea', body: 'New harbor notice', tag: 'giveway', url: '/captain', priority: 'P3', requireInteraction: false };
   try { msg = { ...msg, ...event.data.json() }; } catch { msg.body = event.data ? event.data.text() : msg.body; }
   const urgent = msg.priority === 'P1';
   event.waitUntil(self.registration.showNotification(msg.title, {
