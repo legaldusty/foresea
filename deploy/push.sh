@@ -3,10 +3,7 @@ set -euo pipefail
 HOST="${1:?Usage: deploy/push.sh <server ip> [public domain] [more domains]}"
 FALLBACK="${HOST//./-}.sslip.io"
 DOMAIN="${2:-$FALLBACK}"
-SITES="$DOMAIN"
-for extra in "${@:3}" "$FALLBACK"; do
-  case " $SITES " in *" $extra "*) ;; *) SITES="$SITES, $extra" ;; esac
-done
+SITES="$(printf '%s\n' "$DOMAIN" "${@:3}" "$FALLBACK" | awk 'NF && !seen[$0]++' | paste -sd, - | sed 's/,/, /g')"
 KEY="${GIVEWAY_SSH_KEY:-$HOME/.ssh/giveway_deploy}"
 SSH_OPTS=(-i "$KEY" -o StrictHostKeyChecking=accept-new -o ConnectTimeout=15)
 cd "$(dirname "$0")/.."
