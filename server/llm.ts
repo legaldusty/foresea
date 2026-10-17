@@ -71,10 +71,11 @@ export function createLanguageModel(settings: LanguageSettings, host = process.e
   let model: string | null = null;
   let detail = 'Checking for a local model';
 
+  const slowest = Number(process.env.GIVEWAY_LLM_TIMEOUT_MS) || 0;
   async function call(messages: { role: string; content: string }[], schema: object, timeoutMs: number): Promise<Record<string, unknown> | null> {
     if (!model) return null;
     const ctrl = new AbortController();
-    const timer = setTimeout(() => ctrl.abort(), timeoutMs);
+    const timer = setTimeout(() => ctrl.abort(), Math.max(timeoutMs, slowest));
     try {
       const res = await fetch(`${host}/api/chat`, {
         method: 'POST', signal: ctrl.signal, headers: { 'content-type': 'application/json' },

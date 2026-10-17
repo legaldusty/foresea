@@ -1,0 +1,21 @@
+[Unit]
+Description=GIVE WAY harbor hub
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=giveway
+WorkingDirectory=/opt/giveway/app
+EnvironmentFile=/opt/giveway/app/.env
+EnvironmentFile=/opt/giveway/hosting.env
+Environment=NODE_ENV=production
+Environment=PORT=5170
+Environment=GIVEWAY_PRIVATE=1
+Environment=GIVEWAY_AUDIT=/opt/giveway/app/data/audit.sqlite
+ExecStart=/usr/bin/node /opt/giveway/app/node_modules/tsx/dist/cli.mjs server/main.ts --private
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
