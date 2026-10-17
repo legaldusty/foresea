@@ -389,6 +389,33 @@ export interface AuditEntry {
   where?: AuditWhere;
 }
 
+export interface IncidentReport {
+  contactId: string;
+  label: string;
+  simulated: boolean;
+  source: string;
+  status: 'open' | 'all clear' | 'closed';
+  station: string;
+  detected: { atLabel: string; place: string; readings: string };
+  classification: string;
+  hostility: number | null;
+  call: { atLabel: string; target: string; odds: number; afterDetectionMin: number } | null;
+  arrival: { atLabel: string; place: string; reached: boolean } | null;
+  leadMin: number | null;
+  peak: { score: number; level: string; atLabel: string } | null;
+  notice: { draftedLabel: string | null; publishedLabel: string | null; publishedBy: string | null; afterDetectionMin: number | null; warningBeforeArrivalMin: number | null; instruction: string | null } | null;
+  boats: { told: number; p1: number; p2: number; acknowledged: number; medianAckSec: number | null; notResponding: string[]; vhfCalled: string[]; shipsByAis: number };
+  delayBoatMin: number;
+  gatesClosed: number;
+  allClearLabel: string | null;
+  durationMin: number;
+  machineDid: string[];
+  peopleDid: string[];
+  timeline: { atLabel: string; actor: string; action: string; detail: string }[];
+}
+
+export interface IncidentSummary { contactId: string; label: string; status: IncidentReport['status']; detectedLabel: string; simulated: boolean }
+
 export interface AuditWhere { lonlat: LonLat; radiusM: number | null; zoneId: string | null; contactId: string | null; vesselId: string | null; place: string | null }
 
 export interface MarineLogEntry { id: string; atMin: number; lonlat: LonLat; kind: string; detail: string }
@@ -437,6 +464,7 @@ export interface CommandSnapshot {
   headline: Headline;
   steps: StepView[] | null;
   mode: OperatingMode;
+  incidents: IncidentSummary[];
   models: ModelCard[];
 }
 

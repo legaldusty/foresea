@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { Files, HandPalm, PaperPlaneTilt, PencilSimple, Question, Radio, ShieldWarning, Stop, Timer, X } from '@phosphor-icons/react';
+import { ClipboardText, Files, HandPalm, PaperPlaneTilt, PencilSimple, Question, Radio, ShieldWarning, Stop, Timer, X } from '@phosphor-icons/react';
 import type { Card, CommandEvents, CommandSnapshot, ContactView, Level, NoticeDraft, PlanView } from '../../shared/protocol';
 import { LEVELS } from '../../shared/protocol';
 import { Button, RiskBand, Simulated } from '../ui';
@@ -136,7 +136,7 @@ export function HeadingBlock(props: { c: ContactView }) {
   );
 }
 
-export function ContactBlock(props: { c: ContactView; onDossier: () => void }) {
+export function ContactBlock(props: { c: ContactView; onDossier: () => void; onReport: () => void }) {
   const c = props.c;
   return (
     <section className="rail-block contact-block" data-testid="contact-block">
@@ -144,6 +144,7 @@ export function ContactBlock(props: { c: ContactView; onDossier: () => void }) {
       <div className="block-title"><span className="t-heading">{c.label}</span><Simulated /></div>
       <p className="t-small c-muted">{withMono(`${c.classification.label}: ${c.classification.detail}. ${c.registry.match ? `Registry match: ${c.registry.match}.` : 'No registry or dive-plan match.'} ${c.registry.pings} ID ping${c.registry.pings === 1 ? '' : 's'}, ${c.registry.reply === 'correct' ? 'correct reply' : 'no reply'}.`)}</p>
       <Button variant="secondary" icon={<Files size={16} />} onClick={props.onDossier} testId="open-dossier">Full dossier: sensor, size, heat, path, risk math</Button>
+      <Button variant="quiet" icon={<ClipboardText size={16} />} onClick={props.onReport} testId="open-report">After-action report</Button>
     </section>
   );
 }

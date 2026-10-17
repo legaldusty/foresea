@@ -27,6 +27,7 @@ import { clockLabel, isNight, minutesLabel, signedMinutes } from './eta';
 import { metersBetween, mpsToKnots, offsetPoint, bearingDeg, compassPoint, type LonLat } from './geo';
 import type * as P from '../shared/protocol';
 import { workLine, pointAlong, stepAlong, seedSightings, type WorkLine } from './tuesday';
+import { buildIncidentReport, type IncidentDelivery, type IncidentRecord } from './incident';
 
 export interface AisInputVessel {
   mmsi: number;
@@ -313,6 +314,7 @@ export class World {
     this.allClearRecent = [];
     this.simMin = mode === 'live' ? laMinutesOfDay(this.wallMs) : mode === 'night' ? 2 * 60 : mode === 'tuesday' ? Math.round(this.settings.tuesday.openHour * 60) : 9 * 60;
     this.sightings = [];
+    this.incidents.clear();
     this.scheduled = [];
     this.tuesdayOpen = false;
     this.gliderSilenced = false;
@@ -353,6 +355,65 @@ export class World {
   }
 
   private aisTrails = new Map<number, { lonlat: LonLat; at: number }[]>();
+  incidents = new Map<string, IncidentRecord>();
+
+  private trackIncidents(): void {
+    const t = this.simMin;
+    for (const c of this.contacts.values()) {
+      const kind = c.classification.kind;
+      if (c.spec.reply === 'friendly' || kind === 'animal') continue;
+      let rec = this.incidents.get(c.id);
+      if (!rec) {
+        rec = {
+          contactId: c.id, label: c.spec.label, simulated: (c.spec.mode as string) !== 'external', source: (c.spec.mode as string) === 'external' ? 'Sensor feed' : 'Simulated',
+          firstSeenMin: c.spec.firstSeenMin, firstPlace: this.placeNear(c.cell),
+          readings: `${c.spec.sizeM.toFixed(1)} m, ${c.spec.speedMps.toFixed(1)} m/s, ${c.spec.heat === 'hot' ? 'hot motor' : c.spec.heat === 'warm' ? 'warm body' : 'cold'}`,
+          classification: c.classification.label, hostility: null, callMin: null, callTarget: null, callOdds: null, callEtaMin: null,
+          peakScore: 0, peakLevel: null, peakAtMin: null, arrivedMin: null, arrivedAt: null, draftedMin: null, publishedMin: null, publishedBy: null,
+          noticeIds: [], instruction: null, clearedMin: null, closedMin: null,
+        };
+        this.incidents.set(c.id, rec);
+      }
+      rec.classification = c.classification.label;
+      rec.hostility = c.hostility?.H ?? rec.hostility;
+      if (c.callGoal !== null && c.callSinceMin !== null) {
+        const tgt = this.h.targets[c.callGoal];
+        const name = tgt.short ?? tgt.name;
+        if (rec.callTarget !== name) { rec.callTarget = name; rec.callMin = c.callSinceMin; rec.callOdds = c.tell.post[c.callGoal]; rec.callEtaMin = etaToGoal(this.h, c, c.callGoal); }
+        if (rec.arrivedMin === null && this.h.fields[c.callGoal][c.cell] <= this.settings.scenarios.arriveCells) { rec.arrivedMin = t; rec.arrivedAt = name; }
+      }
+      if (c.lastRisk && c.lastRisk.R > rec.peakScore) { rec.peakScore = c.lastRisk.R; rec.peakLevel = c.lastRisk.levelName; rec.peakAtMin = t; }
+      const z = this.zones.get(`z-${c.id}`);
+      const d = z?.draftId ? this.drafts.get(z.draftId) : undefined;
+      if (d && rec.draftedMin === null) rec.draftedMin = d.createdAtMin;
+    }
+    for (const rec of this.incidents.values()) {
+      for (const n of this.notices.values()) {
+        if (n.contactId !== rec.contactId) continue;
+        if (!rec.noticeIds.includes(n.id)) rec.noticeIds.push(n.id);
+        if (rec.publishedMin === null) { rec.publishedMin = n.publishedAtMin; rec.publishedBy = n.approvedBy; rec.instruction = n.instructionText; }
+        if (rec.draftedMin === null) rec.draftedMin = n.createdAtMin;
+        if (n.status !== 'active' && rec.clearedMin === null && rec.noticeIds.every((id) => this.notices.get(id)?.status !== 'active')) rec.clearedMin = t;
+      }
+      if (rec.closedMin === null && !this.contacts.has(rec.contactId)) rec.closedMin = t;
+    }
+  }
+
+  incidentList(): P.IncidentSummary[] {
+    return [...this.incidents.values()].map((r) => ({ contactId: r.contactId, label: r.label, status: r.closedMin !== null ? 'closed' : r.clearedMin !== null ? 'all clear' : 'open', detectedLabel: clockLabel(r.firstSeenMin), simulated: r.simulated }));
+  }
+
+  incidentReport(contactId: string): P.IncidentReport | null {
+    const rec = this.incidents.get(contactId);
+    if (!rec) return null;
+    const deliveries: IncidentDelivery[] = [...this.deliveries.values()].map((d) => ({
+      noticeId: d.noticeId, vesselName: d.vesselName, priority: d.priority, simulated: d.simulated, sentMin: d.states.sent ?? null,
+      ackMin: d.states.acknowledged ?? null, notResponding: d.notResponding, vhfCalled: !!(d as { vhfCalled?: boolean }).vhfCalled,
+    }));
+    let delay = 0;
+    for (const id of rec.noticeIds) { const n = this.notices.get(id); if (n) for (const e of n.perVessel.values()) delay += e.addedMin; }
+    return buildIncidentReport({ rec, audit: this.audit, deliveries, delayBoatMin: delay, station: this.station, nowMin: this.simMin });
+  }
 
   private rememberTrail(v: AisInputVessel): void {
     const at = v.reportedAtMs ?? this.wallMs;
@@ -1229,6 +1290,7 @@ export class World {
     this.updateNotices();
     this.updateCards();
     this.runAutoPublish();
+    this.trackIncidents();
     const showMs = this.settings.sim.allClearShowSeconds * 1000;
     this.allClearRecent = this.allClearRecent.filter((a) => wallMs - Date.parse(a.atWall) < showMs);
   }
@@ -2601,6 +2663,7 @@ export class World {
       cardsWaiting: Math.max(0, this.cards.length - 1),
       onTime: [...this.onTimeRows(), ...this.withZoneDelays(extra.aisOnTime ?? [])],
       audit: this.audit.slice(-80).reverse(),
+      incidents: this.incidentList(),
       marineLog: this.marineLog.slice(-30).reverse(),
       orders: this.signedOrders,
       sources: { ...this.sources, ais: { ...this.sources.ais, vessels: this.ais.length } },

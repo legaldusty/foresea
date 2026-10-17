@@ -7,6 +7,7 @@ import { defaultSettings } from '../../engine/settings';
 import { ChartMap, type CalloutSide, type ChartCallout, type ChartData, type ChartHit, type ZoneHandle } from '../map/ChartMap';
 import type { AuditWhere } from '../../shared/protocol';
 import { ZoneInspector } from './ZoneInspector';
+import { IncidentSheet } from './Incident';
 import { describeHit } from './describe';
 import { commandChart } from '../map/toChart';
 import { TopBar } from './TopBar';
@@ -30,6 +31,7 @@ function withoutHidden(data: ChartData, hidden: Set<LayerKey>): ChartData {
   const out: ChartData = { ...data };
   if (hidden.has('forecast')) { out.forecast = EMPTY_FC; out.ticks = EMPTY_FC; }
   if (hidden.has('zones')) { out.zones = EMPTY_FC; out.arrows = EMPTY_FC; }
+  if (hidden.has('sightings')) out.sightings = EMPTY_FC;
   if (hidden.has('routes')) { out.routes = EMPTY_FC; out.paths = EMPTY_FC; }
   if (hidden.has('ais') || hidden.has('boats')) {
     out.vessels = { type: 'FeatureCollection', features: data.vessels.features.filter((f) => {
@@ -85,6 +87,7 @@ export function CommandView() {
   const [highlight, setHighlight] = useState<{ lonlat: [number, number]; radiusM: number | null } | null>(null);
   const [deskCollapsed, setDeskCollapsed] = usePersisted<boolean>('giveway.desk.collapsed', false);
   const [deskTab, setDeskTab] = useState<string>('today');
+  const [reportId, setReportId] = useState<string | null>(null);
   const [hiddenList, setHiddenList] = usePersisted<LayerKey[]>('giveway.layers.hidden', []);
   const hidden = useMemo(() => new Set(hiddenList), [hiddenList.join(',')]);
   const toggleLayer = (k: LayerKey) => setHiddenList(hidden.has(k) ? hiddenList.filter((x) => x !== k) : [...hiddenList, k]);
@@ -197,7 +200,11 @@ export function CommandView() {
             onResize={(zoneId, radiusM) => void hub.send('resizeZone', { zoneId, radiusM })}
             describe={describe}
             highlight={highlight}
-            onSelect={(kind, id) => { setHighlight(null); if (kind === 'contact') { setSelected(id); setInspect({ kind: 'contact', id }); setWhy(false); } else setInspect({ kind, id }); }}
+            onSelect={(kind, id) => {
+              setHighlight(null);
+              if (kind === 'sighting') { setDeskTab('sightings'); setDeskCollapsed(false); const x = snap.sightings.find((s) => s.id === id); if (x) setHighlight({ lonlat: x.lonlat, radiusM: 150 }); return; }
+              if (kind === 'contact') { setSelected(id); setInspect({ kind: 'contact', id }); setWhy(false); } else setInspect({ kind, id });
+            }}
             onPointer={(lonlat) => { if (driven) void hub.send('drive', { contactId: driven.id, lonlat }); }}
             onDrop={onDrop}
             labels={hidden.has('labels') ? [] : [
@@ -237,7 +244,7 @@ export function CommandView() {
           editor={draft ? <NoticeEditor key={draft.id} d={draft} send={hub.send} simMin={snap.clock.simMin} /> : null} />
         {focusNotice ? <DeliveryBlock snap={snap} /> : null}
         {focus && focus.classification.kind !== 'friendly' ? <HeadingBlock c={focus} /> : null}
-        {focus && focus.classification.kind !== 'friendly' ? <ContactBlock c={focus} onDossier={() => { setWhy(false); setInspect({ kind: 'contact', id: focus.id }); }} /> : null}
+        {focus && focus.classification.kind !== 'friendly' ? <ContactBlock c={focus} onDossier={() => { setWhy(false); setInspect({ kind: 'contact', id: focus.id }); }} onReport={() => setReportId(focus.id)} /> : null}
         {(incident ? active.filter((n) => n.kind === 'security') : []).map((n) => <PublishedNotice key={n.id} n={n} snap={snap} send={hub.send} />)}
         {!incident ? (
           <section className="rail-block" data-testid="today-summary">
@@ -258,6 +265,17 @@ export function CommandView() {
             ))}
           </section>
         ) : null}
+        {!incident && snap.incidents.length ? (
+          <section className="rail-block incident-list" data-testid="incident-list">
+            <div className="block-title"><span className="t-heading">Incidents</span><span className="t-small c-muted">After-action reports</span></div>
+            {snap.incidents.slice(-5).reverse().map((i) => (
+              <button key={i.contactId} onClick={() => setReportId(i.contactId)} data-testid={`incident-${i.contactId}`}>
+                <span>{i.label}{i.simulated ? <span className="c-muted">, simulated</span> : null}</span>
+                <span className="when mono">{i.detectedLabel}, {i.status}</span>
+              </button>
+            ))}
+          </section>
+        ) : null}
         {!focus && !snap.card && !active.length ? (
           <div className="rail-empty">
             <span className="t-heading c-text">Nothing unknown in the harbor</span>
@@ -274,6 +292,7 @@ export function CommandView() {
       {sheet === 'orders' ? <OrdersSheet snap={snap} send={hub.send} onClose={() => setSheet(null)} /> : null}
       {sheet === 'join' ? <JoinSheet snap={snap} onClose={() => setSheet(null)} /> : null}
       {sheet === 'models' ? <ModelsPanel models={snap.models} onClose={() => setSheet(null)} /> : null}
+      {reportId ? <IncidentSheet contactId={reportId} onClose={() => setReportId(null)} /> : null}
     </div>
   );
 }

@@ -60,7 +60,7 @@ export function contactState(c: ContactView): string {
   return c.risk.level.toLowerCase();
 }
 
-const BLANK: ChartData = { zones: EMPTY, paths: EMPTY, routes: EMPTY, vessels: EMPTY, contacts: EMPTY, arrows: EMPTY, you: EMPTY, forecast: EMPTY, ticks: EMPTY, trails: EMPTY };
+const BLANK: ChartData = { zones: EMPTY, paths: EMPTY, routes: EMPTY, vessels: EMPTY, contacts: EMPTY, arrows: EMPTY, you: EMPTY, forecast: EMPTY, ticks: EMPTY, trails: EMPTY, sightings: EMPTY };
 
 export function commandChart(s: CommandSnapshot | null, selectedId: string | null, forecasts: ForecastView[] = []): ChartData {
   if (!s) return BLANK;
@@ -110,6 +110,7 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
     you: EMPTY,
     forecast: fc(forecast),
     ticks: fc(ticks),
+    sightings: fc(s.sightings.filter((x) => x.dayOffset === 0).map((x) => ({ type: 'Feature', properties: { id: x.id, species: x.species, status: x.status }, geometry: { type: 'Point', coordinates: x.lonlat } }))),
     trails: fc(s.vessels.filter((v) => v.trail && v.trail.length > 1).map((v) => ({ type: 'Feature', properties: { id: v.id }, geometry: { type: 'LineString', coordinates: [...(v.trail as LonLat[]), v.lonlat] } }))),
   };
 }
@@ -150,6 +151,6 @@ export function captainChart(s: CaptainSnapshot | null, extrapolateMin: number, 
   const paths: F[] = v && extras.spot ? [{ type: 'Feature', properties: { kind: 'track' }, geometry: { type: 'LineString', coordinates: [v.lonlat, extras.spot] } }] : [];
   return {
     zones: fc(zoneFeatures(zones)), paths: fc(paths), routes: fc(routes), vessels: fc(vessels), contacts: fc(contacts),
-    arrows: fc(arrowFeatures(zones)), you: fc(you), forecast: fc(forecast), ticks: fc(ticks), trails: EMPTY,
+    arrows: fc(arrowFeatures(zones)), you: fc(you), forecast: fc(forecast), ticks: fc(ticks), trails: EMPTY, sightings: EMPTY,
   };
 }

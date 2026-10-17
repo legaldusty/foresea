@@ -59,10 +59,11 @@ export function DeskTools(props: { tool: Tool; setTool: (t: Tool) => void; onDiv
   );
 }
 
-export type LayerKey = 'forecast' | 'zones' | 'routes' | 'ais' | 'boats' | 'labels' | 'callouts';
+export type LayerKey = 'forecast' | 'zones' | 'sightings' | 'routes' | 'ais' | 'boats' | 'labels' | 'callouts';
 export const LAYERS: { key: LayerKey; label: string }[] = [
   { key: 'forecast', label: 'Forecast areas and time marks' },
   { key: 'zones', label: 'Zones and notices' },
+  { key: 'sightings', label: 'Marine life and debris sightings' },
   { key: 'routes', label: 'Boat routes and new plans' },
   { key: 'ais', label: 'Real ships from AIS' },
   { key: 'boats', label: 'Simulated boats' },

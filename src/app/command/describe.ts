@@ -66,6 +66,19 @@ export function describeHit(snap: CommandSnapshot, hit: ChartHit): { title: stri
       ],
     };
   }
+  if (hit.kind === 'sighting') {
+    const x = snap.sightings.find((s) => s.id === hit.id);
+    if (!x) return null;
+    const name = x.species.charAt(0).toUpperCase() + x.species.slice(1);
+    return {
+      title: `${name} sighting`,
+      lines: [
+        `${x.status === 'confirmed' ? 'Confirmed' : 'Reported, not confirmed yet'}. ${clockOf(x.atMin)}, from ${x.reporter} (${x.source})`,
+        x.note ? x.note : x.species === 'whale' ? 'Large ships slow inside the whale zone' : 'Logged in Marine life',
+        x.simulated ? 'Simulated' : 'Reported by a person',
+      ],
+    };
+  }
   if (hit.kind === 'tick') {
     return { title: `Expected here at ${hit.layer ?? ''}`, lines: ['Where the contact should be at that time if it keeps its course'] };
   }

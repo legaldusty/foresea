@@ -409,3 +409,27 @@ describe('boats react to a published warning', () => {
     expect(slowedInside).toBeGreaterThan(0);
   });
 });
+
+describe('after-action report', () => {
+  it('records the call, the notice, the boats and the all clear for an incident', () => {
+    const w = freshWorld('night');
+    for (const id of ['launch1', 'water1']) w.captainJoin(id);
+    const id = driveToFuel(w);
+    runUntil(w, () => w.drafts.size > 0);
+    runUntil(w, () => w.contacts.get(id)!.callGoal !== null, 2000);
+    const noticeId = w.publish([...w.drafts.keys()][0])!;
+    runUntil(w, () => false, 200);
+    w.clearNotice(noticeId, 'officer');
+    runUntil(w, () => false, 4);
+    const r = w.incidentReport(id)!;
+    expect(r.call?.target).toBeTruthy();
+    expect(r.notice?.publishedLabel).toBeTruthy();
+    expect(r.notice?.afterDetectionMin).toBeGreaterThan(0);
+    expect(r.boats.told).toBeGreaterThan(0);
+    expect(r.allClearLabel).toBeTruthy();
+    expect(r.gatesClosed).toBe(0);
+    expect(r.machineDid).toContain('New contact');
+    expect(r.peopleDid).toContain('Published');
+    expect(w.commandSnapshot().incidents.some((i) => i.contactId === id)).toBe(true);
+  });
+});

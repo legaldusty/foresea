@@ -27,6 +27,7 @@ export interface ChartData {
   forecast: GeoJSON.FeatureCollection;
   ticks: GeoJSON.FeatureCollection;
   trails: GeoJSON.FeatureCollection;
+  sightings: GeoJSON.FeatureCollection;
 }
 
 export const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
@@ -51,7 +52,7 @@ export interface ChartMapProps {
   follow?: LonLat | null;
   fitTo?: LonLat[] | null;
   interactive?: boolean;
-  onSelect?: (kind: 'vessel' | 'contact' | 'zone', id: string) => void;
+  onSelect?: (kind: 'vessel' | 'contact' | 'zone' | 'sighting', id: string) => void;
   describe?: (hit: ChartHit) => { title: string; lines: string[] } | null;
   highlight?: { lonlat: LonLat; radiusM: number | null } | null;
   onPointer?: (lonlat: LonLat) => void;
@@ -69,15 +70,16 @@ export interface ChartMapProps {
 
 export interface ZoneHandle { id: string; center: LonLat; radiusM: number; label: string }
 
-export interface ChartHit { kind: 'vessel' | 'contact' | 'zone' | 'forecast' | 'tick'; id: string; layer?: string }
+export interface ChartHit { kind: 'vessel' | 'contact' | 'zone' | 'forecast' | 'tick' | 'sighting'; id: string; layer?: string }
 
-const HIT_LAYERS = ['contacts', 'vessels', 'tick-rings', 'zone-fill-keepout', 'zone-fill-slow', 'fc-likely-fill-a', 'fc-likely-fill-b', 'fc-careful-fill-a', 'fc-careful-fill-b'];
+const HIT_LAYERS = ['contacts', 'vessels', 'sightings', 'tick-rings', 'zone-fill-keepout', 'zone-fill-slow', 'fc-likely-fill-a', 'fc-likely-fill-b', 'fc-careful-fill-a', 'fc-careful-fill-b'];
 
 function hitOf(f: maplibregl.MapGeoJSONFeature): ChartHit | null {
   const p = (f.properties ?? {}) as Record<string, unknown>;
   const layer = f.layer.id;
   if (layer === 'contacts') return { kind: 'contact', id: String(p.id) };
   if (layer === 'vessels') return { kind: 'vessel', id: String(p.id) };
+  if (layer === 'sightings') return { kind: 'sighting', id: String(p.id) };
   if (layer === 'tick-rings') return { kind: 'tick', id: String(p.id), layer: String(p.label ?? '') };
   if (layer.startsWith('zone-fill')) return { kind: 'zone', id: String(p.id) };
   if (layer.startsWith('fc-')) return { kind: 'forecast', id: String(p.owner), layer: String(p.layer) };
@@ -107,7 +109,7 @@ function ringAround(center: LonLat, meters: number): GeoJSON.FeatureCollection {
   return { type: 'FeatureCollection', features: [{ type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: pts } }] };
 }
 
-const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you', 'ticks', 'trails'];
+const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you', 'ticks', 'trails', 'sightings'];
 const FADE_MS = 400;
 const FORECAST_OPACITY = { carefulFill: 0.22, carefulEdge: 1, likelyFill: 0.38, likelyEdge: 1 };
 const FORECAST_SIDES = ['a', 'b'] as const;
@@ -132,7 +134,7 @@ function showForecast(map: MLMap, side: Side, on: boolean): void {
   map.setPaintProperty(`fc-likely-edge-${side}`, 'line-opacity', on ? FORECAST_OPACITY.likelyEdge : 0);
 }
 const MOTION_SOURCES: (keyof ChartData)[] = ['vessels', 'contacts', 'you'];
-const STATIC_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'arrows', 'ticks', 'trails'];
+const STATIC_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'arrows', 'ticks', 'trails', 'sightings'];
 const FRAMES_KEPT = 4;
 const EXTRAPOLATE_MAX = 2;
 
@@ -217,6 +219,8 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
       { id: 'tick-rings', type: 'circle', source: 'ticks', paint: { 'circle-radius': 4, 'circle-color': c.bg, 'circle-stroke-width': 1.5, 'circle-stroke-color': c.text } },
       { id: 'arrows-line', type: 'line', source: 'arrows', paint: { 'line-color': ['case', ['==', ['get', 'kind'], 'slow'], c.riskMedium, c.riskHigh], 'line-width': 1.4, 'line-dasharray': [2, 1.6] } },
       { id: 'arrows-head', type: 'symbol', source: 'arrows', filter: ['==', ['geometry-type'], 'Point'], layout: { 'icon-image': ['case', ['==', ['get', 'kind'], 'slow'], 'arrow-slow', 'arrow-keepout'], 'icon-rotate': ['get', 'bearing'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-size': 0.5 } },
+      { id: 'sightings-ring', type: 'circle', source: 'sightings', paint: { 'circle-radius': 13, 'circle-color': 'rgba(0,0,0,0)', 'circle-stroke-width': 1.5, 'circle-stroke-color': ['case', ['==', ['get', 'status'], 'confirmed'], c.riskMedium, c.landEdge] } },
+      { id: 'sightings', type: 'symbol', source: 'sightings', layout: { 'icon-image': ['case', ['in', ['get', 'species'], ['literal', ['debris', 'hazard']]], 'symbol-robot', 'symbol-animal'], 'icon-size': 0.75, 'icon-allow-overlap': true, 'icon-ignore-placement': true }, paint: { 'icon-opacity': ['case', ['==', ['get', 'status'], 'confirmed'], 1, 0.7] } },
       { id: 'trails', type: 'line', source: 'trails', layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.landEdge, 'line-width': ['interpolate', ['linear'], ['zoom'], 11, 1, 15, 2], 'line-opacity': night ? 0.75 : 0.6, 'line-dasharray': [1, 1.5] } },
       { id: 'vessels', type: 'symbol', source: 'vessels', layout: {
         'icon-image': ['coalesce', ['image', ['concat', 'v-', ['get', 'type']]], ['image', 'v-other']],
@@ -353,6 +357,7 @@ export function ChartMap(props: ChartMapProps) {
       const hits = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((l) => map.getLayer(l)) }).map(hitOf).filter((h): h is ChartHit => h !== null);
       const hit = hits.find((h) => h.kind === 'contact') ?? hits.find((h) => h.kind === 'vessel') ?? hits.find((h) => h.kind === 'zone') ?? hits.find((h) => h.kind === 'forecast');
       if (hit) p.onSelect?.(hit.kind === 'forecast' ? 'contact' : hit.kind === 'tick' ? 'contact' : hit.kind, hit.kind === 'tick' ? hit.id.split(':')[0] : hit.id);
+      else { const s = hits.find((h) => h.kind === 'sighting'); if (s) p.onSelect?.('sighting', s.id); }
     });
     const tip = document.createElement('div');
     tip.className = 'chart-tip';
@@ -368,7 +373,7 @@ export function ChartMap(props: ChartMapProps) {
         if (!p.describe || p.mode === 'drive' || p.compact) { tip.hidden = true; return; }
         const box: [maplibregl.PointLike, maplibregl.PointLike] = [[e.point.x - 4, e.point.y - 4], [e.point.x + 4, e.point.y + 4]];
         const hits = map.queryRenderedFeatures(box, { layers: HIT_LAYERS.filter((l) => map.getLayer(l)) }).map(hitOf).filter((h): h is ChartHit => h !== null);
-        const order: ChartHit['kind'][] = ['contact', 'vessel', 'tick', 'zone', 'forecast'];
+        const order: ChartHit['kind'][] = ['contact', 'vessel', 'sighting', 'tick', 'zone', 'forecast'];
         const hit = order.map((k) => hits.find((h) => h.kind === k)).find(Boolean);
         const text = hit ? p.describe(hit) : null;
         if (!text) { tip.hidden = true; map.getCanvas().style.cursor = p.mode === 'drop' ? 'crosshair' : ''; return; }
