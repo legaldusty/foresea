@@ -16,19 +16,41 @@ function which(bin: string): boolean {
   return spawnSync('which', [bin], { encoding: 'utf8' }).status === 0;
 }
 
-async function startTunnel(): Promise<string | null> {
-  if (!which('cloudflared')) { console.log('Tunnel skipped: cloudflared is not installed (brew install cloudflared).'); return null; }
+const TUNNEL_WAIT_MS = 45_000;
+const TUNNEL_TRIES = 2;
+
+function tryTunnel(): Promise<{ url: string | null; log: string }> {
   const child = spawn('cloudflared', ['tunnel', '--no-autoupdate', '--url', `http://localhost:${PORT}`], { stdio: ['ignore', 'pipe', 'pipe'] });
-  children.push(child);
+  let log = '';
   return new Promise((resolve) => {
-    const timer = setTimeout(() => resolve(null), 20_000);
+    const finish = (url: string | null) => {
+      clearTimeout(timer);
+      if (url) children.push(child); else child.kill('SIGTERM');
+      resolve({ url, log });
+    };
+    const timer = setTimeout(() => finish(null), TUNNEL_WAIT_MS);
     const scan = (buf: Buffer) => {
-      const m = /https:\/\/[a-z0-9]+(?:-[a-z0-9]+)+\.trycloudflare\.com/.exec(buf.toString());
-      if (m) { clearTimeout(timer); resolve(m[0]); }
+      log += buf.toString();
+      const m = /https:\/\/[a-z0-9-]+\.trycloudflare\.com/.exec(log);
+      if (m) finish(m[0]);
     };
     child.stdout?.on('data', scan);
     child.stderr?.on('data', scan);
+    child.on('exit', () => finish(null));
   });
+}
+
+async function startTunnel(): Promise<string | null> {
+  if (!which('cloudflared')) { console.log('Tunnel skipped: cloudflared is not installed (brew install cloudflared).'); return null; }
+  for (let attempt = 1; attempt <= TUNNEL_TRIES; attempt++) {
+    console.log(`Starting the Cloudflare tunnel (try ${attempt} of ${TUNNEL_TRIES})...`);
+    const { url, log } = await tryTunnel();
+    if (url) { console.log(`Tunnel up: ${url}`); return url; }
+    const errors = log.split('\n').filter((l) => / ERR | WRN |error|failed/i.test(l)).slice(-4);
+    console.log(`No tunnel URL within ${TUNNEL_WAIT_MS / 1000} s.${errors.length ? `\n${errors.join('\n')}` : ''}`);
+  }
+  console.log('Tunnel failed. Phones must use the LAN address below and be on the same network as this laptop.');
+  return null;
 }
 
 async function waitForHub(): Promise<boolean> {
