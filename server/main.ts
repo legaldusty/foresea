@@ -16,7 +16,7 @@ import { clockLabel } from '../src/engine/eta';
 import type { CommandEvents, CaptainEvents, OnTimeRow } from '../src/shared/protocol';
 import { openAuditLog } from './audit';
 import { createPushService } from './push';
-import { createLanguageModel } from './llm';
+import { createLanguageModel, readTypedOrder } from './llm';
 import { createSmsService } from './sms';
 import { joinUrls, lanAddresses } from './net';
 import { createAisFeed, type FeedMode } from './ais/live';
@@ -167,8 +167,7 @@ app.get('/api/report.csv', (_req, res) => {
   res.send(rows.map((row) => row.map((v) => (/[",]/.test(String(v)) ? `"${String(v).replace(/"/g, '""')}"` : String(v))).join(',')).join('\n'));
 });
 app.post('/api/orders/draft', async (req, res) => {
-  const rule = await language.draftOrder(String(req.body?.text ?? '').slice(0, 400));
-  res.json({ rule, source: rule ? 'granite' : 'none' });
+  res.json(await readTypedOrder(String(req.body?.text ?? ''), settings, world.signedOrders.orders, language));
 });
 
 const httpServer = http.createServer(app);

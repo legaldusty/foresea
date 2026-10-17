@@ -398,3 +398,15 @@ body.dragging { user-select: none; cursor: grabbing; }
 .watch-row.anomalous { box-shadow: inset 3px 0 0 var(--risk-serious); }
 .watch-row .mono { text-align: right; font: var(--type-data); }
 .watch-row .why { grid-column: 1 / -1; font: var(--type-small); color: var(--muted); }
+
+.orders-custom { display: flex; flex-direction: column; border-bottom: 1px solid var(--line); }
+.orders-custom > .t-heading { padding-bottom: var(--space-12); }
+.order.custom { grid-template-columns: 244px 1fr auto; align-items: start; }
+.order-title-block { display: flex; flex-direction: column; gap: var(--space-4); }
+.custom-sentence { display: flex; flex-direction: column; gap: var(--space-4); }
+.order-type-row { display: flex; gap: var(--space-12); }
+.order-type-row > .box { flex: 1; }
+.order-read-out { display: flex; flex-direction: column; gap: var(--space-8); }
+.order.typed { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: var(--space-12) 0; }
+.order.typed .blank .box select.words { font: var(--type-body-strong); }
+.order.typed .sentence .btn { vertical-align: middle; }
