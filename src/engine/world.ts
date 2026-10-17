@@ -1821,7 +1821,7 @@ export class World {
   private raiseCard(key: string, card: Omit<P.Card, 'id' | 'createdAtMin' | 'realerts' | 'backupCalled'>): void {
     if (this.dismissed.has(key)) return;
     const existing = this.cards.find((k) => k.key === key);
-    if (existing) { existing.body = card.body; existing.facts = card.facts; existing.script = card.script ?? existing.script; existing.title = card.title; existing.actions = card.actions; return; }
+    if (existing) { existing.body = card.body; existing.facts = card.facts; existing.script = card.kind === 'publish' ? card.script : card.script ?? existing.script; existing.title = card.title; existing.actions = card.actions; return; }
     this.cards.push({ ...card, id: this.id('card'), key, createdAtMin: this.simMin, realerts: 0, backupCalled: false, lastAlertMin: this.simMin, rank: CARD_RANK[card.kind], shownAtWall: this.wallMs, lastAlertWall: this.wallMs });
     this.cards.sort((a, b) => a.rank - b.rank || a.createdAtMin - b.createdAtMin);
     this.log('machine', 'Card raised', card.title);

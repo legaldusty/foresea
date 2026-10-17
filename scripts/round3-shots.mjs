@@ -32,7 +32,7 @@ if (draft) await send('publish', { draftId: draft.id });
 await sleep(4000);
 await desk.screenshot({ path: `${OUT}/4-night-published.png` });
 await phone.screenshot({ path: `${OUT}/5-phone-judge.png` });
-await desk.getByRole('button', { name: 'Day' }).click().catch(() => undefined);
+await desk.keyboard.press('p'); await desk.getByTestId('theme').click().catch(() => undefined); await desk.keyboard.press('p');
 await sleep(2500);
 await desk.screenshot({ path: `${OUT}/6-day-theme-published.png` });
 

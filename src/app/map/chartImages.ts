@@ -106,6 +106,22 @@ function you(map: MLMap, color: string, edge: string): void {
   add(map, 'you', c);
 }
 
+const YOU_ICON_SIZE = 0.6;
+const OWN_BOAT_FRAME = { width: 60, height: 76.25, hullCenterX: 30, hullCenterY: 46.25 };
+
+async function ownBoat(map: MLMap, colors: ChartColors, el: Element): Promise<void> {
+  add(map, 'diamond-you', canvas(2)[0]);
+  const img = await svgImage('/icons/your-boat.svg', {}, el);
+  if (!img) { you(map, colors.you, colors.bg); return; }
+  const k = 1 / YOU_ICON_SIZE;
+  const size = Math.ceil(2 * OWN_BOAT_FRAME.hullCenterY * k) + 2;
+  const [c, ctx] = canvas(size);
+  const dx = size / 2 - OWN_BOAT_FRAME.hullCenterX * k;
+  const dy = size / 2 - OWN_BOAT_FRAME.hullCenterY * k;
+  ctx.drawImage(img, dx, dy, OWN_BOAT_FRAME.width * k, OWN_BOAT_FRAME.height * k);
+  add(map, 'you', c);
+}
+
 function ring(map: MLMap, id: string, color: string): void {
   const size = 40;
   const [c, ctx] = canvas(size);
@@ -169,5 +185,29 @@ export async function loadChartImages(map: MLMap, colors: ChartColors, el: Eleme
   diamond(map, 'diamond-person', colors.riskHigh, null, false, bg);
   you(map, colors.you, colors.bg);
   ring(map, 'ring-alert', colors.riskHigh);
-  await Promise.all(SILHOUETTES.map((k) => vessel(map, k, colors, el)));
+  await Promise.all([...SILHOUETTES.map((k) => vessel(map, k, colors, el)), ownBoat(map, colors, el)]);
+}
+
+async function symbol(map: MLMap, id: string, file: string, size: number, recolor: Record<string, string>, el: Element): Promise<void> {
+  const img = await svgImage(`/icons/symbols/${file}.svg`, recolor, el);
+  if (!img) return;
+  const [c, ctx] = canvas(size);
+  const scale = Math.min(size / img.width, size / img.height);
+  const dw = img.width * scale, dh = img.height * scale;
+  ctx.drawImage(img, (size - dw) / 2, (size - dh) / 2, dw, dh);
+  add(map, id, c);
+}
+
+export const DRONE_LEVELS = ['unknown', 'low', 'medium', 'serious', 'high', 'critical'] as const;
+
+export async function loadSymbolImages(map: MLMap, colors: ChartColors, el: Element = document.documentElement): Promise<void> {
+  const tone: Record<(typeof DRONE_LEVELS)[number], string> = {
+    unknown: colors.muted, low: colors.riskLow, medium: colors.riskMedium, serious: colors.riskSerious, high: colors.riskHigh, critical: colors.riskCritical,
+  };
+  await Promise.all([
+    ...DRONE_LEVELS.map((level) => symbol(map, `drone-${level}`, 'drone', 32, { '#D83A34': tone[level], '#d83a34': tone[level] }, el)),
+    symbol(map, 'symbol-robot', 'robot', 24, {}, el),
+    symbol(map, 'symbol-animal', 'animal', 24, {}, el),
+    symbol(map, 'symbol-ring', 'ring', 44, {}, el),
+  ]);
 }

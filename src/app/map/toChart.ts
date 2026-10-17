@@ -42,6 +42,13 @@ function arrowFeatures(zones: { id: string; kind: string; centerline: LonLat[]; 
   return out;
 }
 
+function contactSymbol(c: ContactView, state: string): string | null {
+  if (c.registry.match && (state === 'friendly' || state === 'debris')) return 'symbol-robot';
+  if (state === 'animal') return 'symbol-animal';
+  if (c.classification.kind === 'powered' || c.classification.kind === 'unknown') return `drone-${c.risk ? c.risk.level.toLowerCase() : 'unknown'}`;
+  return null;
+}
+
 export function contactState(c: ContactView): string {
   switch (c.classification.kind) {
     case 'friendly': return 'friendly';
@@ -84,10 +91,13 @@ export function commandChart(s: CommandSnapshot | null, selectedId: string | nul
     },
     geometry: { type: 'Point', coordinates: v.lonlat },
   }));
-  const contacts: F[] = s.contacts.map((c) => ({
-    type: 'Feature', properties: { id: c.id, state: contactState(c), selected: c.id === selectedId },
-    geometry: { type: 'Point', coordinates: c.lonlat },
-  }));
+  const contacts: F[] = s.contacts.map((c) => {
+    const state = contactState(c);
+    const props: Record<string, unknown> = { id: c.id, state, selected: c.id === selectedId, heading: c.headingDeg };
+    const sym = contactSymbol(c, state);
+    if (sym) props.symbol = sym;
+    return { type: 'Feature', properties: props, geometry: { type: 'Point', coordinates: c.lonlat } };
+  });
   return {
     zones: fc(zoneFeatures(s.zones.map((z) => ({ ...z, area: !!z.area })))),
     paths: fc(paths),

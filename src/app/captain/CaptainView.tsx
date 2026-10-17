@@ -1,39 +1,33 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Broadcast, CheckCircle, Clock, Export, Moon, NavigationArrow, Path, SealCheck, Sun, Translate, WifiSlash, X } from '@phosphor-icons/react';
-import type { CaptainNotice, CaptainSnapshot } from '../../shared/protocol';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+import { Export } from '@phosphor-icons/react';
+import '@fontsource/ibm-plex-sans/700.css';
+import '@fontsource/ibm-plex-mono/600.css';
+import type { CaptainSnapshot } from '../../shared/protocol';
 import { useCaptainHub } from '../hub/useHub';
 import { ChartMap, type ChartData } from '../map/ChartMap';
-import { captainChart } from '../map/toChart';
-import { Button, PriorityBand } from '../ui';
+import { captainChart, YOU_TAG_ID } from '../map/toChart';
+import { Button } from '../ui';
 import { Lockup } from '../command/TopBar';
 import { alertTone, buzz, enablePush, keepAwake, primeSound, pushState, registerWorker, secureEnough } from './device';
-import { ago } from '../format';
-import type { LonLat } from '../../engine/geo';
+import { AllClearCard, Banner, NoticeCard, Takeover } from './alerts';
+import { Legend, MapControls, OfflineLine, TopBar } from './parts';
+import { LanguageScreen, NoticesScreen, TodaySheet } from './screens';
+import { ReportFlow } from './report';
+import { boatBox, framePoints } from './frame';
+import { snapshotAt } from './timing';
+import { useLanguage } from './words';
 import '../../styles/captain.css';
 
-const LANGS: Record<string, string> = { es: 'Español', zh: '中文', ko: '한국어', tl: 'Tagalog', vi: 'Tiếng Việt' };
 const STALE_MS = 20_000;
 const ALL_CLEAR_SHOW_MS = 60_000;
+const MAP_PADDING = { top: 48, right: 64, bottom: 40, left: 40 };
+
+type Screen = 'main' | 'notices' | 'language' | 'report';
 
 function useNow(ms: number): number {
   const [now, setNow] = useState(Date.now());
   useEffect(() => { const t = setInterval(() => setNow(Date.now()), ms); return () => clearInterval(t); }, [ms]);
   return now;
-}
-
-function headline(n: CaptainNotice): string {
-  if (!n.place) return n.publicReason;
-  return /nearby$/i.test(n.publicReason) ? n.publicReason.replace(/nearby$/i, `near ${n.place}`) : `${n.publicReason} near ${n.place}`;
-}
-
-function routeNote(n: CaptainNotice): string {
-  const around = n.kind === 'whale' ? 'the whale' : n.kind === 'divers' ? 'the divers' : 'the zone';
-  const cost = n.addedMin >= 0.5 ? ` +${Math.round(n.addedMin)} min.` : '';
-  return n.rerouted ? `Your new route bends around ${around}.${cost}` : `${n.instructionText.charAt(0)}${n.instructionText.slice(1).toLowerCase()} until it is lifted.`;
-}
-
-function zonePoints(n: CaptainNotice): LonLat[] {
-  return n.zone.rings.flatMap((poly) => poly[0] ?? []);
 }
 
 function Join(props: { vesselName: string | null; onJoin: () => void; joining: boolean; alerts: boolean; onAlerts: () => void; data: ChartData }) {
@@ -64,146 +58,28 @@ function Join(props: { vesselName: string | null; onJoin: () => void; joining: b
   );
 }
 
-function Takeover(props: { n: CaptainNotice; theme: 'day' | 'night'; you: LonLat | null; data: ChartData; onGotIt: () => void }) {
-  const n = props.n;
-  const fit = useMemo(() => [...zonePoints(n), ...(props.you ? [props.you] : [])], [n.id, props.you?.[0], props.you?.[1]]);
-  const km = n.distanceM !== null && n.distanceM >= 1000;
-  const distance = n.distanceM === null ? 'n/a' : n.distanceM === 0 ? 'inside' : km ? (n.distanceM / 1000).toFixed(1) : String(Math.round(n.distanceM / 10) * 10);
-  const distUnit = n.distanceM === null || n.distanceM === 0 ? '' : km ? 'km' : 'm';
-  const time = n.minutesToZone === null ? 'n/a' : n.minutesToZone < 1 ? 'now' : String(Math.round(n.minutesToZone));
-  return (
-    <div className="cap-take" data-testid="takeover">
-      <PriorityBand priority="P1" />
-      <div className="content">
-        <div className="cap-instruction" data-testid="takeover-instruction">{n.instructionText}</div>
-        <div className="title-block">
-          <span className="t-heading">{n.publicReason}</span>
-          <span className="t-body c-muted">{n.relative ?? n.detail}</span>
-        </div>
-        <div className="mini"><ChartMap theme={props.theme} compact showLabels={false} interactive={false} data={props.data} fitTo={fit} padding={{ top: 30, right: 30, bottom: 30, left: 30 }} /></div>
-        <div className="nums">
-          <div className="title-block"><span className="t-small c-muted">Distance to zone</span><span className="val"><span className="t-data-xl">{distance}</span><span className="unit">{distUnit}</span></span></div>
-          <div className="title-block"><span className="t-small c-muted">Time to zone</span><span className="val"><span className="t-data-xl">{time}</span><span className="unit">{time !== 'now' && time !== 'n/a' ? 'min' : ''}</span></span></div>
-        </div>
-        <span className="t-small c-muted">Valid until <span className="t-mono-small">{n.validUntilLabel}</span> or All clear. Approved by {n.approvedBy}.</span>
-      </div>
-      <div className="foot"><Button variant="primary" size="l" block onClick={props.onGotIt} testId="got-it">Got it</Button></div>
-    </div>
-  );
-}
-
-function Detail(props: { n: CaptainNotice; onGotIt: () => void }) {
-  const n = props.n;
-  return (
-    <>
-      <PriorityBand priority={n.priority} />
-      <div className="inner">
-        <div className="title-block">
-          <span className="cap-instruction">{n.instructionText}</span>
-          <span className="t-heading">{headline(n)}</span>
-          <span className="t-body c-muted">{n.relative ?? n.detail}</span>
-        </div>
-        <div className="divider" />
-        <div className="cap-facts">
-          <span className="cap-fact"><Clock size={20} /><span>Valid until <span className="t-data">{n.validUntilLabel}</span> or All clear</span></span>
-          <span className="cap-fact"><SealCheck size={20} /><span>Approved by {n.approvedBy}</span></span>
-        </div>
-        <div className="divider" />
-        <div className="cap-tr">
-          <span className="cap-fact"><Translate size={20} /><span className="t-strong">Translations</span></span>
-          {Object.entries(n.translations).map(([lang, text]) => (
-            <div className="row" key={lang}><span className="lang">{LANGS[lang] ?? lang}</span><span className="text">{text}</span></div>
-          ))}
-        </div>
-        {!n.acknowledged ? <Button variant="primary" size="l" block onClick={props.onGotIt} testId="got-it">Got it</Button> : null}
-      </div>
-      {n.acknowledged ? <div className="cap-ack"><CheckCircle size={24} /><span>Acknowledged at <span className="t-data">{n.acknowledgedAtLabel}</span></span></div> : null}
-    </>
-  );
-}
-
-function Strip(props: { name: string; speedKn: number | null; stale: boolean; onPick: () => void }) {
-  return (
-    <div className="cap-strip">
-      <div className="who" onClick={props.onPick} role="button" tabIndex={0} aria-label="Change boat"><b>{props.name}</b>{props.speedKn !== null ? <span className="t-mono-small">{props.speedKn.toFixed(1)} kn</span> : null}<span className="simulated">Simulated</span></div>
-      {props.stale ? null : <span className="live"><Broadcast size={14} />Live</span>}
-    </div>
-  );
-}
-
 type Clear = CaptainSnapshot['allClear'][number];
-
-function Sheet(props: { snap: CaptainSnapshot | null; notices: CaptainNotice[]; banner: CaptainNotice | null; clear: Clear | null; stale: boolean; open: (id: string) => void; gotIt: (id: string) => void }) {
-  const { snap, notices, banner, clear, stale } = props;
-  if (clear && !notices.length) {
-    return (
-      <div className="inner" data-testid="all-clear-banner">
-        <span className="cap-fact"><CheckCircle size={24} /><span className="cap-clear-title">ALL CLEAR</span></span>
-        <span className="t-body">{clear.publicReason} lifted. Resume normal navigation.</span>
-        <div className="cap-facts">
-          <span className="cap-fact"><Clock size={20} /><span>All clear at <span className="t-data">{clear.atLabel}</span></span></span>
-          <span className="cap-fact"><SealCheck size={20} /><span>Approved by {clear.approvedBy}</span></span>
-        </div>
-      </div>
-    );
-  }
-  if (stale && notices.length) {
-    const n = notices[0];
-    return (
-      <>
-        <PriorityBand priority={n.priority} />
-        <div className="inner">
-          <div className="title-block"><span className="cap-instruction">{n.instructionText}</span><span className="t-heading">{headline(n)}</span></div>
-          <span className="t-small c-muted">Valid until <span className="t-mono-small">{n.validUntilLabel}</span> or All clear.{n.acknowledgedAtLabel ? <> Acknowledged at <span className="t-mono-small">{n.acknowledgedAtLabel}</span>.</> : null}</span>
-        </div>
-      </>
-    );
-  }
-  if (banner) {
-    return (
-      <div className="inner">
-        <span className="cap-fact"><Path size={20} /><span>{routeNote(banner)}</span></span>
-        <Button variant="primary" size="l" block onClick={() => props.gotIt(banner.id)} testId="got-it">Got it</Button>
-      </div>
-    );
-  }
-  if (!notices.length) {
-    return (
-      <div className="inner">
-        <span className="cap-fact"><CheckCircle size={20} /><span className="sub"><span className="t-strong">No notices on your route</span><span className="t-small">{snap?.lastAllClearLabel ? `Last notice: All clear at ${snap.lastAllClearLabel}` : snap?.vessel?.newRoute ? 'Following your new route.' : 'Your route is clear.'}</span></span></span>
-      </div>
-    );
-  }
-  return (
-    <div className="inner">
-      <div className="cap-list">
-        {notices.map((n) => (
-          <button key={n.id} className="cap-item" onClick={() => props.open(n.id)} data-testid={`notice-${n.priority}`}>
-            <span className="title-block"><span className="t-strong">{n.instructionText}</span><span className="t-small c-muted">{n.publicReason}. {n.detail}</span></span>
-            <span className="t-data">{n.acknowledged ? 'Got it' : n.priority}</span>
-          </button>
-        ))}
-      </div>
-    </div>
-  );
-}
 
 export function CaptainView() {
   const params = new URLSearchParams(location.search);
   const requested = params.get('v');
   const hub = useCaptainHub(requested);
-  const now = useNow(5000);
+  const now = useNow(1000);
+  const [lang, setLang] = useLanguage();
   const [joining, setJoining] = useState(false);
   const [alertsOn, setAlertsOn] = useState(pushState() === 'on');
   const [names, setNames] = useState<Record<string, string>>({});
-  const [openId, setOpenId] = useState<string | null>(null);
+  const [focusId, setFocusId] = useState<string | null>(params.get('notice'));
+  const [screen, setScreen] = useState<Screen>('main');
   const [themeChoice, setThemeChoice] = useState<'day' | 'night' | null>(params.get('theme') === 'night' ? 'night' : params.get('theme') === 'day' ? 'day' : null);
-  const [recenter, setRecenter] = useState(0);
+  const [centerTick, setCenterTick] = useState(0);
+  const [boatMode, setBoatMode] = useState(false);
   const [picking, setPicking] = useState(false);
   const alerted = useRef(new Map<string, string>());
   const seen = useRef(new Set<string>());
   const snap = hub.snapshot;
   const theme: 'day' | 'night' = themeChoice ?? (snap?.clock.night ? 'night' : 'day');
+  const toggleTheme = () => setThemeChoice(theme === 'day' ? 'night' : 'day');
 
   useEffect(() => { document.documentElement.dataset.theme = theme; }, [theme]);
   useEffect(() => {
@@ -212,12 +88,29 @@ export function CaptainView() {
   }, []);
 
   const notices = snap?.notices ?? [];
-  const urgent = notices.find((n) => !n.acknowledged && n.priority === 'P1') ?? null;
-  const banner = !urgent ? notices.find((n) => !n.acknowledged && n.priority === 'P2') ?? null : null;
+  const active = notices.filter((n) => n.priority !== 'P4');
+  const urgent = active.find((n) => !n.acknowledged && n.priority === 'P1') ?? null;
+  const banner = !urgent ? active.find((n) => !n.acknowledged && n.priority === 'P2') ?? null : null;
+  const standing = active.find((n) => n.priority === 'P1' || n.priority === 'P2') ?? null;
+  const calm = active.find((n) => n.priority === 'P3') ?? null;
+  const focus = focusId ? notices.find((n) => n.id === focusId) ?? null : null;
+  const lead = focus ?? banner ?? standing ?? calm;
   const stale = hub.link !== 'online' || (hub.receivedAt !== null && now - hub.receivedAt > STALE_MS);
   const extrapolateMin = stale && hub.receivedAt && snap ? ((now - hub.receivedAt) / 60000) * Math.max(1, snap.clock.timeScale) : 0;
-  const data = useMemo(() => captainChart(snap, extrapolateMin), [snap, Math.floor(extrapolateMin * 4)]);
+  const data = useMemo(() => captainChart(snap, extrapolateMin, { youTag: true }), [snap, Math.floor(extrapolateMin * 4)]);
   const joinPreview = useMemo(() => captainChart(null, 0), []);
+  const vessel = snap?.vessel ?? null;
+  const at = snap ? snapshotAt(hub.receivedAt, snap.serverWall) : now;
+
+  const leadKey = lead ? `${lead.id}:${lead.priority}:${lead.area?.version ?? 0}` : 'none';
+  const coarse = vessel ? `${Math.round(vessel.lonlat[0] * 50)}:${Math.round(vessel.lonlat[1] * 50)}` : '';
+  useEffect(() => { setBoatMode(false); }, [leadKey]);
+  const fit = useMemo(() => {
+    if (!vessel) return null;
+    if (boatMode) return boatBox(vessel.lonlat, 600 + (centerTick % 2));
+    return framePoints(vessel.lonlat, vessel.newRoute ?? vessel.route, lead ? [lead] : []);
+  }, [hub.vessel?.vesselId, leadKey, boatMode, centerTick, coarse]);
+  const youLabels = useMemo(() => (vessel ? [{ id: YOU_TAG_ID, text: 'You', lonlat: vessel.lonlat }] : []), [!!vessel]);
 
   useEffect(() => {
     for (const n of notices) {
@@ -227,12 +120,12 @@ export function CaptainView() {
         buzz(n.priority === 'P1');
       }
       alerted.current.set(n.id, n.priority);
-      if (!seen.current.has(n.id) && document.visibilityState === 'visible' && (n.priority !== 'P4' || openId === n.id)) {
+      if (!seen.current.has(n.id) && document.visibilityState === 'visible' && (n.priority !== 'P4' || focusId === n.id || screen === 'notices')) {
         seen.current.add(n.id);
         hub.ack('seen', n.id);
       }
     }
-  }, [notices.map((n) => `${n.id}:${n.priority}:${n.acknowledged}`).join('|'), openId]);
+  }, [notices.map((n) => `${n.id}:${n.priority}:${n.acknowledged}`).join('|'), focusId, screen]);
 
   useEffect(() => {
     if (!alertsOn || !hub.pushKey || !secureEnough() || pushState() !== 'on') return;
@@ -256,47 +149,48 @@ export function CaptainView() {
       if (sub) hub.sendSubscription(sub);
     }
   };
-  const gotIt = (id: string) => { hub.ack('gotIt', id); setOpenId(null); };
+  const gotIt = (id: string) => { hub.ack('gotIt', id); setFocusId(null); };
+  const center = () => { setBoatMode(true); setCenterTick(centerTick + 1); };
 
   if (!hub.vessel) {
     return <div className="cap"><Join vesselName={requested ? names[requested] ?? null : null} onJoin={() => void join()} joining={joining || hub.link !== 'online'} alerts={alertsOn} onAlerts={() => void toggleAlerts()} data={joinPreview} /></div>;
   }
 
-  const vessel = snap?.vessel ?? null;
-  const open = openId ? notices.find((n) => n.id === openId) ?? null : null;
   const serverNow = snap ? Date.parse(snap.serverWall) : now;
-  const clear = snap?.allClear.filter((a) => serverNow - Date.parse(a.atWall) < ALL_CLEAR_SHOW_MS).slice(-1)[0] ?? null;
+  const clear: Clear | null = snap?.allClear.filter((a) => serverNow - Date.parse(a.atWall) < ALL_CLEAR_SHOW_MS).slice(-1)[0] ?? null;
+  const timing = snap ? { clock: snap.clock, at, now } : null;
+  const showLegend = !banner && !!lead?.area;
+
+  let sheet: ReactNode = null;
+  if (focus && timing) sheet = <NoticeCard n={focus} {...timing} lang={lang} onClose={() => setFocusId(null)} />;
+  else if (banner) sheet = banner.area ? <div className="cap-strip"><Legend /></div> : null;
+  else if (standing && timing) sheet = <NoticeCard n={standing} {...timing} lang={lang} />;
+  else if (calm && timing) sheet = <NoticeCard n={calm} {...timing} lang={lang} />;
+  else if (clear && !active.length) sheet = <AllClearCard clear={clear} />;
+  else sheet = <TodaySheet snap={snap} lang={lang} onReport={() => setScreen('report')} onLanguage={() => setScreen('language')} />;
 
   return (
     <div className="cap" data-testid="captain">
-      <div className="cap-top">
-        {banner && !stale && !open ? (
-          <div className="cap-alert" onClick={() => setOpenId(banner.id)} data-testid="banner">
-            <PriorityBand priority="P2" />
-            <div className="instr">
-              <span className="cap-instruction">{banner.instructionText}</span>
-              <span className="t-small c-muted">{banner.publicReason}. {banner.detail}</span>
-            </div>
+      {screen === 'main' ? (
+        <>
+          <div className="cap-top">
+            {banner && timing ? <Banner n={banner} {...timing} lang={lang} onGotIt={() => gotIt(banner.id)} /> : (
+              <TopBar name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} offline={stale} onPick={() => setPicking(true)} onNotices={() => setScreen('notices')} />
+            )}
+            {stale ? <OfflineLine receivedAt={hub.receivedAt} now={now} /> : null}
           </div>
-        ) : (
-          <Strip name={hub.vessel.name} speedKn={vessel?.speedKn ?? null} stale={stale} onPick={() => setPicking(true)} />
-        )}
-        {stale ? (
-          <div className="cap-offline" data-testid="stale"><WifiSlash size={18} /><span>Updated {hub.receivedAt ? ago(hub.receivedAt, now) : 'a while ago'}. Zones keep moving along their predicted path.</span></div>
-        ) : null}
-      </div>
-      <div className="cap-map">
-        <ChartMap theme={theme} compact data={data} stamp={snap?.clock.wallMs} motionDelayMs={600} follow={vessel?.lonlat ?? null} recenter={recenter} showLabels />
-        {open ? <div className="cap-close"><Button variant="secondary" size="l" title="Close" icon={<X size={24} />} onClick={() => setOpenId(null)} /></div> : null}
-        <div className="cap-mapbtns">
-          <button className="cap-mapbtn" title="Center on my boat" aria-label="Center on my boat" onClick={() => setRecenter(recenter + 1)}><NavigationArrow size={20} /></button>
-          <button className="cap-mapbtn" title={theme === 'day' ? 'Night chart' : 'Day chart'} aria-label="Day or night chart" onClick={() => setThemeChoice(theme === 'day' ? 'night' : 'day')}>{theme === 'day' ? <Moon size={20} /> : <Sun size={20} />}</button>
-        </div>
-        <span className="cap-attr">OpenStreetMap contributors</span>
-      </div>
-      <div className="cap-sheet" data-testid={open ? 'notice-detail' : 'captain-sheet'}>
-        {open ? <Detail n={open} onGotIt={() => gotIt(open.id)} /> : <Sheet snap={snap} notices={notices} banner={banner} clear={clear} stale={stale} open={setOpenId} gotIt={gotIt} />}
-      </div>
+          <div className="cap-map">
+            <ChartMap key={theme} theme={theme} compact showLabels data={data} stamp={snap?.clock.wallMs} motionDelayMs={600} fitTo={fit} padding={MAP_PADDING} labels={youLabels} />
+            {showLegend ? <div className="cap-legend-float"><Legend stacked /></div> : null}
+            <MapControls theme={theme} onCenter={center} onTheme={toggleTheme} />
+            <span className="cap-attr">© OpenStreetMap contributors</span>
+          </div>
+          {sheet ? <div className="cap-sheet" data-testid="captain-sheet">{sheet}</div> : null}
+        </>
+      ) : null}
+      {screen === 'notices' ? <NoticesScreen notices={notices} cleared={snap?.allClear ?? []} lang={lang} onBack={() => setScreen('main')} onOpen={(id) => { setFocusId(id); setScreen('main'); }} /> : null}
+      {screen === 'language' ? <LanguageScreen lang={lang} onChoose={setLang} onBack={() => setScreen('main')} /> : null}
+      {screen === 'report' ? <ReportFlow snap={snap} theme={theme} onTheme={toggleTheme} stamp={snap?.clock.wallMs} onSend={hub.reportSighting} onClose={() => setScreen('main')} /> : null}
       {picking ? (
         <div className="cap-picker" data-testid="boat-picker">
           <div className="inner">
@@ -314,7 +208,7 @@ export function CaptainView() {
           </div>
         </div>
       ) : null}
-      {urgent ? <Takeover n={urgent} theme={theme} you={vessel?.lonlat ?? null} data={data} onGotIt={() => gotIt(urgent.id)} /> : null}
+      {urgent && timing ? <Takeover n={urgent} {...timing} theme={theme} data={data} boat={vessel?.lonlat ?? null} newRoute={vessel?.newRoute ?? null} labels={youLabels} stamp={snap?.clock.wallMs} lang={lang} onGotIt={() => gotIt(urgent.id)} /> : null}
     </div>
   );
 }

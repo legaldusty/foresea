@@ -4,7 +4,7 @@ import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
 import { chartColors, withAlpha, type ChartColors } from './chartTheme';
 import { chartLabels, harborBounds, harborCenter, harborZoom, nearShoreBand } from './chartData';
-import { loadChartImages } from './chartImages';
+import { loadChartImages, loadSymbolImages } from './chartImages';
 import type { LonLat } from '../../engine/geo';
 
 let protocolAdded = false;
@@ -30,6 +30,18 @@ export interface ChartData {
 
 export const EMPTY: GeoJSON.FeatureCollection = { type: 'FeatureCollection', features: [] };
 
+export type CalloutSide = 'ne' | 'se' | 'nw' | 'sw';
+
+export interface ChartCallout { id: string; boat: string; when: string; action: string; lonlat: LonLat; side?: CalloutSide }
+
+function calloutElement(): HTMLDivElement {
+  const root = document.createElement('div');
+  root.className = 'chart-callout';
+  root.innerHTML = '<svg class="leader" width="40" height="40" viewBox="0 0 40 40"><line x1="0" y1="40" x2="40" y2="0" /></svg><div class="box"><span class="boat"></span><span class="when"></span><span class="action"></span></div>';
+  root.dataset.side = 'ne';
+  return root;
+}
+
 export interface ChartMapProps {
   theme: 'night' | 'day';
   data: ChartData;
@@ -45,6 +57,7 @@ export interface ChartMapProps {
   compact?: boolean;
   recenter?: number;
   labels?: { id: string; text: string; lonlat: LonLat }[];
+  callouts?: ChartCallout[];
   stamp?: number;
   motionDelayMs?: number;
 }
@@ -158,7 +171,12 @@ function buildStyle(c: ChartColors, theme: 'night' | 'day'): StyleSpecification 
         'symbol-sort-key': ['case', ['get', 'bg'], 0, 1],
       }, paint: { 'icon-opacity': ['case', ['get', 'bg'], 0.4, ['get', 'stale'], 0.5, 1] } },
       { id: 'vessels-alert', type: 'symbol', source: 'vessels', filter: ['get', 'inZone'], layout: { 'icon-image': 'ring-alert', 'icon-allow-overlap': true, 'icon-size': 0.6 } },
-      { id: 'contacts', type: 'symbol', source: 'contacts', layout: { 'icon-image': ['concat', 'diamond-', ['get', 'state']], 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['case', ['get', 'selected'], 0.75, 0.6] } },
+      { id: 'contacts-ring', type: 'symbol', source: 'contacts', filter: ['get', 'selected'], layout: { 'icon-image': 'symbol-ring', 'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': 1 } },
+      { id: 'contacts', type: 'symbol', source: 'contacts', layout: {
+        'icon-image': ['coalesce', ['image', ['get', 'symbol']], ['image', ['concat', 'diamond-', ['get', 'state']]]],
+        'icon-rotate': ['coalesce', ['get', 'heading'], 0], 'icon-rotation-alignment': 'map',
+        'icon-allow-overlap': true, 'icon-ignore-placement': true, 'icon-size': ['case', ['has', 'symbol'], 1, ['get', 'selected'], 0.75, 0.6],
+      } },
       { id: 'you-route', type: 'line', source: 'you', filter: ['==', ['geometry-type'], 'LineString'], layout: { 'line-cap': 'round', 'line-join': 'round' }, paint: { 'line-color': c.tide, 'line-width': 4 } },
       { id: 'you', type: 'symbol', source: 'you', filter: ['==', ['geometry-type'], 'Point'], layout: { 'icon-image': 'you', 'icon-rotate': ['get', 'heading'], 'icon-rotation-alignment': 'map', 'icon-allow-overlap': true, 'icon-size': 0.6 } },
     ],
@@ -181,6 +199,7 @@ export function ChartMap(props: ChartMapProps) {
   const forecastFront = useRef<Side>('a');
   const forecastKey = useRef('');
   const tickLabels = useRef(new Map<string, maplibregl.Marker>());
+  const calloutMarkers = useRef(new Map<string, maplibregl.Marker>());
   const motionStats = useRef<{ frames: number; lastMs: number; contact: number[] | null }>({ frames: 0, lastMs: 0, contact: null });
 
   useEffect(() => {
@@ -206,6 +225,7 @@ export function ChartMap(props: ChartMapProps) {
     map.on('load', async () => {
       if (!props.compact) map.fitBounds([[-118.292, 33.700], [-118.150, 33.768]], { padding: 24, duration: 0 });
       await loadChartImages(map, colors, el);
+      await loadSymbolImages(map, colors, el);
       readyRef.current = true;
       staticKeys.current.clear();
       forecastKey.current = '';
@@ -236,11 +256,13 @@ export function ChartMap(props: ChartMapProps) {
         const shown = older === newer ? newer.data[key] : blend(older.data[key], newer.data[key], f);
         src?.setData(shown);
         if (key === 'contacts') { const first = shown.features[0]; motionStats.current.contact = first && first.geometry.type === 'Point' ? first.geometry.coordinates : null; }
-        if (dynLabels.current.size && key !== 'you') {
+        if ((dynLabels.current.size || calloutMarkers.current.size) && key !== 'you') {
           for (const feat of shown.features) {
             const id = (feat.properties as Record<string, unknown> | null)?.id;
-            const marker = id !== undefined ? dynLabels.current.get(String(id)) : undefined;
-            if (marker && feat.geometry.type === 'Point') marker.setLngLat(feat.geometry.coordinates as [number, number]);
+            if (id === undefined || feat.geometry.type !== 'Point') continue;
+            const at = feat.geometry.coordinates as [number, number];
+            dynLabels.current.get(String(id))?.setLngLat(at);
+            calloutMarkers.current.get(String(id))?.setLngLat(at);
           }
         }
       }
@@ -285,7 +307,7 @@ export function ChartMap(props: ChartMapProps) {
     }
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
+    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of calloutMarkers.current.values()) m.remove(); calloutMarkers.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [props.theme]);
 
   useEffect(() => {
@@ -318,6 +340,25 @@ export function ChartMap(props: ChartMapProps) {
       (m.getElement() as HTMLElement).textContent = l.text;
     }
   }, [props.labels]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const want = new Map((props.callouts ?? []).map((c) => [c.id, c]));
+    for (const [id, m] of calloutMarkers.current) if (!want.has(id)) { m.remove(); calloutMarkers.current.delete(id); }
+    for (const c of want.values()) {
+      let m = calloutMarkers.current.get(c.id);
+      if (!m) {
+        m = new maplibregl.Marker({ element: calloutElement(), anchor: 'bottom-left' }).setLngLat(c.lonlat).addTo(map);
+        calloutMarkers.current.set(c.id, m);
+      }
+      const el = m.getElement();
+      el.dataset.side = c.side ?? 'ne';
+      (el.querySelector('.boat') as HTMLElement).textContent = c.boat;
+      (el.querySelector('.when') as HTMLElement).textContent = c.when;
+      (el.querySelector('.action') as HTMLElement).textContent = c.action;
+    }
+  }, [JSON.stringify((props.callouts ?? []).map((c) => [c.id, c.boat, c.when, c.action, c.side]))]);
 
   useEffect(() => {
     const map = mapRef.current;

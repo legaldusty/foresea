@@ -1,10 +1,13 @@
-import { useState } from 'react';
-import { CaretDown, Crane, Cursor, Fish, Joystick, PersonSimpleSwim, Plus, Stop } from '@phosphor-icons/react';
-import type { CommandEvents, ContactView } from '../../shared/protocol';
-import { Button, Field, SelectBox, Simulated } from '../ui';
+import { useEffect, useState } from 'react';
+import {
+  Binoculars, CaretDown, ClipboardText, Crane, Fish, Gauge, Joystick, ListDashes, Moon, Pause, Play, PersonSimpleSwim, Polygon, Prohibit, ProjectorScreen, Stop, Sun, WifiSlash, X,
+} from '@phosphor-icons/react';
+import type { CommandEvents, ContactView, Species } from '../../shared/protocol';
+import { Button, Field, Segmented, SelectBox, Simulated } from '../ui';
 
 type Send = <K extends keyof CommandEvents>(name: K, payload: CommandEvents[K]) => Promise<void>;
-export type Tool = 'select' | 'drive' | 'whale' | 'divers' | 'dredge';
+export type ZoneKind = 'whale' | 'divers' | 'dredge' | 'closure';
+export type Tool = 'select' | 'drive' | ZoneKind | `sighting:${Species}` | 'dive';
 
 const INCIDENTS = [
   { key: 'A', name: 'The straight shot', detail: '2.5 m, silent, night. Angels Gate to the Fuel Pier' },
@@ -14,41 +17,127 @@ const INCIDENTS = [
   { key: 'E', name: 'Late detection', detail: '5 m at 3.5 m/s, first seen minutes from Pier 400' },
 ];
 
-export function ChartTools(props: { tool: Tool; setTool: (t: Tool) => void; send: Send; driven: ContactView | null }) {
-  const [open, setOpen] = useState(false);
-  const spawn = (payload: CommandEvents['spawn']) => { setOpen(false); void props.send('spawn', payload); };
-  const pick = (t: Tool) => {
-    if (t === 'drive' && !props.driven) void props.send('spawn', { preset: 'driven' });
-    props.setTool(props.tool === t ? 'select' : t);
-  };
+const ZONES: { kind: ZoneKind; label: string; detail: string; icon: JSX.Element }[] = [
+  { kind: 'whale', label: 'Whale', detail: 'Slow zone around a sighting', icon: <Fish size={16} /> },
+  { kind: 'divers', label: 'Divers', detail: 'Keep clear of divers in the water', icon: <PersonSimpleSwim size={16} /> },
+  { kind: 'dredge', label: 'Dredge', detail: 'Keep clear of a work zone', icon: <Crane size={16} /> },
+  { kind: 'closure', label: 'Closure', detail: 'Close a small area to all boats', icon: <Prohibit size={16} /> },
+];
+
+const SPECIES: { value: Species; label: string }[] = [
+  { value: 'whale', label: 'Whale' }, { value: 'dolphin', label: 'Dolphin' }, { value: 'sea lion', label: 'Sea lion' },
+  { value: 'debris', label: 'Debris' }, { value: 'hazard', label: 'Other hazard' },
+];
+
+export function DeskTools(props: { tool: Tool; setTool: (t: Tool) => void; onDivePlans: () => void }) {
+  const [menu, setMenu] = useState<'zone' | 'sighting' | null>(null);
+  const choose = (t: Tool) => { setMenu(null); props.setTool(props.tool === t ? 'select' : t); };
+  const zoneTool = ZONES.find((z) => z.kind === props.tool);
+  const sightingTool = props.tool.startsWith('sighting:');
   return (
-    <div className="tools">
-      <div className="toolbar" role="toolbar" aria-label="Chart tools">
-        <button aria-pressed={props.tool === 'select'} onClick={() => props.setTool('select')} data-testid="tool-select"><Cursor size={16} />Select</button>
-        <button aria-pressed={props.tool === 'drive'} onClick={() => pick('drive')} data-testid="tool-drive"><Joystick size={16} />Drive</button>
-        <button aria-pressed={props.tool === 'whale'} onClick={() => pick('whale')} data-testid="tool-whale"><Fish size={16} />Whale zone</button>
-        <button aria-pressed={props.tool === 'divers'} onClick={() => pick('divers')} data-testid="tool-divers"><PersonSimpleSwim size={16} />Divers zone</button>
-        <button aria-pressed={props.tool === 'dredge'} onClick={() => pick('dredge')} data-testid="tool-dredge"><Crane size={16} />Dredge zone</button>
-      </div>
-      <div style={{ position: 'relative' }}>
-        <div className="toolbar"><button onClick={() => setOpen(!open)} data-testid="add-contact"><Plus size={16} />Add contact<CaretDown size={14} /></button></div>
-        {open ? (
+    <div className="desk-tools" role="toolbar" aria-label="Desk tools">
+      <div className="tool-anchor">
+        <button className="tool" aria-pressed={!!zoneTool} onClick={() => setMenu(menu === 'zone' ? null : 'zone')} data-testid="new-zone"><Polygon size={16} />{zoneTool ? `New zone: ${zoneTool.label.toLowerCase()}` : 'New zone'}<CaretDown size={16} /></button>
+        {menu === 'zone' ? (
           <div className="menu">
-            <div className="menu-head">Simulated sensor contacts</div>
-            <button onClick={() => { spawn({ preset: 'driven' }); props.setTool('drive'); }} data-testid="spawn-driven"><span>Unknown contact to drive</span><span className="t-small">Appears outside Angels Gate. Move the mouse to steer.</span></button>
-            <button onClick={() => spawn({ preset: 'bot' })}><span>Bot intruder</span><span className="t-small">Picks a target and a style on its own</span></button>
-            <button onClick={() => spawn({ preset: 'pair' })} data-testid="spawn-pair"><span>Coordinated pair</span><span className="t-small">Two small unknowns from both gates, for the Fuel Pier and the Oil Islands</span></button>
-            {INCIDENTS.map((i) => (
-              <button key={i.key} onClick={() => spawn({ preset: 'scenario', scenarioKey: i.key })} data-testid={`incident-${i.key}`}><span>Incident {i.key}: {i.name}</span><span className="t-small">{i.detail}</span></button>
-            ))}
-            <button onClick={() => spawn({ preset: 'glider' })} data-testid="spawn-glider"><span>Lost glider</span><span className="t-small">AltaSea Glider 3, silent, drifting with the NOAA current</span></button>
-            <button onClick={() => spawn({ preset: 'friendly' })}><span>Friendly hull robot</span><span className="t-small">Registered, dive plan filed, answers the ID ping</span></button>
-            <button onClick={() => spawn({ preset: 'whale' })}><span>Whale</span><span className="t-small">Warm, 18 m, erratic, surfacing</span></button>
-            <button onClick={() => spawn({ preset: 'diver' })}><span>Diver</span><span className="t-small">Warm, 2 m, slow, near the Cruise Terminal</span></button>
+            {ZONES.map((z) => <button key={z.kind} onClick={() => choose(z.kind)} data-testid={`tool-${z.kind}`}><span className="row">{z.icon}{z.label}</span><span className="t-small">{z.detail}</span></button>)}
           </div>
         ) : null}
       </div>
+      <div className="tool-anchor">
+        <button className="tool" aria-pressed={sightingTool} onClick={() => setMenu(menu === 'sighting' ? null : 'sighting')} data-testid="report-sighting"><Binoculars size={16} />Report sighting</button>
+        {menu === 'sighting' ? (
+          <div className="menu">
+            {SPECIES.map((sp) => <button key={sp.value} onClick={() => choose(`sighting:${sp.value}`)} data-testid={`sight-${sp.value.replace(' ', '-')}`}><span>{sp.label}</span><span className="t-small">Then click where it was seen</span></button>)}
+          </div>
+        ) : null}
+      </div>
+      <button className="tool" onClick={props.onDivePlans} data-testid="dive-plans"><ClipboardText size={16} />Dive plans</button>
+      {props.tool !== 'select' && props.tool !== 'drive' ? <span className="tool-hint">Click the chart to place it. <button className="link" onClick={() => props.setTool('select')}>Cancel</button></span> : null}
     </div>
+  );
+}
+
+export function ChartCorner(props: { onPresenter: () => void; presenterOpen: boolean }) {
+  const [keyOpen, setKeyOpen] = useState(false);
+  return (
+    <div className="chart-corner">
+      {keyOpen ? (
+        <div className="chart-key" data-testid="chart-key">
+          <span className="key"><i className="sw careful" />Be careful: at least 1 in 8 futures pass here</span>
+          <span className="key"><i className="sw likely" />Where it is going: half of the futures stay inside</span>
+          <span className="key"><i className="sw mark" />Where it should be at that time</span>
+          <span className="key"><i className="sw drone" />Unknown drone, colored by risk</span>
+          <span className="key"><i className="sw zone" />Published zone for boats</span>
+          <span className="key"><i className="sw route" />New plan for a boat</span>
+          <span className="note">Simulated: sensor contacts and small craft</span>
+        </div>
+      ) : null}
+      <div className="corner-row">
+        <button className="corner-btn" aria-pressed={props.presenterOpen} onClick={props.onPresenter} title="Presenter (P)" data-testid="presenter"><ProjectorScreen size={16} /><span className="t-mono-small">P</span></button>
+        <button className="corner-btn" aria-pressed={keyOpen} onClick={() => setKeyOpen(!keyOpen)} data-testid="key-toggle"><ListDashes size={16} />Key</button>
+      </div>
+    </div>
+  );
+}
+
+export function Presenter(props: {
+  open: boolean; onClose: () => void; send: Send; timeScale: number; paused: boolean; focus: ContactView | null; driven: ContactView | null;
+  tool: Tool; setTool: (t: Tool) => void; theme: 'night' | 'day'; onTheme: () => void; onNights: () => void;
+}) {
+  const spawn = (payload: CommandEvents['spawn']) => void props.send('spawn', payload);
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && props.open) props.onClose(); };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [props.open]);
+  if (!props.open) return null;
+  return (
+    <aside className="presenter" data-testid="presenter-panel">
+      <div className="presenter-head"><span className="t-heading">Presenter</span><span className="t-small c-muted">Demo controls, not part of the product</span><button className="icon-btn" onClick={props.onClose} aria-label="Close"><X size={16} /></button></div>
+      <section>
+        <span className="sec">Scene</span>
+        <div className="row-btns">
+          <Button variant="secondary" onClick={() => void props.send('reset', { mode: 'tuesday' })} testId="reset-tuesday">Tuesday</Button>
+          <Button variant="secondary" onClick={() => void props.send('reset', { mode: 'night' })} testId="reset-night">Night</Button>
+          <Button variant="secondary" onClick={() => void props.send('reset', { mode: 'empty' })} testId="reset-empty">Empty harbor</Button>
+        </div>
+      </section>
+      <section>
+        <span className="sec">Time</span>
+        <div className="row-btns">
+          <Segmented compact value={props.timeScale} onChange={(v) => void props.send('clock', { timeScale: v })} options={[1, 10, 20, 60].map((v) => ({ value: v, label: `${v}x` }))} testId="time-scale" />
+          <Button variant="secondary" icon={props.paused ? <Play size={16} /> : <Pause size={16} />} onClick={() => void props.send('clock', { paused: !props.paused })} testId="pause">{props.paused ? 'Resume' : 'Pause'}</Button>
+        </div>
+      </section>
+      <section>
+        <span className="sec">Add contact</span>
+        <div className="preset-list">
+          <button onClick={() => { if (!props.driven) spawn({ preset: 'driven' }); props.setTool('drive'); }} data-testid="spawn-driven"><Joystick size={16} /><span>Drone to drive</span><span className="t-small">Appears outside Angels Gate. Drag on the chart to steer.</span></button>
+          {INCIDENTS.map((i) => <button key={i.key} onClick={() => spawn({ preset: 'scenario', scenarioKey: i.key })} data-testid={`incident-${i.key}`}><span className="t-mono-small">{i.key}</span><span>{i.name}</span><span className="t-small">{i.detail}</span></button>)}
+          <button onClick={() => spawn({ preset: 'bot' })} data-testid="spawn-bot"><span /><span>Bot intruder</span><span className="t-small">Picks a target and a style on its own</span></button>
+          <button onClick={() => spawn({ preset: 'pair' })} data-testid="spawn-pair"><span /><span>Coordinated pair</span><span className="t-small">Two unknowns from both gates</span></button>
+          <button onClick={() => spawn({ preset: 'glider' })} data-testid="spawn-glider"><span /><span>Lost glider</span><span className="t-small">AltaSea Glider 3, drifting with the NOAA current</span></button>
+          <button onClick={() => spawn({ preset: 'friendly' })} data-testid="spawn-friendly"><span /><span>Friendly hull robot</span><span className="t-small">Registered, answers its ID ping</span></button>
+          <button onClick={() => spawn({ preset: 'whale' })} data-testid="spawn-whale"><span /><span>Whale</span><span className="t-small">Warm, 18 m, erratic</span></button>
+          <button onClick={() => spawn({ preset: 'diver' })} data-testid="spawn-diver"><span /><span>Diver</span><span className="t-small">Warm, 2 m, slow</span></button>
+        </div>
+      </section>
+      <section>
+        <span className="sec">Contact</span>
+        <div className="row-btns">
+          <Button variant="secondary" icon={<Joystick size={16} />} onClick={() => props.setTool(props.tool === 'drive' ? 'select' : 'drive')} testId="tool-drive">{props.tool === 'drive' ? 'Stop driving' : 'Drive'}</Button>
+          <Button variant="secondary" icon={<WifiSlash size={16} />} onClick={() => props.focus && void props.send('sensorLoss', { contactId: props.focus.id, silent: !props.focus.silent })} testId="sensor-lost">{props.focus?.silent ? 'Sensor back' : 'Sensor lost'}</Button>
+        </div>
+      </section>
+      <section>
+        <span className="sec">Show</span>
+        <div className="row-btns">
+          <Button variant="secondary" icon={props.theme === 'night' ? <Sun size={16} /> : <Moon size={16} />} onClick={props.onTheme} testId="theme">{props.theme === 'night' ? 'Day chart' : 'Night chart'}</Button>
+          <Button variant="secondary" icon={<Gauge size={16} />} onClick={props.onNights} testId="run-nights">Run 1,000 nights</Button>
+        </div>
+      </section>
+    </aside>
   );
 }
 
@@ -66,27 +155,8 @@ export function DriveControl(props: { c: ContactView; send: Send; onStop: () => 
         <Field label="Size"><SelectBox value={Number(c.sizeM.toFixed(1))} options={sizes.map((v) => ({ value: v, label: `${v.toFixed(1)} m` }))} onChange={(v) => void props.send('contactParams', { contactId: c.id, sizeM: v })} /></Field>
         <Field label="Speed"><SelectBox value={Number(c.speedMps.toFixed(1))} options={speeds.map((v) => ({ value: v, label: `${v.toFixed(1)} m/s` }))} onChange={(v) => void props.send('contactParams', { contactId: c.id, speedMps: v })} /></Field>
       </div>
-      <div className="drive-toggle">
-        <div className="title-block"><span className="t-strong">Sensor lost</span><span className="t-small c-muted">The contact stops reporting to sensors</span></div>
-        <button className="switch" role="switch" aria-checked={c.silent} aria-label="Sensor lost" onClick={() => void props.send('sensorLoss', { contactId: c.id, silent: !c.silent })} />
-      </div>
       <span className="t-small c-muted">Drag on the chart to steer.</span>
       <Button variant="secondary" block icon={<Stop size={16} />} onClick={props.onStop}>Stop</Button>
-    </div>
-  );
-}
-
-export function Legend() {
-  return (
-    <div className="legend-wrap">
-      <div className="legend">
-        <span className="key"><i className="sw keepout" />Keep-out zone</span>
-        <span className="key"><i className="sw slow" />Slow zone</span>
-        <span className="key"><i className="sw path" />Predicted path</span>
-        <span className="key"><i className="sw route" />New route</span>
-        <span className="note" title="Breakwaters in the engine grid are hand placed and approximate">Simulated: sensor contacts and small craft</span>
-      </div>
-      <span className="attr">Map data: OpenStreetMap contributors</span>
     </div>
   );
 }

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="60" height="76.25" viewBox="0 0 60 76.25" fill="none">
+<defs>
+<mask id="your-boat-inside" fill="white">
+<path d="M30 27.5C33.75 30.625 36.875 36.25 36.875 42.5V63.125C36.875 64.125 36 65 35 65H25C24 65 23.125 64.125 23.125 63.125V42.5C23.125 36.25 26.25 30.625 30 27.5Z"/>
+</mask>
+</defs>
+<path d="M30 27.5C33.75 30.625 36.875 36.25 36.875 42.5V63.125C36.875 64.125 36 65 35 65H25C24 65 23.125 64.125 23.125 63.125V42.5C23.125 36.25 26.25 30.625 30 27.5Z" style="fill:var(--you,#3474D4)"/>
+<path d="M30 27.5C33.75 30.625 36.875 36.25 36.875 42.5V63.125C36.875 64.125 36 65 35 65H25C24 65 23.125 64.125 23.125 63.125V42.5C23.125 36.25 26.25 30.625 30 27.5Z" stroke-width="3.75" stroke-linejoin="round" mask="url(#your-boat-inside)" style="stroke:var(--text,#E8EEF2)"/>
+<path d="M25.625 42.5H34.375V52.5H25.625V42.5Z" stroke-width="1.25" style="stroke:var(--water,#0C1A25)"/>
+<path d="M23.125 60H36.875" stroke-width="1.25" style="stroke:var(--water,#0C1A25)"/>
+<path d="M30 23.75V1.25" stroke-width="2.5" stroke-linecap="round" style="stroke:var(--you,#3474D4)"/>
+</svg>

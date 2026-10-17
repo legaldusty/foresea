@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { io, type Socket } from 'socket.io-client';
-import type { CaptainSnapshot, CommandEvents, CommandSnapshot, ForecastView } from '../../shared/protocol';
+import type { CaptainEvents, CaptainSnapshot, CommandEvents, CommandSnapshot, ForecastView } from '../../shared/protocol';
 
 export type Link = 'connecting' | 'online' | 'offline';
 
@@ -55,6 +55,7 @@ export interface CaptainHub {
   join: (vesselId?: string) => Promise<boolean>;
   ack: (kind: 'delivered' | 'seen' | 'gotIt', noticeId: string) => void;
   sendSubscription: (sub: PushSubscription) => void;
+  reportSighting: (report: Omit<CaptainEvents['reportSighting'], 'vesselId'>) => Promise<boolean>;
 }
 
 export function useCaptainHub(requestedVessel: string | null): CaptainHub {
@@ -113,5 +114,11 @@ export function useCaptainHub(requestedVessel: string | null): CaptainHub {
   const sendSubscription = useMemo(() => (sub: PushSubscription) => {
     socketRef.current?.emit('pushSubscription', { subscription: sub.toJSON(), vesselId: vesselRef.current?.vesselId });
   }, []);
-  return { snapshot, receivedAt, link, vessel, pushKey, join, ack, sendSubscription };
+  const reportSighting = useMemo(() => (report: Omit<CaptainEvents['reportSighting'], 'vesselId'>) => new Promise<boolean>((resolve) => {
+    const s = socketRef.current;
+    if (!s || !s.connected) { resolve(false); return; }
+    const payload: CaptainEvents['reportSighting'] = { ...report, vesselId: vesselRef.current?.vesselId };
+    s.timeout(5000).emit('reportSighting', payload, (err: unknown, r: { ok: boolean } | undefined) => resolve(!err && !!r?.ok));
+  }), []);
+  return { snapshot, receivedAt, link, vessel, pushKey, join, ack, sendSubscription, reportSighting };
 }
