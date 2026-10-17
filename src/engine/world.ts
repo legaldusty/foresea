@@ -1093,7 +1093,7 @@ export class World {
         const tail = st.boats ? `${st.boats} boat${st.boats === 1 ? '' : 's'} warned, ${st.acked} acknowledged.` : 'Notice out; no boat is in its path.';
         return { text: `${head} ${tail}`, tone: st.acked < st.boats ? 'act' : 'watch', contactId: c.id };
       }
-      if (st.draft) return { text: `${head} ${st.boats} boat${st.boats === 1 ? '' : 's'} cross its path. Notice ready to publish.`, tone: 'act', contactId: c.id };
+      if (st.draft) return { text: `${head} ${st.boats} boat${st.boats === 1 ? ' crosses' : 's cross'} its path. Notice ready to publish.`, tone: 'act', contactId: c.id };
       return { text: `${head} No boat crosses its path. Watching.`, tone: 'watch', contactId: c.id };
     }
     const lost = this.cards.find((k) => k.kind === 'lost');
@@ -1616,6 +1616,7 @@ export class World {
       radiusM, slowKnots, nearPlace: this.placeNear(zone.centerCell), validUntilMin: this.simMin + (d?.validForMin ?? this.orders().noticeValidMinutes), approvedBy: this.officer,
       boats: plan.affected.map((a) => ({ name: a.name, instructionText: a.text ?? instructionText(a.instruction, radiusM, slowKnots), addedMin: a.addedMin })),
       totalAddedMin: plan.totalAddedMin, station: this.station, link: this.link,
+      published: zone.noticeId !== null && this.notices.get(zone.noticeId)?.status === 'active',
     };
     if (c && c.lastRisk && c.hostility) {
       const top = topGoal(c.tell);

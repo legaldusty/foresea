@@ -33,7 +33,8 @@ function factsText(facts: WordingFacts): string {
     facts.nearPlace ? `Place: near ${facts.nearPlace}.` : '',
     `Valid until ${String(Math.floor(facts.validUntilMin / 60) % 24).padStart(2, '0')}:${String(Math.floor(facts.validUntilMin % 60)).padStart(2, '0')}.`,
     `Approved by ${facts.approvedBy}, ${facts.station}.`,
-    `Boats rerouted: ${facts.boats.length}, adding ${Math.round(facts.totalAddedMin)} min in total.`,
+    facts.published ? 'Status: published.' : 'Status: drafted, not yet published. Do not say it was published.',
+    `Boats affected: ${facts.boats.length}, adding ${Math.round(facts.totalAddedMin)} min in total.`,
     ...facts.boats.slice(0, 4).map((b) => `Boat ${b.name}: ${b.instructionText}.`),
   ];
   if (facts.contact) {

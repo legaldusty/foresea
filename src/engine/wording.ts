@@ -83,6 +83,7 @@ export interface WordingFacts {
   totalAddedMin: number;
   station: string;
   link: string;
+  published?: boolean;
   contact?: {
     label: string;
     classification: string;
@@ -111,6 +112,10 @@ const REASON_AT: Record<Lang, Record<PublicReason, (p: string) => string>> = {
   tl: { 'Security zone': (p) => `Sonang pangseguridad malapit sa ${p}`, 'Whale nearby': (p) => `May balyena malapit sa ${p}`, 'Divers in water': (p) => `May mga maninisid malapit sa ${p}`, 'Dredge working': (p) => `May dredge na gumagana malapit sa ${p}`, 'Person in the water': (p) => `May tao sa tubig malapit sa ${p}`, 'Area closed': (p) => `Saradong lugar malapit sa ${p}`, 'Search area': (p) => `Lugar ng paghahanap malapit sa ${p}` },
   vi: { 'Security zone': (p) => `Khu vực an ninh gần ${p}`, 'Whale nearby': (p) => `Có cá voi gần ${p}`, 'Divers in water': (p) => `Có thợ lặn gần ${p}`, 'Dredge working': (p) => `Tàu nạo vét đang hoạt động gần ${p}`, 'Person in the water': (p) => `Có người dưới nước gần ${p}`, 'Area closed': (p) => `Khu vực đóng gần ${p}`, 'Search area': (p) => `Khu vực tìm kiếm gần ${p}` },
 };
+
+function givingWay(facts: WordingFacts): number {
+  return facts.boats.filter((b) => !/^(NO ACTION|KEEP CLEAR AND STAND BY)/.test(b.instructionText)).length;
+}
 
 export function translateInstruction(lang: Lang, instruction: string, facts: WordingFacts): string {
   const table = PHRASES[lang];
@@ -171,7 +176,7 @@ export function templateWording(facts: WordingFacts): Wording {
       `${c.label}, an unidentified underwater contact (${c.classification.toLowerCase()}), about ${c.sizeM.toFixed(1)} m, ${c.speedMps.toFixed(1)} m/s, at ${c.lonlatText}.`,
       `Evidence: ${c.evidence.join('; ')}. Hostility estimate ${c.hostility.toFixed(2)}.`,
       `Predicted target ${c.targetName}, ${Math.round(c.odds * 100)}%${c.etaMin !== null ? `, about ${minutesLabel(c.etaMin)} out` : ''}. Risk ${c.riskScore} of 25 (${c.level}).`,
-      `Actions so far: ${facts.publicReason.toLowerCase()} published, ${facts.instructionText}, ${facts.boats.length} boats rerouted. Nothing closed. Nothing has touched the vehicle.`,
+      `Actions so far: ${facts.publicReason.toLowerCase()} ${facts.published ? 'published' : 'drafted, not yet published'}, ${facts.instructionText}, ${givingWay(facts)} of ${facts.boats.length} boats ${facts.published ? 'asked' : 'to be asked'} to give way. Nothing closed. Nothing has touched the vehicle.`,
       'Requesting your assessment and response.',
     ].join(' ');
   }
