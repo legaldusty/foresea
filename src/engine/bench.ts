@@ -30,6 +30,17 @@ export const STYLES: Record<StyleName, IntruderStyle> = defaultSettings.bench.st
 
 export type Detection = 'gates' | 'closeIn';
 
+export interface BenchStep {
+  night: number;
+  style: StyleName;
+  goal: number;
+  from: number;
+  to: number;
+  tell: TellState;
+}
+
+export type BenchStepListener = (step: BenchStep) => void;
+
 export interface BenchOptions {
   nights?: number;
   seed?: number;
@@ -39,6 +50,7 @@ export interface BenchOptions {
   detection?: Detection;
   settings?: Settings;
   onProgress?: (fraction: number) => void;
+  onStep?: BenchStepListener;
 }
 
 export interface BenchNight {
@@ -122,7 +134,7 @@ function planNight(h: Harbor, T: TellState, n: number, rand: () => number, style
   return { style, S, goal, start, decoyGoal, decoyUntil };
 }
 
-function runNight(h: Harbor, T: TellState, plan: NightPlan, rand: () => number, speedMps: number, nearness: boolean, b: BenchSettings): BenchNight {
+function runNight(h: Harbor, T: TellState, plan: NightPlan, rand: () => number, speedMps: number, nearness: boolean, b: BenchSettings, night: number, onStep: BenchStepListener | undefined): BenchNight {
   const { style, S, goal, start, decoyGoal, decoyUntil } = plan;
   const cellM = h.grid.cellMeters;
   const Dtrue = T.fields[goal];
@@ -142,6 +154,7 @@ function runNight(h: Harbor, T: TellState, plan: NightPlan, rand: () => number, 
     const next = stepToward(h.grid, D, cell, rand, S.sloppy, b.stepNoise);
     if (next < 0) break;
     observe(T, cell, next);
+    if (onStep) onStep({ night, style, goal, from: cell, to: next, tell: T });
     cell = next;
     if (T.call && T.call !== lastCall) { lastCall = T.call; if (T.call.goal !== goal) tellWrongCalls++; }
     const tellRight = T.call !== null && T.call.goal === goal;
@@ -170,7 +183,7 @@ export function runNightsDetailed(h: Harbor, options: BenchOptions = {}): BenchN
   const res: BenchNight[] = [];
   for (let n = 0; n < nights; n++) {
     const plan = planNight(h, T, n, rand, styles, detection, b);
-    res.push(runNight(h, T, plan, rand, speedMps, nearness, b));
+    res.push(runNight(h, T, plan, rand, speedMps, nearness, b, n, options.onStep));
     if (options.onProgress && n % PROGRESS_EVERY_NIGHTS === 0) options.onProgress(n / nights);
   }
   return res;
