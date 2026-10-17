@@ -264,6 +264,11 @@ export interface CaptainNotice {
   publishedAtLabel: string;
   approvedBy: string;
   detail: string;
+  place: string;
+  relative: string | null;
+  addedMin: number;
+  rerouted: boolean;
+  acknowledgedAtLabel: string | null;
   distanceM: number | null;
   minutesToZone: number | null;
   acknowledged: boolean;
@@ -274,7 +279,8 @@ export interface CaptainSnapshot {
   vessel: { id: string; name: string; type: string; lonlat: LonLat; headingDeg: number; speedKn: number; route: LonLat[] | null; newRoute: LonLat[] | null } | null;
   notices: CaptainNotice[];
   traffic: { lonlat: LonLat; headingDeg: number; type: string }[];
-  allClear: { id: string; publicReason: string; atWall: string; atLabel: string }[];
+  allClear: { id: string; publicReason: string; atWall: string; atLabel: string; approvedBy: string }[];
+  lastAllClearLabel: string | null;
   clock: ClockView;
   serverWall: string;
 }

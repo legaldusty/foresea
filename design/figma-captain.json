@@ -1,0 +1,15 @@
+{
+  "page": "26:1204",
+  "screens": {
+    "Captain / Join": "29:627",
+    "Captain / Map / Clear": "29:659",
+    "Captain / Map / Clear / Night": "30:1569",
+    "Captain / P2 banner / Whale": "30:1601",
+    "Captain / P2 banner / Whale / Night": "30:1626",
+    "Captain / P1 takeover / Security": "31:2698",
+    "Captain / P1 takeover / Security / Night": "31:2743",
+    "Captain / Notice detail": "32:85",
+    "Captain / Offline": "32:139",
+    "Captain / All clear": "32:177"
+  }
+}

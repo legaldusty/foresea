@@ -8,7 +8,8 @@
     "Brand": "2:3",
     "Icons": "2:4",
     "Vessels and map": "2:5",
-    "Components": "2:6"
+    "Components": "2:6",
+    "Command": "25:1115"
   },
   "sheets": {
     "Cover": "21:65",
@@ -16,12 +17,29 @@
     "Brand sheet": "6:6",
     "Icons sheet": "3:2",
     "Vessels and map sheet": "8:65",
-    "Components sheet": "12:2"
+    "Components sheet": "12:2",
+    "Command components": "26:50"
   },
   "variableCollections": {
-    "Primitives": { "id": "VariableCollectionId:2:7", "modes": { "Value": "2:0" } },
-    "Theme": { "id": "VariableCollectionId:2:38", "modes": { "Night": "2:1", "Day": "2:2" } },
-    "Dimensions": { "id": "VariableCollectionId:2:65", "modes": { "Value": "2:3" } }
+    "Primitives": {
+      "id": "VariableCollectionId:2:7",
+      "modes": {
+        "Value": "2:0"
+      }
+    },
+    "Theme": {
+      "id": "VariableCollectionId:2:38",
+      "modes": {
+        "Night": "2:1",
+        "Day": "2:2"
+      }
+    },
+    "Dimensions": {
+      "id": "VariableCollectionId:2:65",
+      "modes": {
+        "Value": "2:3"
+      }
+    }
   },
   "textStyles": {
     "Sans/Display": "S:59baaa9368ebafeebab58c42a35362726ec7fbdf,",
@@ -40,7 +58,6 @@
     "Brand/Wordmark": "6:163",
     "Brand/Wordmark outlined": "6:167",
     "Brand/Lockup": "6:178",
-
     "Vessel/Container ship": "8:15",
     "Vessel/Tanker": "8:23",
     "Vessel/Cruise ship": "8:30",
@@ -59,7 +76,6 @@
     "Line/Zone moving": "9:151",
     "Tile/hatch-keep-out": "9:155",
     "Tile/hatch-slow": "9:158",
-
     "Button": "12:140",
     "Input/Text field": "13:123",
     "Input/Number field": "13:144",
@@ -88,7 +104,26 @@
     "Delivery row": "17:695",
     "Priority band": "17:814",
     "Captain/Alert takeover P1": "18:665",
-    "Card/Single": "18:765"
+    "Card/Single": "18:765",
+    "Command/Top bar": "26:52",
+    "Command/Data line": "26:99",
+    "Command/Chart tool": "26:125",
+    "Command/Chart tools": "26:126",
+    "Command/Legend": "26:173",
+    "Command/Attribution": "26:199",
+    "Command/Delivery row": "26:1343",
+    "Command/On-time row": "26:1368",
+    "Command/Published notice": "26:1369",
+    "Command/Inline select": "26:1398",
+    "Command/Join row": "34:2262",
+    "Command/QR / Catalina Ferry": "34:2225",
+    "Command/QR / Tug Millie": "34:2229",
+    "Command/QR / Hull-Dive Tender": "34:2233",
+    "Command/QR / Water Taxi": "34:2237",
+    "Command/QR / Harbor Launch 7": "34:2241",
+    "Command/Drive control": "35:2701",
+    "Command/Menu item": "35:2743",
+    "Command/Add contact menu": "35:2744"
   },
   "icons": {
     "Anchor": "3:9",
@@ -141,7 +176,18 @@
     "Queue": "3:244",
     "Siren Bold": "3:251",
     "Warning Bold": "3:256",
-    "BellRinging Bold": "3:261"
+    "BellRinging Bold": "3:261",
+    "Cursor": "23:845",
+    "Joystick": "23:852",
+    "PersonSimpleSwim": "23:859",
+    "Crane": "23:866",
+    "DeviceMobile": "23:873",
+    "ChatText": "23:880",
+    "Plus": "23:887",
+    "Stop": "23:894",
+    "ArrowUUpLeft": "23:901",
+    "CellSignalSlash": "23:908",
+    "UserCircle": "23:915"
   },
   "exports": {
     "public/icons/icon-1024.png": "6:214",
@@ -160,5 +206,24 @@
     "public/icons/vessels/dive-tender.svg": "8:52",
     "public/icons/vessels/water-taxi.svg": "8:58",
     "public/icons/vessels/research-glider.svg": "8:64"
+  },
+  "screens": {
+    "Command / Night / Draft ready": "28:104",
+    "Command / Night / Escalation": "31:630",
+    "Command / Day / Tuesday": "31:3358",
+    "Command / Run 1,000 nights": "33:1310",
+    "Command / Standing Orders": "33:2878",
+    "Command / Join phones": "34:2263",
+    "Command / Drive control": "35:2789",
+    "Command / Add contact menu": "35:2861",
+    "Command / Night / Draft ready / Right rail full": "35:2938"
+  },
+  "screenAssets": {
+    "chartRenders": {
+      "command-night-draft.png": "5e86046c7269c85a6577b50b408b17fa579cd449",
+      "command-night-published.png": "035c3036474c4e684630cb0b40fb42dd8e44dbb9",
+      "command-day-whale.png": "3202ce32a3bde06172f66d553bf9268dd6aa3748"
+    },
+    "chartCrop": "chart frame 1056 x 592 at y 80 shows the full render width and rows 88 to 895, imageTransform [[1,0,0],[0,0.8967,0.0978]]"
   }
 }

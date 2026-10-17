@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Anchor, CaretDown, Cursor, Fish, Joystick, Lifebuoy, Plus, Stop, WifiSlash } from '@phosphor-icons/react';
+import { CaretDown, Crane, Cursor, Fish, Joystick, PersonSimpleSwim, Plus, Stop, WifiSlash } from '@phosphor-icons/react';
 import type { CommandEvents, ContactView } from '../../shared/protocol';
 import { Button } from '../ui';
 
@@ -27,8 +27,8 @@ export function ChartTools(props: { tool: Tool; setTool: (t: Tool) => void; send
         <button aria-pressed={props.tool === 'select'} onClick={() => props.setTool('select')} data-testid="tool-select"><Cursor size={16} />Select</button>
         <button aria-pressed={props.tool === 'drive'} onClick={() => pick('drive')} data-testid="tool-drive"><Joystick size={16} />Drive</button>
         <button aria-pressed={props.tool === 'whale'} onClick={() => pick('whale')} data-testid="tool-whale"><Fish size={16} />Whale zone</button>
-        <button aria-pressed={props.tool === 'divers'} onClick={() => pick('divers')} data-testid="tool-divers"><Lifebuoy size={16} />Divers zone</button>
-        <button aria-pressed={props.tool === 'dredge'} onClick={() => pick('dredge')} data-testid="tool-dredge"><Anchor size={16} />Dredge zone</button>
+        <button aria-pressed={props.tool === 'divers'} onClick={() => pick('divers')} data-testid="tool-divers"><PersonSimpleSwim size={16} />Divers zone</button>
+        <button aria-pressed={props.tool === 'dredge'} onClick={() => pick('dredge')} data-testid="tool-dredge"><Crane size={16} />Dredge zone</button>
       </div>
       <div style={{ position: 'relative' }}>
         <div className="toolbar"><button onClick={() => setOpen(!open)} data-testid="add-contact"><Plus size={16} />Add contact<CaretDown size={14} /></button></div>
@@ -67,12 +67,15 @@ export function DriveControl(props: { c: ContactView; send: Send; onStop: () => 
 
 export function Legend() {
   return (
-    <div className="legend">
-      <span className="key"><i className="sw keepout" />Keep out</span>
-      <span className="key"><i className="sw slow" />Slow</span>
-      <span className="key"><i className="sw path" />Predicted path</span>
-      <span className="key"><i className="sw route" />New route</span>
-      <span title="Breakwaters in the engine grid are hand placed and approximate">Contacts and small craft are simulated. Map data OpenStreetMap contributors</span>
+    <div className="legend-wrap">
+      <div className="legend">
+        <span className="key"><i className="sw keepout" />Keep-out zone</span>
+        <span className="key"><i className="sw slow" />Slow zone</span>
+        <span className="key"><i className="sw path" />Predicted path</span>
+        <span className="key"><i className="sw route" />New route</span>
+        <span className="note" title="Breakwaters in the engine grid are hand placed and approximate">Simulated: sensor contacts and small craft</span>
+      </div>
+      <span className="attr">Map data: OpenStreetMap contributors</span>
     </div>
   );
 }

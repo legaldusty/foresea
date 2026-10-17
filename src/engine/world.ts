@@ -130,7 +130,8 @@ export class World {
   audit: P.AuditEntry[] = [];
   marineLog: P.MarineLogEntry[] = [];
   captains = new Map<string, CaptainRec>();
-  allClearRecent: { id: string; publicReason: string; atWall: string; atMin: number }[] = [];
+  allClearRecent: { id: string; publicReason: string; atWall: string; atMin: number; approvedBy: string }[] = [];
+  lastAllClearMin: number | null = null;
   dismissed = new Set<string>();
   signedOrders: P.SignedOrders;
   sources: P.SourceStatus = {
@@ -244,7 +245,7 @@ export class World {
 
   private spawnContact(spec: Omit<ContactSpec, 'id' | 'label' | 'firstSeenMin' | 'seed'> & { seed?: number }, nearness = true): ContactSim {
     const n = ++this.contactSeq;
-    const full: ContactSpec = { ...spec, id: `C-${n}`, label: `Contact ${n}`, firstSeenMin: this.simMin, seed: spec.seed ?? 100 + n };
+    const full: ContactSpec = { ...spec, id: `C-${n}`, label: `Contact C-${n}`, firstSeenMin: this.simMin, seed: spec.seed ?? 100 + n };
     const c = createContact(this.h, this.settings, full, this.current, nearness);
     this.contacts.set(c.id, c);
     this.evaluate(c);
@@ -944,7 +945,8 @@ export class World {
     }
     this.removeCards((k) => k.noticeId === noticeId);
     const words = allClearWording(this.station, z ? this.placeNear(z.centerCell) : '', this.simMin);
-    this.allClearRecent.push({ id: noticeId, publicReason: n.publicReason, atWall: this.wall(), atMin: this.simMin });
+    this.allClearRecent.push({ id: noticeId, publicReason: n.publicReason, atWall: this.wall(), atMin: this.simMin, approvedBy: actor === 'officer' ? this.officer : 'Expired' });
+    this.lastAllClearMin = this.simMin;
     if (logIt || reason === 'Expired') this.log(actor, reason, `${n.publicReason} near ${z ? this.placeNear(z.centerCell) : 'the harbor'}. ${words.vhf}`);
     for (const [vid, entry] of n.perVessel) {
       const craft = this.craft.find((c) => c.id === vid);
@@ -1338,14 +1340,21 @@ export class World {
         if (!entry || !z) continue;
         const rec = this.deliveries.get(`${n.id}:${vesselId}`);
         let nearest = Infinity;
-        for (const poly of z.geometry.rings) for (const ring of poly) for (const p of ring) nearest = Math.min(nearest, metersBetween(here, p));
+        let nearestPoint: LonLat | null = null;
+        for (const poly of z.geometry.rings) for (const ring of poly) for (const p of ring) { const d = metersBetween(here, p); if (d < nearest) { nearest = d; nearestPoint = p; } }
         const inside = z.geometry.mask[currentCell(c)] === 1;
+        const side = nearestPoint ? compassPoint(bearingDeg(here, nearestPoint)) : null;
+        const moving = z.movingSpeedMps > 0 && z.movingTowardDeg !== null ? `, moving ${compassPoint(z.movingTowardDeg)} at about ${Math.max(1, Math.round(mpsToKnots(z.movingSpeedMps)))} kn` : '';
+        const relative = inside ? `You are inside the zone${moving}.` : side ? `${side.charAt(0).toUpperCase()}${side.slice(1)} of you${moving}.` : null;
+        const ackAt = rec?.states.acknowledged;
         notices.push({
           id: n.id, kind: n.kind, priority: entry.priority, instructionText: entry.instructionText, publicReason: n.publicReason,
           zone: { rings: z.geometry.rings, centerline: this.zoneView(z).centerline, movingTowardDeg: z.movingSpeedMps > 0 ? z.movingTowardDeg : null, movingSpeedMps: z.movingSpeedMps, kind: z.kind },
           validUntilWall: new Date(this.wallMs + ((n.expiresAtMin - this.simMin) * 60_000) / Math.max(1, this.timeScale)).toISOString(),
           validUntilLabel: clockLabel(n.expiresAtMin), publishedAtWall: n.publishedAtWall, publishedAtLabel: clockLabel(n.publishedAtMin), approvedBy: n.approvedBy,
           detail: inside ? 'You are inside the zone.' : entry.minutesToZone !== null ? `Your route reaches it in ${minutesLabel(entry.minutesToZone)}.` : 'Not on your route.',
+          place: this.placeNear(z.centerCell), relative, acknowledgedAtLabel: ackAt !== undefined ? clockLabel(ackAt) : null,
+          addedMin: entry.addedMin, rerouted: !!entry.newRoute || c.rerouteNoticeId === n.id,
           distanceM: inside ? 0 : isFinite(nearest) ? nearest : null, minutesToZone: entry.minutesToZone,
           acknowledged: rec?.states.acknowledged !== undefined, translations: n.wording.translations,
         });
@@ -1366,7 +1375,8 @@ export class World {
         ...this.craft.filter((k) => k.id !== vesselId).map((k) => ({ lonlat: craftLonLat(this.h, k), headingDeg: k.headingDeg, type: k.type })),
         ...this.ais.map((v) => ({ lonlat: [v.lon, v.lat] as LonLat, headingDeg: v.headingDeg ?? v.cogDeg, type: v.typeLabel })),
       ],
-      allClear: this.allClearRecent.map(({ id, publicReason, atWall, atMin }) => ({ id, publicReason, atWall, atLabel: clockLabel(atMin) })),
+      allClear: this.allClearRecent.map(({ id, publicReason, atWall, atMin, approvedBy }) => ({ id, publicReason, atWall, atLabel: clockLabel(atMin), approvedBy })),
+      lastAllClearLabel: this.lastAllClearMin !== null ? clockLabel(this.lastAllClearMin) : null,
       clock: this.clockView(),
       serverWall: this.wall(),
     };

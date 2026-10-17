@@ -122,6 +122,7 @@
 .evidence .what { width: 200px; flex: none; color: var(--text); }
 .evidence .eff { width: 72px; flex: none; text-align: right; font: var(--type-mono-small); color: var(--text); white-space: nowrap; }
 .evidence .why { flex: 1; min-width: 0; color: var(--muted); }
+.evidence.two .what { flex: 1; width: auto; min-width: 0; }
 .evidence .row.head .what, .evidence .row.head .eff { color: var(--muted); font: var(--type-small); }
 
 .steps { position: relative; width: 106px; height: 10px; flex: none; }

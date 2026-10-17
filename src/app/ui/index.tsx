@@ -95,11 +95,11 @@ export function Slider(props: { value: number; min: number; max: number; step?: 
 }
 
 export const RUNG_TEXT: Record<Level, string> = {
-  Low: 'Log / Watch. No notice',
-  Medium: 'Ask. ID ping, registry check, watch',
-  Serious: 'Slow / give way. Officer publishes',
-  High: 'Hold one berth. Officer approves',
-  Critical: 'Hand off. Officer approves the brief',
+  Low: 'Log / Watch',
+  Medium: 'Ask (ID ping, registry check, watch)',
+  Serious: 'Slow / give way (machine drafts, officer publishes)',
+  High: 'Hold one berth (officer approves)',
+  Critical: 'Hand off (officer approves the Coast Guard brief)',
 };
 
 export function RiskBand(props: { level: Level; score: number; rung?: string; testId?: string }) {

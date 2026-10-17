@@ -41,6 +41,8 @@ export interface ChartMapProps {
   onDrop?: (lonlat: LonLat) => void;
   padding?: { top: number; right: number; bottom: number; left: number };
   compact?: boolean;
+  recenter?: number;
+  labels?: { id: string; text: string; lonlat: LonLat }[];
 }
 
 const DATA_SOURCES: (keyof ChartData)[] = ['zones', 'paths', 'routes', 'vessels', 'contacts', 'arrows', 'you'];
@@ -95,6 +97,7 @@ export function ChartMap(props: ChartMapProps) {
   const propsRef = useRef(props);
   propsRef.current = props;
   const labelsRef = useRef<maplibregl.Marker[]>([]);
+  const dynLabels = useRef(new Map<string, maplibregl.Marker>());
   const lastPointer = useRef(0);
 
   useEffect(() => {
@@ -154,13 +157,31 @@ export function ChartMap(props: ChartMapProps) {
     }
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
-    return () => { ro.disconnect(); for (const m of labelsRef.current) m.remove(); map.remove(); mapRef.current = null; readyRef.current = false; };
+    return () => { ro.disconnect(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [props.theme]);
 
   useEffect(() => {
     const map = mapRef.current;
     if (map && readyRef.current) pushData(map, props.data);
   }, [props.data]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map) return;
+    const want = new Map((props.labels ?? []).map((l) => [l.id, l]));
+    for (const [id, m] of dynLabels.current) if (!want.has(id)) { m.remove(); dynLabels.current.delete(id); }
+    for (const l of want.values()) {
+      let m = dynLabels.current.get(l.id);
+      if (!m) {
+        const div = document.createElement('div');
+        div.className = 'chart-label chart-label-contact';
+        m = new maplibregl.Marker({ element: div, anchor: 'left', offset: [14, 0] }).setLngLat(l.lonlat).addTo(map);
+        dynLabels.current.set(l.id, m);
+      }
+      (m.getElement() as HTMLElement).textContent = l.text;
+      m.setLngLat(l.lonlat);
+    }
+  }, [props.labels]);
 
   useEffect(() => {
     const map = mapRef.current;
@@ -173,6 +194,12 @@ export function ChartMap(props: ChartMapProps) {
     if (!map || !props.follow) return;
     map.easeTo({ center: props.follow, duration: 600 });
   }, [props.follow?.[0], props.follow?.[1]]);
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !props.follow || !props.recenter) return;
+    map.easeTo({ center: props.follow, zoom: Math.max(map.getZoom(), 14), duration: 600 });
+  }, [props.recenter]);
 
   useEffect(() => {
     const map = mapRef.current;

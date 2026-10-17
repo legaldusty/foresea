@@ -45,3 +45,8 @@ export function ago(fromMs: number, nowMs: number): string {
   if (m === 1) return '1 min ago';
   return `${m} min ago`;
 }
+
+export function compassAbbr(deg: number | null): string {
+  if (deg === null) return '';
+  return ['N', 'NE', 'E', 'SE', 'S', 'SW', 'W', 'NW'][Math.round((((deg % 360) + 360) % 360) / 45) % 8];
+}
