@@ -60,7 +60,16 @@ async function waitForHub(): Promise<boolean> {
   return false;
 }
 
+async function hubAlreadyRunning(): Promise<boolean> {
+  try { return (await fetch(`http://localhost:${PORT}/api/health`, { signal: AbortSignal.timeout(1500) })).ok; } catch { return false; }
+}
+
 async function main(): Promise<void> {
+  if (await hubAlreadyRunning()) {
+    console.error(`A GIVE WAY hub is already running on port ${PORT}. Stop it first (Ctrl+C in its terminal), then run this again.`);
+    console.error('Rebuilding while it runs can hand phones and browsers a half-written chart file.');
+    process.exit(1);
+  }
   if (!has('no-build')) run('npx', ['vite', 'build'], 'Build');
   const publicUrl = has('tunnel') ? await startTunnel() : null;
   const env = { ...process.env, PORT: String(PORT), ...(publicUrl ? { PUBLIC_URL: publicUrl } : {}) };

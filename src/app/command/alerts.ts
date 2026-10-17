@@ -18,6 +18,7 @@ export function wakeAudio(): void {
 }
 
 export function chime(urgent: boolean): void {
+  if (!ctx) return;
   const a = audio();
   if (!a) return;
   const tones = urgent ? [880, 660, 880] : [660, 880];

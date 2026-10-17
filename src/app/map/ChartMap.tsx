@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import maplibregl, { type Map as MLMap, type StyleSpecification, type GeoJSONSource } from 'maplibre-gl';
 import 'maplibre-gl/dist/maplibre-gl.css';
 import { Protocol } from 'pmtiles';
@@ -69,6 +69,17 @@ export interface ChartMapProps {
 }
 
 export interface ZoneHandle { id: string; center: LonLat; radiusM: number; label: string }
+
+const CHART_WATCHDOG_MS = 12_000;
+const HEAL_KEY = 'giveway.chart.healed';
+
+async function healChart(): Promise<void> {
+  try { for (const key of await caches.keys()) if (key.startsWith('giveway-tiles')) await caches.delete(key); } catch { return; }
+}
+
+function recentlyHealed(): boolean {
+  try { return Date.now() - Number(sessionStorage.getItem(HEAL_KEY) ?? 0) < 120_000; } catch { return true; }
+}
 
 export interface ChartHit { kind: 'vessel' | 'contact' | 'zone' | 'forecast' | 'tick' | 'sighting'; id: string; layer?: string }
 
@@ -262,6 +273,7 @@ export function ChartMap(props: ChartMapProps) {
   const motionStats = useRef<{ frames: number; lastMs: number; contact: number[] | null }>({ frames: 0, lastMs: 0, contact: null });
   const handleMarkers = useRef(new Map<string, maplibregl.Marker>());
   const tipRef = useRef<HTMLDivElement | null>(null);
+  const [chartStuck, setChartStuck] = useState(false);
   const dragging = useRef<string | null>(null);
 
   useEffect(() => {
@@ -417,7 +429,19 @@ export function ChartMap(props: ChartMapProps) {
     }
     const ro = new ResizeObserver(() => map.resize());
     ro.observe(el);
-    return () => { cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of handleMarkers.current.values()) m.remove(); handleMarkers.current.clear(); tipRef.current?.remove(); tipRef.current = null; for (const m of calloutMarkers.current.values()) m.remove(); calloutMarkers.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
+    const watchdog = window.setTimeout(() => {
+      if (mapRef.current !== map) return;
+      let drawn = false;
+      try { drawn = map.isSourceLoaded('chart') || map.queryRenderedFeatures({ layers: ['water', 'earth'].filter((l) => map.getLayer(l)) }).length > 0; } catch { drawn = false; }
+      if (drawn) return;
+      if (!recentlyHealed()) {
+        try { sessionStorage.setItem(HEAL_KEY, String(Date.now())); } catch { return; }
+        void healChart().finally(() => location.reload());
+        return;
+      }
+      setChartStuck(true);
+    }, CHART_WATCHDOG_MS);
+    return () => { window.clearTimeout(watchdog); cancelAnimationFrame(raf); ro.disconnect(); for (const m of tickLabels.current.values()) m.remove(); tickLabels.current.clear(); for (const m of handleMarkers.current.values()) m.remove(); handleMarkers.current.clear(); tipRef.current?.remove(); tipRef.current = null; for (const m of calloutMarkers.current.values()) m.remove(); calloutMarkers.current.clear(); for (const m of labelsRef.current) m.remove(); for (const m of dynLabels.current.values()) m.remove(); dynLabels.current.clear(); map.remove(); mapRef.current = null; readyRef.current = false; };
   }, [props.theme]);
 
   useEffect(() => {
@@ -586,7 +610,17 @@ export function ChartMap(props: ChartMapProps) {
     }
   }
 
-  return <div className="chart-wrap" data-theme={props.theme}><div ref={holder} className="chart-map" /></div>;
+  return (
+    <div className="chart-wrap" data-theme={props.theme}>
+      <div ref={holder} className="chart-map" />
+      {chartStuck ? (
+        <div className="chart-stuck" data-testid="chart-stuck">
+          <span>The chart did not load.</span>
+          <button onClick={() => { try { sessionStorage.removeItem(HEAL_KEY); } catch { return; } void healChart().finally(() => location.reload()); }}>Reload the chart</button>
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 function pushStatic(map: MLMap, data: ChartData, keys: Map<keyof ChartData, string>): void {
