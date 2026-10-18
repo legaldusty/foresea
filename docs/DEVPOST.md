@@ -141,7 +141,7 @@ Upload these from `docs/devpost/gallery/` in this order. They are all 1800 by 12
 
 ## Poster (twist 3)
 
-Submit `docs/devpost/Foresea Poster.pdf` with the Devpost (add it to the image gallery as `Foresea Poster.png` too, and mention it in the video description if there is room). For printing on Sunday, print the PDF on letter paper at 100% scale, borderless if the printer allows it.
+The poster is 3 by 4 feet. Submit `docs/devpost/Foresea Poster 36x48.pdf` with the Devpost (add it to the image gallery as `Foresea Poster 36x48.png` too, and mention it in the video description if there is room). For printing on Sunday, send the same PDF to the printer at 100% scale, 36 by 48 inches, portrait. It is 5400 by 7200 pixels, which is 150 dpi at that size. The letter size version (`Foresea Poster.pdf`) is still there for handouts.
 
 ## Upload a file
 
