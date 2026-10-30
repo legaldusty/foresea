@@ -4,6 +4,8 @@ Foresea works out where an unknown underwater drone is heading and moves only th
 
 Our entry to the InnovateLA Dual-Use Hackathon at USC, Marine track, with NULL Systems.
 
+Try it live at https://foresea.imdusty.com. Every visitor gets a private harbor, so nothing you do there affects anyone else.
+
 The name comes from the boating rules: the give-way vessel is the one that steers out of another's path.
 
 ## What it does
@@ -50,10 +52,10 @@ Optional setup:
 
 ## Proof
 
-- `npm test` runs 206 unit, scenario and world tests.
+- `npm test` runs 353 unit, scenario and world tests.
 - `npm run e2e` runs the 90-second demo end to end in Playwright with a laptop and two phones: Tuesday whale zone, night contact, P1 on the judge's phone and a silent P4 on a teammate's, Got it, a boat that ignores the notice, All clear, and Run 1,000 nights. Screenshots land in `e2e/screenshots/`.
 - `npm run scenarios` prints the five incidents from the spec. Every "must stay true" rule holds.
-- `npm run bench` runs the benchmark: with detection at the harbor gates, TELL gives about 73 minutes of warning against 47.5 for a nearest-dock guess (1.54 times, against a bar of 1.4), and calls the right target by arrival in every run.
+- `npm run bench` runs the benchmark: with detection at the harbor gates, TELL gives about 74 minutes of warning against 47.5 for a nearest-dock guess (1.56 times, against a bar of 1.4), and calls the right target by arrival in every run.
 - "Run 1,000 nights" in Command runs the same benchmark in a Web Worker in the browser.
 - `npm run tune:tell` fits TELL's purposefulness setting to real AIS tracks. On Friday night traffic real vessels fit best at 2.7, more purposeful than our setting of 1.3, so the setting is conservative.
 
